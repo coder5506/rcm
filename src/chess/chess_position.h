@@ -58,7 +58,6 @@ struct Position {
 };
 
 void move_free(struct Move *move);
-void movelist_free(struct Move *list);
 
 struct Move *move_alloc(void);
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
@@ -72,8 +71,6 @@ char *move_name_static(const struct Move *move);
 struct Move *move_named(const char *name);
 
 void position_free(struct Position *position);
-void positionlist_free(struct Position *position);
-
 struct Position *position_alloc(void);
 struct Position *position_new(const char *fen);
 struct Position *position_dup(const struct Position *position);
@@ -98,10 +95,6 @@ static inline void movelist_push(struct Move *list, struct Move *move) {
     list_push((struct Node*)list, (struct Node*)move);
 }
 
-static inline void movelist_unshift(struct Move *list, struct Move *move) {
-    list_unshift((struct Node*)list, (struct Node*)move);
-}
-
 static inline struct Move *movelist_pop(struct Move *list) {
     return (struct Move*)list_pop((struct Node*)list);
 }
@@ -109,9 +102,6 @@ static inline struct Move *movelist_pop(struct Move *list) {
 static inline struct Move *movelist_shift(struct Move *list) {
     return (struct Move*)list_shift((struct Node*)list);
 }
-
-static inline void
-movelist_clear(struct Move *list) { list_clear((struct Node*)list); }
 
 static inline bool movelist_empty(const struct Move *move) {
     return list_empty((struct Node*)move);
@@ -122,15 +112,14 @@ movelist_length(const struct Move *move) {
     return list_length((struct Node*)move);
 }
 
+static inline void movelist_free(struct Move *list) {
+    list_free((struct Node*)list, (void(*)(struct Node*))move_free);
+}
+
 
 static inline void
 positionlist_push(struct Position *list, struct Position *position) {
     list_push((struct Node*)list, (struct Node*)position);
-}
-
-static inline void
-positionlist_unshift(struct Position *list, struct Position *position) {
-    list_unshift((struct Node*)list, (struct Node*)position);
 }
 
 static inline struct Position *positionlist_pop(struct Position *list) {
@@ -151,6 +140,10 @@ static inline bool positionlist_empty(const struct Position *position) {
 static inline struct Position*
 positionlist_find(const struct Position *list, const struct Position *position) {
     return (struct Position*)list_find((struct Node*)list, (struct Node*)position);
+}
+
+static inline void positionlist_free(struct Position *list) {
+    list_free((struct Node*)list, (void(*)(struct Node*))position_free);
 }
 
 #endif

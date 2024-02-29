@@ -1,6 +1,9 @@
 // Copyright (c) 2024 Eric Sessoms
 // See license at end of file
 
+#ifndef LIST_H
+#define LIST_H
+
 #include <stdbool.h>
 
 struct Node {
@@ -33,6 +36,10 @@ list_empty(const struct Node *list) { return list->next == list; }
 
 struct Node *list_find(const struct Node *list, const struct Node *node);
 int list_length(const struct Node *list);
+
+void list_free(struct Node *list, void (*free_node)(struct Node *node));
+
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

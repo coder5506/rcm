@@ -8,12 +8,27 @@
 
 #include <check.h>
 
+static const uint64_t START = 0xffff00000000ffff;
+
+static inline uint64_t lift(uint64_t boardstate, enum Square square) {
+    return boardstate & ~(1ul << square);
+}
+
+static inline uint64_t place(uint64_t boardstate, enum Square square) {
+    return boardstate | (1ul << square);
+}
+
+static inline uint64_t
+move(uint64_t boardstate, enum Square from, enum Square to) {
+    return place(lift(boardstate, from), to);
+}
+
 // Initialized to starting position
 START_TEST(test_starting_position)
 {
     struct Game g; /* = */ game_init(&g, NULL);
     struct Position *p = g.history.prev;
-    ck_assert_int_eq(p->bitmap, 0xffff00000000ffff);
+    ck_assert_int_eq(p->bitmap, START);
 
     char fen[FEN_MAX];
     position_fen(p, fen, sizeof fen);
@@ -46,7 +61,7 @@ START_TEST(test_open_e4)
     ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 
     // Bitmap reflects pawn move
-    ck_assert_int_eq(p->bitmap, 0xffef00100000ffff);
+    ck_assert_int_eq(p->bitmap, move(START, E2, E4));
 
     game_destroy(&g);
 }
@@ -62,8 +77,10 @@ START_TEST(test_open_e4e5)
     game_move(&g, &e4);
     game_move(&g, &e5);
 
+    uint64_t boardstate = move(START, E2, E4);
+    boardstate = move(boardstate, E7, E5);
     struct Position *p = g.history.prev;
-    ck_assert_int_eq(p->bitmap, 0xffef00101000efff);
+    ck_assert_int_eq(p->bitmap, boardstate);
 
     char fen[FEN_MAX];
     position_fen(p, fen, sizeof fen);
@@ -77,18 +94,19 @@ END_TEST
 START_TEST(test_read_e4)
 {
     struct Game g; /* = */ game_init(&g, NULL);
+    const uint64_t boardstate = move(START, E2, E4);
 
-    struct Move *move     = NULL;
-    struct Move *takeback = NULL;
-    bool incomplete = false;
-    bool promotion  = false;
+    struct Move *move, *takeback;
+    bool incomplete, promotion;
     struct Position *p = game_read_move(
-        &g, 0xffef00100000ffff, &move, &takeback, &incomplete, &promotion);
+        &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
     // Got move and new position
     ck_assert_ptr_nonnull(p);
     ck_assert_ptr_nonnull(move);
     ck_assert_ptr_null(takeback);
+    ck_assert(!incomplete);
+    ck_assert(!promotion);
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
@@ -106,12 +124,13 @@ START_TEST(test_read_e4e5)
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     game_move(&g, &e4);
 
-    struct Move *move     = NULL;
-    struct Move *takeback = NULL;
-    bool incomplete = false;
-    bool promotion  = false;
+    uint64_t boardstate = move(START, E2, E4);
+    boardstate = move(boardstate, E7, E5);
+
+    struct Move *move, *takeback;
+    bool incomplete, promotion;
     struct Position *p = game_read_move(
-        &g, 0xffef00101000efff, &move, &takeback, &incomplete, &promotion);
+        &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
     char fen[FEN_MAX];
     position_fen(p, fen, sizeof fen);
@@ -132,17 +151,20 @@ START_TEST(test_read_takeback)
     game_move(&g, &e4);
     game_move(&g, &e5);
 
-    struct Move *move     = NULL;
-    struct Move *takeback = NULL;
-    bool incomplete = false;
-    bool promotion  = false;
+    // N.B., name conflict
+    const uint64_t boardstate = move(START, E2, E4);
+
+    struct Move *move, *takeback;
+    bool incomplete, promotion;
     struct Position *p = game_read_move(
-        &g, 0xffef00100000ffff, &move, &takeback, &incomplete, &promotion);
+        &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
     // Got move and new position
     ck_assert_ptr_nonnull(p);
     ck_assert_ptr_nonnull(takeback);
     ck_assert_ptr_null(move);
+    ck_assert(!incomplete);
+    ck_assert(!promotion);
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
@@ -153,6 +175,57 @@ START_TEST(test_read_takeback)
 }
 END_TEST
 
+static struct Position*
+read_forward(struct Game *g, uint64_t boardstate, struct Move **move, bool *incomplete) {
+    struct Move *takeback;
+    bool promotion;
+    return game_read_move(g, boardstate, move, &takeback, incomplete, &promotion);
+}
+
+START_TEST(test_illegal)
+{
+    struct Game g; /* = */ game_init(&g, NULL);
+
+    struct Move *move;
+    bool incomplete;
+    struct Position *p = read_forward(&g, lift(START, F1), &move, &incomplete);
+    ck_assert_ptr_null(p);
+    ck_assert(!incomplete);
+
+    game_destroy(&g);
+}
+END_TEST
+
+START_TEST(test_incomplete)
+{
+    struct Game g; /* = */ game_init(&g, NULL);
+
+    struct Move *move;
+    bool incomplete;
+    struct Position *p = read_forward(&g, lift(START, G1), &move, &incomplete);
+    ck_assert_ptr_null(p);
+    ck_assert(incomplete);
+
+    game_destroy(&g);
+}
+END_TEST
+
+START_TEST(test_out_of_turn)
+{
+    struct Game g; /* = */ game_init(&g, NULL);
+
+    struct Move *move;
+    bool incomplete;
+    struct Position *p = read_forward(&g, lift(START, E7), &move, &incomplete);
+    ck_assert_ptr_null(p);
+    ck_assert(!incomplete);
+
+    game_destroy(&g);
+}
+END_TEST
+
+// TODO test promotion
+
 static Suite *position_suite(void) {
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_starting_position);
@@ -162,6 +235,9 @@ static Suite *position_suite(void) {
     tcase_add_test(tc_core, test_read_e4);
     tcase_add_test(tc_core, test_read_e4e5);
     tcase_add_test(tc_core, test_read_takeback);
+    tcase_add_test(tc_core, test_illegal);
+    tcase_add_test(tc_core, test_incomplete);
+    tcase_add_test(tc_core, test_out_of_turn);
 
     Suite *s = suite_create("Position");
     suite_add_tcase(s, tc_core);
@@ -169,14 +245,14 @@ static Suite *position_suite(void) {
 }
 
 int main(void) {
-    Suite *s = position_suite();
+    Suite   *s  = position_suite();
     SRunner *sr = srunner_create(s);
 
     srunner_run_all(sr, CK_NORMAL);
-    int number_failed = srunner_ntests_failed(sr);
+    const int failed = srunner_ntests_failed(sr);
     srunner_free(sr);
 
-    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+    return (failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

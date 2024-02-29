@@ -3,6 +3,7 @@
 
 #include "chess_position.h"
 #include "chess.h"
+#include "../mem.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -16,26 +17,19 @@
 static struct Move move_freelist = LIST_INIT(move_freelist);
 
 void move_free(struct Move *move) {
-    if (move) {
-        movelist_push(&move_freelist, move);
-    }
-}
-
-void movelist_free(struct Move *list) {
-    struct Move *begin = list->next;
-    while (begin != list) {
-        struct Move *next = begin->next;
-        move_free(begin);
-        begin = next;
-    }
-    movelist_clear(list);
+    assert(move);
+    mem_erase(move, sizeof *move);
+    move->next = NULL;
+    move->prev = NULL;
+    movelist_push(&move_freelist, move);
 }
 
 struct Move *move_alloc(void) {
     struct Move *move = movelist_pop(&move_freelist);
     if (!move) {
-        move = malloc(sizeof *move);
+        mem_alloc((void**)&move, sizeof *move);
     }
+    mem_erase(move, sizeof *move);
     *move = (struct Move){
         .next      = NULL,
         .prev      = NULL,
@@ -134,21 +128,14 @@ struct Move *move_named(const char *name) {
 static struct Position position_freelist = LIST_INIT(position_freelist);
 
 void position_free(struct Position *position) {
-    if (!position) {
-        return;
-    }
-    movelist_free(&position->moves);
-    positionlist_push(&position_freelist, position);
-}
+    assert(position);
 
-void positionlist_free(struct Position *position_list) {
-    struct Position *begin = position_list->next;
-    while (begin != position_list) {
-        struct Position *next = begin->next;
-        position_free(begin);
-        begin = next;
-    }
-    positionlist_clear(position_list);
+    movelist_free(&position->moves);
+
+    mem_erase(position, sizeof *position);
+    position->next = NULL;
+    position->prev = NULL;
+    positionlist_push(&position_freelist, position);
 }
 
 enum Piece position_piece(const struct Position *position, enum Square square) {
@@ -179,8 +166,9 @@ void position_update_bitmap(struct Position *position) {
 struct Position *position_alloc(void) {
     struct Position *position = positionlist_pop(&position_freelist);
     if (!position) {
-        position = malloc(sizeof *position);
+        mem_alloc((void**)&position, sizeof *position);
     }
+    mem_erase(position, sizeof *position);
     *position = (struct Position){
         .next       = NULL,
         .prev       = NULL,

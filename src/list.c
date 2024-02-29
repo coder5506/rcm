@@ -7,7 +7,7 @@
 #include <stddef.h>
 
 void list_insert(struct Node *node, struct Node *before) {
-    assert(node);
+    assert(node && !node->next && !node->prev);
     assert(before && before != node);
 
     node->next = before;
@@ -60,6 +60,16 @@ int list_length(const struct Node *list) {
         ++length;
     }
     return length;
+}
+
+void list_free(struct Node *list, void (*free_node)(struct Node *node)) {
+    assert(list && free_node);
+    while (!list_empty(list)) {
+        struct Node *node = list_shift(list);
+        free_node(node);
+    }
+    assert(list->next == list);
+    assert(list->prev == list);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

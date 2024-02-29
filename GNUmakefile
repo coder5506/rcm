@@ -32,7 +32,8 @@ test_sources = \
 	src/chess/chess_fen.c \
 	src/chess/chess_game.c \
 	src/chess/chess_position.c \
-	src/list.c
+	src/list.c \
+	src/mem.c
 bin/check: t/check.c $(test_sources)
 	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lm
 

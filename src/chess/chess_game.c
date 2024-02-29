@@ -5,9 +5,9 @@
 #include "chess.h"
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 
+// Also frees resulting positions
 static void game_free_moves(struct Game *game) {
     while (!movelist_empty(&game->moves)) {
         struct Move *move = movelist_shift(&game->moves);
@@ -17,28 +17,21 @@ static void game_free_moves(struct Game *game) {
 }
 
 void game_destroy(struct Game *game) {
-    struct Position *start = game->history.next;
-    positionlist_clear(&game->history);
-
-    struct Position queue = LIST_INIT(queue);
-    positionlist_push(&queue, start);
-
     // Collect all positions in graph
     struct Position collected = LIST_INIT(collected);
-    while (!positionlist_empty(&queue)) {
-        struct Position *pos = positionlist_shift(&queue);
-        if (positionlist_find(&collected, pos)) {
-            // Already visited
-            continue;
-        }
-
-        // Visit node
+    while (!positionlist_empty(&game->history)) {
+        struct Position *pos = positionlist_shift(&game->history);
         positionlist_push(&collected, pos);
+    }
 
+    struct Position *begin = collected.next;
+    for (; begin != &collected; begin = begin->next) {
         // Follow edges
-        while (!movelist_empty(&pos->moves)) {
-            struct Move *move = movelist_shift(&pos->moves);
-            positionlist_push(&queue, move->after);
+        while (!movelist_empty(&begin->moves)) {
+            struct Move *move = movelist_shift(&begin->moves);
+            if (!positionlist_find(&collected, move->after)) {
+                positionlist_push(&collected, move->after);
+            }
             move_free(move); // Edges are not shared, OK to free
         }
     }
@@ -199,7 +192,6 @@ game_read_move(
     if (current->bitmap == boardstate) {
         return current;
     }
-    *incomplete = *incomplete || in_progress(current, boardstate);
 
     // Position reached by legal move?
     struct Move *begin = game->moves.next;

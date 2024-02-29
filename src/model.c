@@ -3,8 +3,9 @@
 
 #include "model.h"
 #include "list.h"
+#include "mem.h"
 
-#include <stdlib.h>
+#include <stddef.h>
 
 void model_init(struct Model *model) {
     model->observers = (struct Observer)LIST_INIT(model->observers);
@@ -15,13 +16,14 @@ void model_destroy(struct Model *model) {
     while (begin != &model->observers) {
         struct Observer *observer = begin;
         begin = begin->next;
-        free(observer);
+        mem_free((void**)observer, sizeof *observer);
     }
     model_init(model);
 }
 
 void model_observe(struct Model *model, ModelChanged model_changed, void *data) {
-    struct Observer *observer = malloc(sizeof *observer);
+    struct Observer *observer = NULL;
+    mem_alloc((void**)&observer, sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
     list_push((struct Node*)&model->observers, (struct Node*)observer);
@@ -39,7 +41,7 @@ void model_unobserve(struct Model *model, ModelChanged model_changed, void *data
     if (unobserve) {
         unobserve->next->prev = unobserve->prev;
         unobserve->prev->next = unobserve->next;
-        free(unobserve);
+        mem_free((void**)&unobserve, sizeof *unobserve);
     }
 }
 

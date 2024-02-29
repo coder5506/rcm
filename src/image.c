@@ -2,6 +2,7 @@
 // See license at end of file
 
 #include "image.h"
+#include "mem.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -20,10 +21,8 @@ static bool image_valid(const struct Image *image) {
 }
 
 void image_free(struct Image *image) {
-    if (!image) {
-        return;
-    }
-    free(image);
+    assert(image);
+    mem_free((void**)&image, sizeof(struct Image) + image->size_bytes);
 }
 
 struct Image *image_alloc(int width, int height) {
@@ -31,7 +30,9 @@ struct Image *image_alloc(int width, int height) {
     const int width_bytes = (width + 7) / 8;
     const int size_bytes  = width_bytes * height;
 
-    struct Image *image = malloc(sizeof(struct Image) + size_bytes);
+    struct Image *image = NULL;
+    mem_alloc((void **)&image, sizeof(struct Image) + size_bytes);
+
     image->width  = width;
     image->height = height;
     image->width_bytes = width_bytes;

@@ -3,6 +3,7 @@
 
 #include "graphics.h"
 #include "fonts/fonts.h"
+#include "mem.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -35,8 +36,9 @@ struct Context *context_alloc() {
     if (context) {
         context_free_list = context->next;
     } else {
-        context = malloc(sizeof *context);
+        mem_alloc((void **)&context, sizeof *context);
     }
+    mem_erase(context, sizeof *context);
     *context = default_context;
     return context;
 }
