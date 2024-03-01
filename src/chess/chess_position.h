@@ -4,37 +4,16 @@
 #ifndef CHESS_POSITION_H
 #define CHESS_POSITION_H
 
-#include "chess_board.h"
-#include "../list.h"
+#include "chess_move.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
-// Before we can define positions, we need to put them in context.  A game
-// is a directed graph of positions joined by moves.  This allows for both
-// variations (a position may be continued by multiple moves) and
-// transpositions (a position may be reached by multiple move orders).
+// Positions are the nodes of the game graph.  As such, they are listable and
+// hold a list of their out-egdes (moves_played).
 //
-// Representing the graph externally proves a bit cumbersome, so both moves
-// and positions embed the graph.  Positions (i.e., nodes) have move lists
-// and moves (i.e., edges) have resulting positions.
-//
-// As nodes are shared, moves do not "own" their positions.  All positions
-// are owned only by the game.  On the other hand, edges are not shared, so
-// positions do own their moves.
-
-struct Position;
-
-// Represent moves in terms of named squares on an 8x8 board
-struct Move {
-    struct Move     *next;
-    struct Move     *prev;
-    struct Position *before;
-    struct Position *after;
-    enum Square      from;
-    enum Square      to;
-    enum Piece       promotion;
-};
+// As moves are not shared, positions are generally responsible for freeing
+// their moves.  The positions themselves are owned by the game.
 
 // Flags
 enum Castle {
@@ -58,25 +37,6 @@ struct Position {
     int              fullmove;
 };
 
-void move_free(struct Move *move);
-
-struct Move *move_alloc(void);
-struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
-bool move_valid(const struct Move *move);
-bool move_equal(const struct Move *a, const struct Move *b);
-
-struct Move *movelist_find_equal(const struct Move *list, const struct Move *move);
-
-// Pure Coordinate Notation
-int move_name(char *buf, int len, const struct Move *move);
-const char *move_name_static(const struct Move *move);
-struct Move *move_named(const char *name);
-
-// Standard Algebraic Notation
-int move_san(char *buf, int len, const struct Move *move);
-const char *move_san_static(const struct Move *move);
-struct Move *move_from_san(const struct Position *position, const char *san);
-
 void position_free(struct Position *position);
 struct Position *position_alloc(void);
 struct Position *position_from_fen(const char *fen);
@@ -92,37 +52,8 @@ static inline void position_print(const struct Position *position) {
 }
 
 //
-// List wrappers
+// List utilities
 //
-
-static inline void
-movelist_remove(struct Move *move) { list_remove((struct Node*)move); }
-
-static inline void movelist_push(struct Move *list, struct Move *move) {
-    list_push((struct Node*)list, (struct Node*)move);
-}
-
-static inline struct Move *movelist_pop(struct Move *list) {
-    return (struct Move*)list_pop((struct Node*)list);
-}
-
-static inline struct Move *movelist_shift(struct Move *list) {
-    return (struct Move*)list_shift((struct Node*)list);
-}
-
-static inline bool movelist_empty(const struct Move *move) {
-    return list_empty((struct Node*)move);
-}
-
-static inline int
-movelist_length(const struct Move *move) {
-    return list_length((struct Node*)move);
-}
-
-static inline void movelist_free(struct Move *list) {
-    list_free((struct Node*)list, (void(*)(struct Node*))move_free);
-}
-
 
 static inline void
 positionlist_push(struct Position *list, struct Position *position) {

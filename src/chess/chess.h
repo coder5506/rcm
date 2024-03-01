@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 // Inspired by Tripplehappy Chess library, MIT-licensed:
@@ -12,6 +12,7 @@
 #include "chess_board.h"
 #include "chess_fen.h"
 #include "chess_game.h"
+#include "chess_move.h"
 #include "chess_position.h"
 
 // Return result of making move in position

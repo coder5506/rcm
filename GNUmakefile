@@ -27,11 +27,7 @@ bin/rcm: $(objects)
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 test_sources = \
-	src/chess/chess.c \
-	src/chess/chess_board.c \
-	src/chess/chess_fen.c \
-	src/chess/chess_game.c \
-	src/chess/chess_position.c \
+	$(wildcard src/chess/*.c) \
 	src/list.c \
 	src/mem.c
 bin/check: $(wildcard t/*.c) $(test_sources)
