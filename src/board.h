@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #ifndef BOARD_H
 #define BOARD_H
 
-#include <stdint.h>
+#include "chess/chess.h"
 
 // Shutdown connection to board
 void board_close(void);
@@ -22,6 +22,17 @@ uint64_t board_getstate(void);
 // Return battery and charging status
 int board_batterylevel(void);
 int board_charging(void);
+
+// Action can be either lift or place
+struct Action {
+    enum Square lift;
+    enum Square place;
+};
+
+#define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}
+
+// Return number of actions read
+int board_read_actions(struct Action *actions, int max_actions);
 
 #endif
 

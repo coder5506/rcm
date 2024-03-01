@@ -1,7 +1,7 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Defines API for serial communication with field array of DGT Centaur board
+// API for serial communication with field array on DGT Centaur board
 
 #ifndef BOARDSERIAL_H
 #define BOARDSERIAL_H
@@ -14,15 +14,15 @@ void boardserial_close(void);
 // Initialize serial connection to board
 int boardserial_open(void);
 
-// Read field events from board.
+// Read field events from board
 int boardserial_readdata(uint8_t *buf, int len);
 
-// Read current state of board fields.  Returns a bitmap where a set bit
-// indicates the presence of a piece.
+// Read current state of board fields.  Returns bitmap where set bit
+// indicates presence of piece.
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t boardserial_boardstate(void);
 
-// Return battery and charging status.
+// Return battery and charging status
 int boardserial_chargingstate(void);
 
 #endif

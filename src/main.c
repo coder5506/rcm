@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "centaur.h"
@@ -7,24 +7,23 @@
 #include <stdio.h>
 
 int main(void) {
+    // Initialize Centaur board
     if (centaur_open() != 0) {
         return -1;
     }
+
+    // Initialize HTTP server
     if (httpd_start() != 0) {
         centaur_close();
         return -1;
     }
 
-    // centaur_wake();
-    // centaur_clear();
-    // sleep_ms(3000);
+    // Reset display
+    centaur_wake();  // Wake and clear
+    centaur_clear();
+    sleep_ms(2000);  // Wait for full refresh
 
-    centaur_render();
-
-    getchar();
-
-    httpd_stop();
-    centaur_close();
+    // centaur_render();
 
     // struct Position position;
     // from_fen(&position, STARTING_FEN);
@@ -45,6 +44,13 @@ int main(void) {
     //     }
     //     sleep_ms(1000);
     // }
+
+    // Sleep
+    getchar();
+
+    // Cleanup and exit
+    httpd_stop();
+    centaur_close();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

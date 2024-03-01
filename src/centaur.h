@@ -1,23 +1,32 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #ifndef CENTAUR_H
 #define CENTAUR_H
 
-#include "chess/chess.h"
+#include "board.h"
 
 struct Context;
 struct View;
 
+// No move needs more than 4 actions (two lifts and two places), and we
+// shouldn't ever need to buffer more than two moves...
+#define MAX_ACTIONS 16
+
 struct Centaur {
-    struct Game  game;
-    struct View *screen_view;
+    struct Game   game;
+    struct View  *screen_view;
+    struct Action actions[16];
+    int           num_actions;
 };
 
+// There can be only one
 extern struct Centaur centaur;
 
+// Shutdown both field array and screen
 void centaur_close(void);
 
+// Initialize both field array and screen
 int centaur_open(void);
 
 // Put display to sleep

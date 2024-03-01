@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "chess_game.h"
@@ -38,8 +38,6 @@ void game_destroy(struct Game *game) {
 
     // Free collected positions
     positionlist_free(&collected);
-
-    // Available moves may introduce new positions
     game_free_moves(game);
 }
 
@@ -49,33 +47,65 @@ static void game_update_moves(struct Game *game) {
     position_legal_moves(&game->moves, position);
 }
 
-void game_init(struct Game *game, const char *fen) {
+void game_from_position(struct Game *game, const struct Position *start) {
     game->history = (struct Position)LIST_INIT(game->history);
     game->moves   = (struct Move)LIST_INIT(game->moves);
 
-    struct Position *start = position_new(fen);
-    positionlist_push(&game->history, start);
+    struct Position *copy = position_copy(start);
+    positionlist_push(&game->history, copy);
     game_update_moves(game);
 }
 
+void game_from_fen(struct Game *game, const char *fen) {
+    struct Position *start = position_from_fen(fen);
+    game_from_position(game, start);
+    position_free(start);
+}
+
 int game_move(struct Game *game, const struct Move *move) {
+    assert(game && game->history.prev != &game->history);
+
+    struct Position *current = game->history.prev;
+    struct Move *existing = movelist_find_equal(&current->moves, move);
+    if (existing) {
+        // Move already in graph
+        positionlist_push(&game->history, existing->after);
+        game_update_moves(game);
+        return 0;
+    }
+
     struct Move *candidate = movelist_find_equal(&game->moves, move);
     if (!candidate) {
         // Not a legal move
         return 1;
     }
 
-    struct Position *position = game->history.prev;
-    struct Move *existing = movelist_find_equal(&position->moves, candidate);
-    if (existing) {
-        // Move/position already in graph
-        candidate = existing;
-    } else {
-        movelist_remove(candidate);
-        movelist_push(&position->moves, candidate);
+    movelist_remove(candidate);
+    movelist_push(&current->moves, candidate);
+    positionlist_push(&game->history, candidate->after);
+    game_update_moves(game);
+    return 0;
+}
+
+int game_takeback(struct Game *game, const struct Move *takeback) {
+    assert(game && game->history.prev != &game->history);
+    assert(takeback);
+
+    struct Position *current  = game->history.prev;
+    struct Position *previous = current->prev;
+    if (previous == &game->history) {
+        // No takeback available
+        return 1;
     }
 
-    positionlist_push(&game->history, candidate->after);
+    struct Move *matching = movelist_find_equal(&previous->moves, takeback);
+    if (!matching) {
+        // Not a legal takeback
+        return 1;
+    }
+
+    assert(matching->after == current);
+    positionlist_pop(&game->history);
     game_update_moves(game);
     return 0;
 }
@@ -175,11 +205,11 @@ game_read_move(
     bool         *incomplete,
     bool         *promotion)
 {
-    assert(game && move && takeback && incomplete && promotion);
-    *move       = NULL;
-    *takeback   = NULL;
-    *incomplete = false;
-    *promotion  = false;
+    assert(game);
+    assert(move && !*move);
+    assert(takeback && !*takeback);
+    assert(incomplete && !*incomplete);
+    assert(promotion && !*promotion);
 
     // Match start position?
     struct Position *start = game->history.next;

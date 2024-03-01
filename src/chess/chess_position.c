@@ -188,7 +188,7 @@ struct Position *position_alloc(void) {
     return position;
 }
 
-struct Position *position_new(const char *fen) {
+struct Position *position_from_fen(const char *fen) {
     struct Position *position = position_alloc();
     if (!fen || !position_read_fen(position, fen)) {
         position_read_fen(position, STARTING_FEN);
@@ -197,7 +197,7 @@ struct Position *position_new(const char *fen) {
     return position;
 }
 
-struct Position *position_dup(const struct Position *position) {
+struct Position *position_copy(const struct Position *position) {
     struct Position *copy = position_alloc();
     copy->bitmap     = position->bitmap;
     copy->turn       = position->turn;

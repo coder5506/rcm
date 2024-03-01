@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "chess.h"
@@ -15,7 +15,7 @@
 // Return result of making move in position
 struct Position*
 position_move(const struct Position *position, const struct Move *move) {
-    struct Position *next = position_dup(position);
+    struct Position *next = position_copy(position);
 
     // Move and capture
     const int from_cell = mailbox_index[move->from];

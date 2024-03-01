@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 // This file provides serial communication with the field array on a

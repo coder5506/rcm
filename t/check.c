@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "../src/chess/chess.h"
@@ -26,7 +26,7 @@ move(uint64_t boardstate, enum Square from, enum Square to) {
 // Initialized to starting position
 START_TEST(test_starting_position)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
     struct Position *p = g.history.prev;
     ck_assert_int_eq(p->bitmap, START);
 
@@ -41,7 +41,7 @@ END_TEST
 // White has 20 choices to start
 START_TEST(test_opening_moves)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
     ck_assert_int_eq(movelist_length(&g.moves), 20);
     game_destroy(&g);
 }
@@ -50,7 +50,7 @@ END_TEST
 // Play "1. e4"
 START_TEST(test_open_e4)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     game_move(&g, &e4);
     struct Position *p = g.history.prev;
@@ -70,7 +70,7 @@ END_TEST
 // Play "1. e4 e5"
 START_TEST(test_open_e4e5)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
 
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     struct Move e5 = { .from = E7, .to = E5, .promotion = EMPTY };
@@ -93,11 +93,11 @@ END_TEST
 // Read "1. e4" from a bitmap
 START_TEST(test_read_e4)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
     const uint64_t boardstate = move(START, E2, E4);
 
-    struct Move *move, *takeback;
-    bool incomplete, promotion;
+    struct Move *move = NULL, *takeback = NULL;
+    bool incomplete = false, promotion = false;
     struct Position *p = game_read_move(
         &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
@@ -120,15 +120,15 @@ END_TEST
 // Read "1. ... e5" from a bitmap
 START_TEST(test_read_e4e5)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     game_move(&g, &e4);
 
     uint64_t boardstate = move(START, E2, E4);
     boardstate = move(boardstate, E7, E5);
 
-    struct Move *move, *takeback;
-    bool incomplete, promotion;
+    struct Move *move = NULL, *takeback = NULL;
+    bool incomplete = false, promotion = false;
     struct Position *p = game_read_move(
         &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
@@ -143,7 +143,7 @@ END_TEST
 // Takeback "1. ... e5"
 START_TEST(test_read_takeback)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
 
     // Play "1. e4 e5"
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
@@ -154,8 +154,8 @@ START_TEST(test_read_takeback)
     // N.B., name conflict
     const uint64_t boardstate = move(START, E2, E4);
 
-    struct Move *move, *takeback;
-    bool incomplete, promotion;
+    struct Move *move = NULL, *takeback = NULL;
+    bool incomplete = false, promotion = false;
     struct Position *p = game_read_move(
         &g, boardstate, &move, &takeback, &incomplete, &promotion);
 
@@ -177,17 +177,17 @@ END_TEST
 
 static struct Position*
 read_forward(struct Game *g, uint64_t boardstate, struct Move **move, bool *incomplete) {
-    struct Move *takeback;
-    bool promotion;
+    struct Move *takeback = NULL;
+    bool promotion = false;
     return game_read_move(g, boardstate, move, &takeback, incomplete, &promotion);
 }
 
 START_TEST(test_illegal)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move;
-    bool incomplete;
+    struct Move *move = NULL;
+    bool incomplete = false;
     struct Position *p = read_forward(&g, lift(START, F1), &move, &incomplete);
     ck_assert_ptr_null(p);
     ck_assert(!incomplete);
@@ -198,10 +198,10 @@ END_TEST
 
 START_TEST(test_incomplete)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move;
-    bool incomplete;
+    struct Move *move = NULL;
+    bool incomplete = false;
     struct Position *p = read_forward(&g, lift(START, G1), &move, &incomplete);
     ck_assert_ptr_null(p);
     ck_assert(incomplete);
@@ -212,10 +212,10 @@ END_TEST
 
 START_TEST(test_out_of_turn)
 {
-    struct Game g; /* = */ game_init(&g, NULL);
+    struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move;
-    bool incomplete;
+    struct Move *move = NULL;
+    bool incomplete = false;
     struct Position *p = read_forward(&g, lift(START, E7), &move, &incomplete);
     ck_assert_ptr_null(p);
     ck_assert(!incomplete);

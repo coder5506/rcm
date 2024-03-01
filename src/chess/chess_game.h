@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #ifndef CHESS_GAME_H
@@ -8,14 +8,16 @@
 
 // Game is graph of positions joined by moves
 struct Game {
-    struct Position  history; // Path from start to current position
-    struct Move      moves;   // Legal moves in current position
+    struct Position history; // Path from start to current position
+    struct Move     moves;   // Legal moves in current position
 };
 
 void game_destroy(struct Game *game);
-void game_init(struct Game *game, const char *fen);
+void game_from_position(struct Game *game, const struct Position *start);
+void game_from_fen(struct Game *game, const char *fen);
 
 int game_move(struct Game *game, const struct Move *move);
+int game_takeback(struct Game *game, const struct Move *takeback);
 
 struct Position*
 game_read_move(

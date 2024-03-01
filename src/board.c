@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "board.h"
@@ -57,47 +57,42 @@ int board_charging(void) {
     return (charging >> 5 & 7) == 1;
 }
 
-#if 0
-struct Action {
-    enum Square lift;
-    enum Square place;
-};
+int board_read_actions(struct Action *actions, int max_actions) {
+    assert(actions);
+    assert(max_actions >= 1); // Allowing 0 is more trouble than it's worth
 
-static int read_actions(struct Action *actions, int num_actions) {
-    assert(actions != NULL && num_actions >= 1);
-
-    for (int i = 0; i != num_actions; ++i) {
-        actions[i].lift  = INVALID_SQUARE;
-        actions[i].place = INVALID_SQUARE;
+    // Ensure all actions are empty
+    for (int i = 0; i != max_actions; ++i) {
+        actions[i] = EMPTY_ACTION;
     }
 
     unsigned char buf[256];
     const int num_read = boardserial_readdata(buf, sizeof buf);
     if (num_read <= 6) {
+        // Failed to read data packet
         return 0;
     }
 
     int n = 0;
-    for (int i = 5; i < num_read - 1; ) {
-        if (n == num_actions && (buf[i] == 64 || buf[i] == 65)) {
-            // Buffer is too small, keep most recent actions
+    for (int i = 5; i < num_read - 1;) {
+        if (n == max_actions && (buf[i] == 64 || buf[i] == 65)) {
+            // Buffer too small, keep most recent actions
             memcpy(actions, actions + 1, (n - 1) * sizeof *actions);
             --n;
-            actions[n].lift  = INVALID_SQUARE;
-            actions[n].place = INVALID_SQUARE;
+            actions[n] = EMPTY_ACTION;
         }
-        assert(n < num_actions);
+        assert(0 <= n && n < max_actions);
 
         switch (buf[i++]) {
         case 64:
-            if (valid_square(buf[i])) {
-                actions[n].lift   = buf[i++];
+            if (square_valid(buf[i])) {
+                actions[n].lift  = buf[i++];
                 actions[n].place = INVALID_SQUARE;
                 ++n;
             }
             break;
         case 65:
-            if (valid_square(buf[i])) {
+            if (square_valid(buf[i])) {
                 actions[n].lift  = INVALID_SQUARE;
                 actions[n].place = buf[i++];
                 ++n;
@@ -108,10 +103,9 @@ static int read_actions(struct Action *actions, int num_actions) {
         }
     }
 
-    assert(0 <= n && n <= num_actions);
+    assert(0 <= n && n <= max_actions);
     return n;
 }
-#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

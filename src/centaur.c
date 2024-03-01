@@ -1,8 +1,7 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "centaur.h"
-#include "board.h"
 #include "graphics.h"
 #include "screen.h"
 
@@ -14,6 +13,10 @@
 #include <time.h>
 
 struct Centaur centaur = {0};
+
+//
+// Board view
+//
 
 static struct Image *load_pieces() {
     static struct Image *pieces = NULL;
@@ -55,7 +58,10 @@ static struct View board_view = {
     .render = render_board,
 };
 
+//
 // Utility
+//
+
 void sleep_ms(int milliseconds) {
     assert(milliseconds >= 0);
     struct timespec request = {
@@ -65,6 +71,11 @@ void sleep_ms(int milliseconds) {
     nanosleep(&request, NULL);
 }
 
+//
+// Centaur
+//
+
+// Shutdown both field array and screen
 void centaur_close(void) {
     screen_close();
     board_close();
@@ -77,6 +88,7 @@ static void handle_sigint(int signal) {
     exit(0);
 }
 
+// Initialize both field array and screen
 int centaur_open(void) {
     if (board_open() != 0) {
         return 1;
@@ -87,13 +99,16 @@ int centaur_open(void) {
     }
 
     // Register SIGINT handler
-    struct sigaction act = {
-        .sa_handler = handle_sigint,
-    };
+    struct sigaction act = {.sa_handler = handle_sigint};
     sigaction(SIGINT, &act, NULL);
 
-    game_init(&centaur.game, NULL);
+    game_from_fen(&centaur.game, NULL);
     centaur.screen_view = &board_view;
+
+    for (int i = 0; i != MAX_ACTIONS; ++i) {
+        centaur.actions[i] = EMPTY_ACTION;
+    }
+    centaur.num_actions = 0;
     return 0;
 }
 
@@ -139,6 +154,208 @@ void centaur_clear(void) {
 // Render UI to display
 void centaur_render(void) {
     screen_render(centaur.screen_view);
+}
+
+static void remove_actions(int begin, int end) {
+    assert(0 <= begin && begin <= end && end <= centaur.num_actions);
+
+    memcpy(
+        centaur.actions + begin,
+        centaur.actions + end,
+        (MAX_ACTIONS - end) * sizeof *centaur.actions);
+
+    centaur.num_actions -= end - begin;
+    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
+
+    for (int i = centaur.num_actions; i != MAX_ACTIONS; ++i) {
+        centaur.actions[i] = EMPTY_ACTION;
+    }
+}
+
+static void consume_actions(int num_consume) {
+    const int num_actions = centaur.num_actions;
+    remove_actions(0, num_consume);
+    assert(centaur.num_actions == num_actions - num_consume);
+}
+
+static void clear_actions(void) {
+    consume_actions(centaur.num_actions);
+    assert(centaur.num_actions == 0);
+}
+
+static void update_actions(void) {
+    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
+
+    // Ensure space in buffer, preserving newest actions
+    if (centaur.num_actions > 12) {
+        consume_actions(centaur.num_actions - 12);
+        assert(centaur.num_actions == 12);
+    }
+
+    // Read newest actions
+    const int num_new = board_read_actions(
+        centaur.actions + centaur.num_actions,
+        MAX_ACTIONS - centaur.num_actions);
+    assert(0 <= num_new && num_new <= MAX_ACTIONS - centaur.num_actions);
+
+    centaur.num_actions += num_new;
+    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
+}
+
+static void clear_feedback(void) {
+    // TODO
+}
+
+static void show_feedback(uint64_t diff) {
+    // enum Square square1 = INVALID_SQUARE;
+    // enum Square square2 = INVALID_SQUARE;
+
+    switch (__builtin_popcountll(diff)) {
+    case 1:
+        // square1 = __builtin_ctzll(diff);
+        break;
+    case 2:
+        // square1 = __builtin_ctzll(diff);
+        // square2 = __builtin_ctzll(diff & ~(1ul << square1));
+        break;
+    case 0:  // No change
+    default: // Too many changes
+        clear_feedback();
+        break;
+    }
+}
+
+static struct Position*
+history_read_move(
+    struct Game  *game,       // Passed to game_read_move
+    struct Move **move,       // ...
+    struct Move **takeback,   // ...
+    bool         *incomplete, // ...
+    bool         *promote,    // ...
+    uint64_t      boardstate, // Current boardstate
+    int          *begin,      // in/out: Next unused action
+    int           end)        // Limit of unused actions
+{
+    assert(game && move && takeback && incomplete && promote && begin);
+    assert(0 <= *begin && *begin <= end && end <= centaur.num_actions);
+
+    // Replay actions, ignoring transient errors
+    uint64_t state = game->history.prev->bitmap;
+    for (int i = *begin; i != end; ++i) {
+        if (centaur.actions[i].lift != INVALID_SQUARE) {
+            state &= ~(1ul << centaur.actions[i].lift);
+        }
+        if (centaur.actions[i].place != INVALID_SQUARE) {
+            state |= 1ul << centaur.actions[i].place;
+        }
+
+        *move       = NULL;
+        *takeback   = NULL;
+        *incomplete = false;
+        *promote    = false;
+        struct Position *position = game_read_move(
+            game, state, move, takeback, incomplete, promote);
+        if (position || (*incomplete && state == boardstate)) {
+            *begin = i + 1;
+            return position;
+        }
+    }
+
+    *begin = end;
+    return NULL;
+}
+
+struct Position*
+centaur_read_move(
+    struct Game  *game,
+    struct Move **move,
+    struct Move **takeback,
+    bool         *promote)
+{
+    assert(game);
+    assert(move && !*move);
+    assert(takeback && !*takeback);
+    assert(promote && !*promote);
+
+    // Update history before reading boardstate.  We don't want actions
+    // that are newer than the boardstate, but we can handle possibly not
+    // having the very latest action.
+    update_actions();
+    const uint64_t boardstate = centaur_getstate();
+
+    // Try to read a move
+    bool incomplete = false;
+    struct Position *position = game_read_move(
+        game, boardstate, move, takeback, &incomplete, promote);
+
+    // Easy cases:
+    if (position) {
+        // 5x5, we won't need to review actions history
+        clear_actions();
+        clear_feedback();
+        return position;
+    }
+    if (incomplete) {
+        // Probably OK, but preserve history just in-case
+        clear_feedback();
+        return NULL;
+    }
+
+    // Looks like an illegal move, but we'll try to recover
+    assert(!position && !incomplete);
+
+    // Revisit actions history to reconstruct
+    int begin = 0; // Want to collect longest tail of usable actions
+    int end   = centaur.num_actions;
+    for (; begin != end; ++begin) {
+        // Replay actions, ignoring transient errors
+        struct Game copy;
+        game_from_position(&copy, game->history.prev);
+        for (int i = begin; i != end;) {
+            position = history_read_move(
+                &copy, move, takeback, &incomplete, promote, boardstate, &i, end);
+            if (position) {
+                // Ignore errors here.  If game doesn't update, we just continue.
+                if (*move)     { game_move(&copy, *move);         }
+                if (*takeback) { game_takeback(&copy, *takeback); }
+            }
+        }
+        const uint64_t state = copy.history.prev->bitmap;
+        game_destroy(&copy);
+
+        // N.B., these are the results from the very last iteration
+        if ((position || incomplete) && state == boardstate) {
+            // Success, [begin, end) makes some kind of sense
+            break;
+        }
+    }
+
+    // Reconstruction succeeded, now read the first move.
+    if (begin != end) {
+        assert(position || incomplete);
+        position = history_read_move(
+            game, move, takeback, &incomplete, promote, boardstate, &begin, end);
+        if (position ||
+            // Only accept an incomplete move at the very end
+            (incomplete && begin == centaur.num_actions - 1))
+        {
+            consume_actions(begin);
+            // N.B., not clearing feedback here, that can wait until
+            // we've processed all available moves.
+            return position;
+        }
+
+        // Reconstruction succeeded, why couldn't we read a move?
+        assert(false);
+    }
+
+    // TODO Everything has failed so far, does board match any known position?
+
+    // We're out of options and must wait for the board to be restored.  If
+    // the boardstate does not differ too much from the last known position,
+    // we can provide some feedback.
+    show_feedback(game->history.prev->bitmap ^ boardstate);
+    return NULL;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

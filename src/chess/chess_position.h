@@ -72,8 +72,8 @@ struct Move *move_named(const char *name);
 
 void position_free(struct Position *position);
 struct Position *position_alloc(void);
-struct Position *position_new(const char *fen);
-struct Position *position_dup(const struct Position *position);
+struct Position *position_from_fen(const char *fen);
+struct Position *position_copy(const struct Position *position);
 
 enum Piece position_piece(const struct Position *position, enum Square square);
 void position_update_bitmap(struct Position *position);
