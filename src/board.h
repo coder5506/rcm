@@ -23,6 +23,8 @@ uint64_t board_getstate(void);
 int board_batterylevel(void);
 int board_charging(void);
 
+void board_leds_off(void);
+
 // Action can be either lift or place
 struct Action {
     enum Square lift;

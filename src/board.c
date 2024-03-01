@@ -57,6 +57,10 @@ int board_charging(void) {
     return (charging >> 5 & 7) == 1;
 }
 
+void board_leds_off(void) {
+    boardserial_leds_off();
+}
+
 int board_read_actions(struct Action *actions, int max_actions) {
     assert(actions);
     assert(max_actions >= 1); // Allowing 0 is more trouble than it's worth

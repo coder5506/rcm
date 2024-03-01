@@ -203,7 +203,7 @@ static void update_actions(void) {
 }
 
 static void clear_feedback(void) {
-    // TODO
+    board_leds_off();
 }
 
 static void show_feedback(uint64_t diff) {

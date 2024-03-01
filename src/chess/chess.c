@@ -450,15 +450,16 @@ bool position_legal(const struct Position *position) {
     return !in_check(&position->mailbox, color_other(position->turn));
 }
 
-void position_legal_moves(struct Move *list, const struct Position *position) {
+void position_legal_moves(struct Move *list, const struct Position *before) {
     struct Move candidates = LIST_INIT(candidates);
-    candidate_moves(&candidates, position);
+    candidate_moves(&candidates, before);
 
     while (!movelist_empty(&candidates)) {
         struct Move     *move  = movelist_shift(&candidates);
-        struct Position *after = position_move(position, move);
+        struct Position *after = position_move(before, move);
         if (position_legal(after)) {
-            move->after = after;
+            move->before = (struct Position*)before;
+            move->after  = after;
             movelist_push(list, move);
         } else {
             position_free(after);

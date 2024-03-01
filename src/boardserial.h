@@ -25,6 +25,8 @@ uint64_t boardserial_boardstate(void);
 // Return battery and charging status
 int boardserial_chargingstate(void);
 
+int boardserial_leds_off(void);
+
 #endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

@@ -27,8 +27,8 @@ void game_destroy(struct Game *game) {
     struct Position *begin = collected.next;
     for (; begin != &collected; begin = begin->next) {
         // Follow edges
-        while (!movelist_empty(&begin->moves)) {
-            struct Move *move = movelist_shift(&begin->moves);
+        while (!movelist_empty(&begin->moves_played)) {
+            struct Move *move = movelist_shift(&begin->moves_played);
             if (!positionlist_find(&collected, move->after)) {
                 positionlist_push(&collected, move->after);
             }
@@ -66,7 +66,7 @@ int game_move(struct Game *game, const struct Move *move) {
     assert(game && game->history.prev != &game->history);
 
     struct Position *current = game->history.prev;
-    struct Move *existing = movelist_find_equal(&current->moves, move);
+    struct Move *existing = movelist_find_equal(&current->moves_played, move);
     if (existing) {
         // Move already in graph
         positionlist_push(&game->history, existing->after);
@@ -81,7 +81,7 @@ int game_move(struct Game *game, const struct Move *move) {
     }
 
     movelist_remove(candidate);
-    movelist_push(&current->moves, candidate);
+    movelist_push(&current->moves_played, candidate);
     positionlist_push(&game->history, candidate->after);
     game_update_moves(game);
     return 0;
@@ -98,7 +98,8 @@ int game_takeback(struct Game *game, const struct Move *takeback) {
         return 1;
     }
 
-    struct Move *matching = movelist_find_equal(&previous->moves, takeback);
+    struct Move *matching =
+        movelist_find_equal(&previous->moves_played, takeback);
     if (!matching) {
         // Not a legal takeback
         return 1;
@@ -260,8 +261,8 @@ game_read_move(
         }
 
         // Find takeback move
-        struct Move *m = previous->moves.next;
-        for (; m != &previous->moves; m = m->next) {
+        struct Move *m = previous->moves_played.next;
+        for (; m != &previous->moves_played; m = m->next) {
             if (m->after == p) {
                 *takeback = m;
                 break;
@@ -276,8 +277,8 @@ game_read_move(
 
     // Takeback?
     if (previous->bitmap == boardstate) {
-        struct Move *m = previous->moves.next;
-        for (; m != &previous->moves; m = m->next) {
+        struct Move *m = previous->moves_played.next;
+        for (; m != &previous->moves_played; m = m->next) {
             if (m->after == current) {
                 *takeback = m;
                 return previous;

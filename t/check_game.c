@@ -3,8 +3,6 @@
 
 #include "../src/chess/chess.h"
 
-#include <stdlib.h>
-
 #include <check.h>
 
 static const uint64_t START = 0xffff00000000ffff;
@@ -226,7 +224,7 @@ END_TEST
 // TODO test promotion
 
 Suite *game_suite(void) {
-    TCase *tc_core = tcase_create("Core");
+    TCase *tc_core = tcase_create("core");
     tcase_add_test(tc_core, test_starting_position);
     tcase_add_test(tc_core, test_opening_moves);
     tcase_add_test(tc_core, test_open_e4);
@@ -238,7 +236,7 @@ Suite *game_suite(void) {
     tcase_add_test(tc_core, test_incomplete);
     tcase_add_test(tc_core, test_out_of_turn);
 
-    Suite *s = suite_create("Game");
+    Suite *s = suite_create("game");
     suite_add_tcase(s, tc_core);
     return s;
 }

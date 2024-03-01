@@ -322,7 +322,7 @@ static int clear_data(void) {
     return 1;
 }
 
-static int leds_off(void) {
+int boardserial_leds_off(void) {
     uint8_t request[7] = {176, 0, 7};
     return write_board(request, 3, sizeof request);
 }
@@ -343,7 +343,7 @@ int boardserial_open(void) {
         goto error;
     }
 
-    if (leds_off() != 0) {
+    if (boardserial_leds_off() != 0) {
         goto error;
     }
 

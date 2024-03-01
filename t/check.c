@@ -6,10 +6,16 @@
 #include <check.h>
 
 Suite *game_suite(void);
+Suite *san_suite(void);
+
+static Suite *chess_suite(void) {
+    return suite_create("chess");
+}
 
 int main(void) {
-    Suite   *s  = game_suite();
-    SRunner *sr = srunner_create(s);
+    SRunner *sr = srunner_create(chess_suite());
+    srunner_add_suite(sr, game_suite());
+    srunner_add_suite(sr, san_suite());
 
     srunner_run_all(sr, CK_NORMAL);
     const int failed = srunner_ntests_failed(sr);

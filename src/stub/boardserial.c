@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 // This file stubs out serial communication with the field array on a
@@ -26,6 +26,10 @@ uint64_t boardserial_boardstate(void) {
 
 int boardserial_chargingstate(void) {
     return 20; // Fully charged, not charging
+}
+
+int boardserial_leds_off(void) {
+    return 0; // Success
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

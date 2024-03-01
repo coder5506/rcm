@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #ifndef CHESS_POSITION_H
@@ -29,6 +29,7 @@ struct Position;
 struct Move {
     struct Move     *next;
     struct Move     *prev;
+    struct Position *before;
     struct Position *after;
     enum Square      from;
     enum Square      to;
@@ -46,7 +47,7 @@ enum Castle {
 struct Position {
     struct Position *next;
     struct Position *prev;
-    struct Move      moves;
+    struct Move      moves_played;
     struct Mailbox   mailbox;
     uint64_t         bitmap;
     uint64_t         white_bitmap;
@@ -66,9 +67,15 @@ bool move_equal(const struct Move *a, const struct Move *b);
 
 struct Move *movelist_find_equal(const struct Move *list, const struct Move *move);
 
-char *move_name(char *buf, size_t size, const struct Move *move);
-char *move_name_static(const struct Move *move);
+// Pure Coordinate Notation
+int move_name(char *buf, int len, const struct Move *move);
+const char *move_name_static(const struct Move *move);
 struct Move *move_named(const char *name);
+
+// Standard Algebraic Notation
+int move_san(char *buf, int len, const struct Move *move);
+const char *move_san_static(const struct Move *move);
+struct Move *move_from_san(const struct Position *position, const char *san);
 
 void position_free(struct Position *position);
 struct Position *position_alloc(void);
