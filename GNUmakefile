@@ -31,7 +31,7 @@ test_sources = \
 	src/list.c \
 	src/mem.c
 bin/check: $(wildcard t/*.c) $(test_sources)
-	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lm
+	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lrt -lm
 
 obj/%.o: src/%.c
 	$(COMPILE.c) $< -o $@

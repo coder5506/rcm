@@ -508,7 +508,7 @@ handle_headers(
     const char            *method,
     const char            *version,
     const char            *upload_data,
-    unsigned long         *upload_data_size,
+    size_t                *upload_data_size,
     void                 **con_cls)
 {
     (void)cls;
@@ -551,7 +551,7 @@ handle_body(
     const char            *method,
     const char            *version,
     const char            *upload_data,
-    unsigned long         *upload_data_size,
+    size_t                *upload_data_size,
     void                 **con_cls)
 {
     (void)cls;
@@ -601,7 +601,7 @@ handle_connection(
     const char            *method,
     const char            *version,
     const char            *upload_data,
-    unsigned long         *upload_data_size,
+    size_t                *upload_data_size,
     void                 **con_cls)
 {
     (void)cls;

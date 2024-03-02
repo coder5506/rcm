@@ -13,6 +13,8 @@
 
 #include "../epd2in9d.h"
 
+#include <stdbool.h>
+
 #include <pigpio.h>
 
 const int SCREEN_WIDTH  = 128;

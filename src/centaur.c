@@ -196,7 +196,7 @@ static void show_feedback(uint64_t diff) {
         break;
     case 2:
         // square1 = __builtin_ctzll(diff);
-        // square2 = __builtin_ctzll(diff & ~(1ul << square1));
+        // square2 = __builtin_ctzll(diff & ~(1ull << square1));
         break;
     case 0:  // No change
     default: // Too many changes
@@ -223,10 +223,10 @@ history_read_move(
     uint64_t state = game->history.prev->bitmap;
     for (int i = *begin; i != end; ++i) {
         if (centaur.actions[i].lift != INVALID_SQUARE) {
-            state &= ~(1ul << centaur.actions[i].lift);
+            state &= ~(1ull << centaur.actions[i].lift);
         }
         if (centaur.actions[i].place != INVALID_SQUARE) {
-            state |= 1ul << centaur.actions[i].place;
+            state |= 1ull << centaur.actions[i].place;
         }
 
         *move       = NULL;

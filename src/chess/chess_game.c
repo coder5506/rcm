@@ -152,19 +152,19 @@ in_progress(const struct Position *position, uint64_t boardstate) {
     }
 
     if (white_removed == 2) {
-        if ((position->castle & K_CASTLE) && removed_bmp == (1ul << E1 | 1ul << H1)) {
+        if ((position->castle & K_CASTLE) && removed_bmp == (1ull << E1 | 1ull << H1)) {
             return true;
         }
-        if ((position->castle & Q_CASTLE) && removed_bmp == (1ul << E1 | 1ul << A1)) {
+        if ((position->castle & Q_CASTLE) && removed_bmp == (1ull << E1 | 1ull << A1)) {
             return true;
         }
         return false;
     }
     if (black_removed == 2) {
-        if ((position->castle & k_CASTLE) && removed_bmp == (1ul << E8 | 1ul << H8)) {
+        if ((position->castle & k_CASTLE) && removed_bmp == (1ull << E8 | 1ull << H8)) {
             return true;
         }
-        if ((position->castle & q_CASTLE) && removed_bmp == (1ul << E8 | 1ul << A8)) {
+        if ((position->castle & q_CASTLE) && removed_bmp == (1ull << E8 | 1ull << A8)) {
             return true;
         }
         return false;

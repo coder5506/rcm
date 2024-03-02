@@ -8,11 +8,11 @@
 static const uint64_t START = 0xffff00000000ffff;
 
 static inline uint64_t lift(uint64_t boardstate, enum Square square) {
-    return boardstate & ~(1ul << square);
+    return boardstate & ~(1ull << square);
 }
 
 static inline uint64_t place(uint64_t boardstate, enum Square square) {
-    return boardstate | (1ul << square);
+    return boardstate | (1ull << square);
 }
 
 static inline uint64_t
