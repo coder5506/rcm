@@ -7,9 +7,9 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
-#include <signal.h>
 #include <time.h>
 
 struct Centaur centaur = {0};
@@ -75,17 +75,21 @@ void sleep_ms(int milliseconds) {
 // Centaur
 //
 
-// Shutdown both field array and screen
-void centaur_close(void) {
-    screen_close();
-    board_close();
+// Put display to sleep
+void centaur_sleep(void) {
+    screen_sleep();
 }
 
-// Exit cleanly on SIGINT
-static void handle_sigint(int signal) {
-    (void)signal;
-    centaur_close();
-    exit(0);
+// Wake display from sleep
+void centaur_wake(void) {
+    screen_wake();
+}
+
+// Shutdown both field array and screen
+void centaur_close(void) {
+    centaur_sleep();
+    screen_close();
+    board_close();
 }
 
 // Initialize both field array and screen
@@ -98,10 +102,6 @@ int centaur_open(void) {
         return 1;
     }
 
-    // Register SIGINT handler
-    struct sigaction act = {.sa_handler = handle_sigint};
-    sigaction(SIGINT, &act, NULL);
-
     game_from_fen(&centaur.game, NULL);
     centaur.screen_view = &board_view;
 
@@ -110,21 +110,6 @@ int centaur_open(void) {
     }
     centaur.num_actions = 0;
     return 0;
-}
-
-// Put display to sleep
-void centaur_sleep(void) {
-    screen_sleep();
-}
-
-// Wake display from sleep
-void centaur_wake(void) {
-    screen_wake();
-}
-
-// Display boardstate
-void centaur_printstate(uint64_t boardstate) {
-    board_printstate(boardstate);
 }
 
 // Read current state of board fields
@@ -139,11 +124,6 @@ int centaur_batterylevel(void) {
 
 int centaur_charging(void) {
     return board_charging();
-}
-
-// Return screen's current graphics context
-struct Context *centaur_context(void) {
-    return screen_context();
 }
 
 // Clear display
@@ -265,7 +245,7 @@ history_read_move(
     return NULL;
 }
 
-struct Position*
+static struct Position*
 centaur_read_move(
     struct Game  *game,
     struct Move **move,
@@ -349,13 +329,48 @@ centaur_read_move(
         assert(false);
     }
 
-    // TODO Everything has failed so far, does board match any known position?
-
     // We're out of options and must wait for the board to be restored.  If
     // the boardstate does not differ too much from the last known position,
     // we can provide some feedback.
     show_feedback(game->history.prev->bitmap ^ boardstate);
     return NULL;
+}
+
+// Wait for pieces to be put in starting position
+void centaur_sync(void) {
+    const uint64_t starting_position = 0xffff00000000ffff;
+    while (centaur_getstate() != starting_position) {
+        sleep_ms(2000);
+    }
+}
+
+// How about a nice game of chess?
+void centaur_main(void) {
+    while (true) {
+        struct Move *move     = NULL;
+        struct Move *takeback = NULL;
+        bool         promote  = false;
+
+        struct Position *position =
+            centaur_read_move(&centaur.game, &move, &takeback, &promote);
+        if (position) {
+            if (move) {
+                printf("Move: %s\n", move_name_static(move));
+                game_move(&centaur.game, move);
+                centaur_render();
+            } else if (takeback) {
+                printf("Takeback: %s\n", move_name_static(takeback));
+                game_takeback(&centaur.game, takeback);
+                centaur_render();
+            }
+        }
+
+        if (move)     { move_free(move);         }
+        if (takeback) { move_free(takeback);     }
+        if (position) { position_free(position); }
+
+        sleep_ms(1000);
+    }
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

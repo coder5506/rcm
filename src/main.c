@@ -4,53 +4,48 @@
 #include "centaur.h"
 #include "httpd.h"
 
-#include <stdio.h>
+#include <stdlib.h>
 
-int main(void) {
-    // Initialize Centaur board
-    if (centaur_open() != 0) {
-        return -1;
-    }
+#include <signal.h>
 
-    // Initialize HTTP server
-    if (httpd_start() != 0) {
-        centaur_close();
-        return -1;
-    }
-
-    // Reset display
-    centaur_wake();  // Wake and clear
-    centaur_clear();
-    sleep_ms(2000);  // Wait for full refresh
-
-    // centaur_render();
-
-    // struct Position position;
-    // from_fen(&position, STARTING_FEN);
-    // struct Component *board_ui = board_component_alloc(&position);
-    // centaur_set_ui(board_ui);
-    // centaur_render();
-    // sleep_ms(2000);
-    // const uint64_t boardstate = centaur_getstate();
-    // centaur_printstate(boardstate);
-    // struct Game *game = game_new(NULL);
-    // while (1) {
-    //     struct Move *move = NULL;
-    //     board_readmove(game, &move);
-    //     if (move) {
-    //         printf("MOVED %d - %d\n", move->from, move->to);
-    //         move_free(move);
-    //         move = NULL;
-    //     }
-    //     sleep_ms(1000);
-    // }
-
-    // Sleep
-    getchar();
-
-    // Cleanup and exit
+static void shut_it_down(void) {
     httpd_stop();
     centaur_close();
+}
+
+static void handle_sigint(int signal) {
+    (void)signal;
+    shut_it_down();
+    exit(EXIT_SUCCESS);
+}
+
+int main(void) {
+    struct sigaction action = {.sa_handler = handle_sigint};
+    sigaction(SIGINT, &action, NULL);
+
+    if (centaur_open() != 0) {
+        return EXIT_FAILURE;
+    }
+    if (httpd_start() != 0) {
+        centaur_close();
+        return EXIT_FAILURE;
+    }
+
+    // Reset display and wait for full refresh
+    centaur_wake();
+    centaur_clear();
+    sleep_ms(2000);
+
+    // Display something so we know it's alive
+    centaur_render();
+
+    // Wait for starting position
+    centaur_sync();
+
+    // Global thermonuclear annihilation
+    centaur_main();
+
+    shut_it_down();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

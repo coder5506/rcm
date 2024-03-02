@@ -10,7 +10,7 @@ struct Context;
 struct View;
 
 // No move needs more than 4 actions (two lifts and two places), and we
-// shouldn't ever need to buffer more than two moves...
+// shouldn't ever need to buffer more than two moves...  so yeah, double that
 #define MAX_ACTIONS 16
 
 struct Centaur {
@@ -35,9 +35,6 @@ void centaur_sleep(void);
 // Wake display from sleep
 void centaur_wake(void);
 
-// Display boardstate
-void centaur_printstate(uint64_t boardstate);
-
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t centaur_getstate(void);
@@ -46,14 +43,17 @@ uint64_t centaur_getstate(void);
 int centaur_batterylevel(void);
 int centaur_charging(void);
 
-// Return screen's current graphics context
-struct Context *centaur_context(void);
-
 // Clear display
 void centaur_clear(void);
 
 // Render UI to display
 void centaur_render(void);
+
+// Wait for pieces to be put in starting position
+void centaur_sync(void);
+
+// Play a game!
+void centaur_main(void);
 
 // Utility
 void sleep_ms(int milliseconds);

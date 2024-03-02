@@ -13,8 +13,6 @@
 
 #include "../epd2in9d.h"
 
-// Pi GPIO is documented at:
-// - https://abyz.me.uk/rpi/pigpio/cif.html
 #include <pigpio.h>
 
 const int SCREEN_WIDTH  = 128;
