@@ -34,15 +34,16 @@ int main(void) {
     // Reset display and wait for full refresh
     centaur_wake();
     centaur_clear();
-    sleep_ms(2000);
+    sleep_ms(3000);
 
     // Display something so we know it's alive
-    centaur_render();
+    // centaur_render();
+    // sleep_ms(2000);
 
     // Wait for starting position
     centaur_sync();
 
-    // Global thermonuclear annihilation
+    // Global thermonuclear war
     centaur_main();
 
     shut_it_down();

@@ -5,6 +5,7 @@
 #include "chess.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 // Also frees resulting positions
@@ -245,7 +246,7 @@ game_read_move(
 
     // Completion of castling move?
     struct Move castling = LIST_INIT(castling);
-    struct Position *previous = game->history.prev->prev;
+    struct Position *previous = current->prev;
     if (previous != &game->history) {
         position_castle_moves(&castling, previous);
     }

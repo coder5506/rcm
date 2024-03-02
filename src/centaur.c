@@ -87,53 +87,8 @@ void centaur_wake(void) {
 
 // Shutdown both field array and screen
 void centaur_close(void) {
-    centaur_sleep();
     screen_close();
     board_close();
-}
-
-// Initialize both field array and screen
-int centaur_open(void) {
-    if (board_open() != 0) {
-        return 1;
-    }
-    if (screen_open() != 0) {
-        board_close();
-        return 1;
-    }
-
-    game_from_fen(&centaur.game, NULL);
-    centaur.screen_view = &board_view;
-
-    for (int i = 0; i != MAX_ACTIONS; ++i) {
-        centaur.actions[i] = EMPTY_ACTION;
-    }
-    centaur.num_actions = 0;
-    return 0;
-}
-
-// Read current state of board fields
-// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t centaur_getstate(void) {
-    return board_getstate();
-}
-
-int centaur_batterylevel(void) {
-    return board_batterylevel();
-}
-
-int centaur_charging(void) {
-    return board_charging();
-}
-
-// Clear display
-void centaur_clear(void) {
-    screen_clear();
-}
-
-// Render UI to display
-void centaur_render(void) {
-    screen_render(centaur.screen_view);
 }
 
 static void remove_actions(int begin, int end) {
@@ -161,6 +116,48 @@ static void consume_actions(int num_consume) {
 static void clear_actions(void) {
     consume_actions(centaur.num_actions);
     assert(centaur.num_actions == 0);
+}
+
+// Initialize both field array and screen
+int centaur_open(void) {
+    if (board_open() != 0) {
+        return 1;
+    }
+    if (screen_open() != 0) {
+        board_close();
+        return 1;
+    }
+
+    game_from_fen(&centaur.game, NULL);
+    centaur.screen_view = &board_view;
+
+    centaur.num_actions = MAX_ACTIONS;
+    clear_actions();
+    return 0;
+}
+
+// Read current state of board fields
+// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
+uint64_t centaur_getstate(void) {
+    return board_getstate();
+}
+
+int centaur_batterylevel(void) {
+    return board_batterylevel();
+}
+
+int centaur_charging(void) {
+    return board_charging();
+}
+
+// Clear display
+void centaur_clear(void) {
+    screen_clear();
+}
+
+// Render UI to display
+void centaur_render(void) {
+    screen_render(centaur.screen_view);
 }
 
 static void update_actions(void) {
@@ -273,6 +270,7 @@ centaur_read_move(
         // 5x5, we won't need to review actions history
         clear_actions();
         clear_feedback();
+        printf("got position %016llx\n", position->bitmap);
         return position;
     }
     if (incomplete) {
@@ -342,6 +340,7 @@ void centaur_sync(void) {
     while (centaur_getstate() != starting_position) {
         sleep_ms(2000);
     }
+    centaur_render();
 }
 
 // How about a nice game of chess?
@@ -367,9 +366,9 @@ void centaur_main(void) {
 
         if (move)     { move_free(move);         }
         if (takeback) { move_free(takeback);     }
-        if (position) { position_free(position); }
+        // if (position) { position_free(position); }
 
-        sleep_ms(1000);
+        sleep_ms(500);
     }
 }
 
