@@ -21,6 +21,15 @@ void move_free(struct Move *move) {
     movelist_push(&move_freelist, move);
 }
 
+void move_free_after(struct Move *move) {
+    assert(move);
+    if (move->after) {
+        position_free(move->after);
+        move->after = NULL;
+    }
+    move_free(move);
+}
+
 struct Move *move_alloc(void) {
     struct Move *move = movelist_pop(&move_freelist);
     if (!move) {
@@ -39,24 +48,23 @@ struct Move *move_alloc(void) {
     return move;
 }
 
+bool move_validate(enum Square from, enum Square to, enum Piece promotion) {
+    if (from == to || !square_valid(from) || !square_valid(to)) {
+        return false;
+    }
+    if (!promotion || !strchr(" NBRQnbrq", promotion)) {
+        return false;
+    }
+    return promotion == EMPTY || is_last_rank(to, piece_color(promotion));
+}
+
 bool move_valid(const struct Move *move) {
     assert(move);
-    if (!square_valid(move->from) ||
-        !square_valid(move->to)   ||
-        move->from == move->to)
-    {
-        return false;
-    }
-    if (!strchr(" NBRQnbrq", move->promotion)) {
-        return false;
-    }
-    if (move->promotion != EMPTY) {
-        return !is_last_rank(move->to, piece_color(move->promotion));
-    }
-    return true;
+    return move_validate(move->from, move->to, move->promotion);
 }
 
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion) {
+    assert(move_validate(from, to, promotion));
     struct Move *move = move_alloc();
     move->from = from;
     move->to   = to;
@@ -68,20 +76,16 @@ struct Move *move_new(enum Square from, enum Square to, enum Piece promotion) {
 bool move_equal(const struct Move *a, const struct Move *b) {
     assert(move_valid(a));
     assert(move_valid(b));
-    return a->from      == b->from      &&
-           a->to        == b->to        &&
-           a->promotion == b->promotion;
+    return a->from == b->from && a->to == b->to && a->promotion == b->promotion;
 }
 
 struct Move*
 movelist_find_equal(const struct Move *list, const struct Move *move) {
-    assert(move_valid(move));
-    struct Move *begin = list->next;
-    while (begin != list) {
+    assert(list && move_valid(move));
+    for (struct Move *begin = list->next; begin != list; begin = begin->next) {
         if (move_equal(begin, move)) {
             return begin;
         }
-        begin = begin->next;
     }
     return NULL;
 }
@@ -107,42 +111,61 @@ struct Move *move_named(const char *name) {
         return NULL;
     }
 
-    struct Move *move = move_alloc();
-    move->from = square_named(name + 0);
-    move->to   = square_named(name + 2);
-    move->promotion = name[4] || EMPTY;
-    if (move->promotion) {
-        switch (square_rank(move->to)) {
+    const enum Square from = square_named(name + 0);
+    const enum Square to   = square_named(name + 2);
+
+    enum Piece promotion = name[4] || EMPTY;
+    if (promotion != EMPTY) {
+        switch (square_rank(to)) {
         case '8':
-            move->promotion = toupper(move->promotion);
+            promotion = toupper(promotion);
             break;
         case '1':
-            move->promotion = tolower(move->promotion);
+            promotion = tolower(promotion);
             break;
         default:
-            goto error;
+            return NULL;
         }
     }
-    if (move_valid(move)) {
-        return move;
-    }
 
-error:
-    move_free(move);
-    return NULL;
+    return move_new(from, to, promotion);
 }
 
 // Standard Algebraic Notation
-// TODO castling
+// TODO check and mate?
 int move_san(char *buf, int len, const struct Move *move) {
-    assert(buf && len >= 6); // e.g., "Ndxf6\0" or "dxe8Q\0"
+    assert(buf && len >= 0);
     assert(move_valid(move));
-    assert(move->before);
+
+    if (len < 7) {
+        // e.g., "dxe8=Q\0"
+        return 0;
+    }
+    if (!move->before) {
+        // Can't construct SAN without position
+        return 0;
+    }
 
     const enum Piece piece = position_piece(move->before, move->from);
-    char *san = buf;
+    if (piece_color(piece) != move->before->turn) {
+        // Not a valid move
+        return 0;
+    }
+
+    // Handle castling as a special case
+    if ((piece == 'K' && move->from == E1 && move->to == G1) ||
+        (piece == 'k' && move->from == E8 && move->to == G8))
+    {
+        return snprintf(buf, len, "O-O");
+    }
+    if ((piece == 'K' && move->from == E1 && move->to == C1) ||
+        (piece == 'k' && move->from == E8 && move->to == C8))
+    {
+        return snprintf(buf, len, "O-O-O");
+    }
 
     // Piece symbol
+    char *san = buf;
     if (piece != 'P' && piece != 'p') {
         *san++ = toupper(piece);
     }
@@ -150,12 +173,11 @@ int move_san(char *buf, int len, const struct Move *move) {
     struct Move list = LIST_INIT(list);
     position_legal_moves(&list, move->before);
 
-    // Look for ambiguity
-    struct Move *begin = list.next;
+    // Look for ambiguity (can skip search for pawns)
+    struct Move *begin = (piece != 'P' && piece != 'p') ? list.next : &list;
     for (; begin != &list; begin = begin->next) {
-        if (begin->to == move->to &&
-            position_piece(move->before, begin->from) == piece &&
-            !move_equal(begin, move))
+        if (begin->to == move->to && begin->from != move->from &&
+            position_piece(move->before, begin->from) == piece)
         {
             // SAN is potentially ambiguous
             break;
@@ -172,15 +194,14 @@ int move_san(char *buf, int len, const struct Move *move) {
         }
     }
 
-    // Also free resulting positions
-    while (!movelist_empty(&list)) {
-        struct Move *m = movelist_shift(&list);
-        position_free(m->after);
-        move_free(m);
-    }
+    movelist_free_after(&list);
 
     // Capture
     if (position_piece(move->before, move->to) != EMPTY) {
+        if (piece == 'P' || piece == 'p') {
+            // File required for pawn captures
+            *san++ = square_file(move->from);
+        }
         *san++ = 'x';
     }
 
@@ -190,6 +211,7 @@ int move_san(char *buf, int len, const struct Move *move) {
 
     // Promotion
     if (move->promotion != EMPTY) {
+        *san++ = '=';
         *san++ = tolower(move->promotion);
     }
 
@@ -198,14 +220,21 @@ int move_san(char *buf, int len, const struct Move *move) {
 }
 
 const char *move_san_static(const struct Move *move) {
-    static char buf[6];
+    static char buf[7];
     return move_san(buf, sizeof buf, move) > 0 ? buf : NULL;
 }
 
 // Standard Algebraic Notation
-// TODO castling, en passant
-struct Move *move_from_san(const struct Position *position, const char *san) {
-    assert(position && san);
+struct Move *move_from_san(struct Position *before, const char *san) {
+    assert(before && san);
+
+    // Handle castling as a special case
+    if (!strcmp(san, "O-O")) {
+        return move_named(before->turn == 'w' ? "e1g1" : "e8g8");
+    }
+    if (!strcmp(san, "O-O-O")) {
+        return move_named(before->turn == 'w' ? "e1c1" : "e8c8");
+    }
 
     char piece     = 'P';
     char from_file = '\0';
@@ -218,7 +247,7 @@ struct Move *move_from_san(const struct Position *position, const char *san) {
     if (*san && strchr("NBRQK", *san)) {
         piece = *san++;
     }
-    piece = position->turn == 'w' ? piece : tolower(piece);
+    piece = before->turn == 'w' ? piece : tolower(piece);
 
     // Optional disambiguation
     if (*san && strchr("abcdefgh", *san)) {
@@ -231,12 +260,16 @@ struct Move *move_from_san(const struct Position *position, const char *san) {
     // Optional separator
     bool capture = false; // Used for move validation
     if (*san == '-' || *san == 'x') {
-        if (!from_file && !from_rank && piece != 'P' && piece != 'p') {
+        if (piece == 'P' || piece == 'p') {
+            if (!from_file) {
+                // File required for pawn captures
+                return NULL;
+            }
+        } else if (!from_file && !from_rank) {
             // Not valid SAN
             return NULL;
         }
-        capture = *san == 'x';
-        ++san;
+        capture = *san++ == 'x';
     }
 
     // To square
@@ -259,8 +292,11 @@ struct Move *move_from_san(const struct Position *position, const char *san) {
     to_rank = *san++;
 
 promotion:
-    if (*san && strchr("nbrq", *san)) {
-        promotion = position->turn == 'w' ? toupper(*san++) : *san++;
+    if (*san == '=') {
+        ++san;
+    }
+    if (*san && strchr("NBRQ", *san)) {
+        promotion = before->turn == 'w' ? *san++ : tolower(*san++);
     }
     if (*san && !isspace(*san)) {
         return NULL;
@@ -270,13 +306,13 @@ promotion:
     struct Move *found = NULL;
 
     struct Move list = LIST_INIT(list);
-    position_legal_moves(&list, position);
+    position_legal_moves(&list, before);
 
     // Find matching move
     struct Move *begin = list.next;
     for (; begin != &list; begin = begin->next) {
         if (begin->to == to &&
-            position_piece(position, begin->from) == piece &&
+            position_piece(before, begin->from) == piece &&
             (from_file == '\0'  || square_file(begin->from) == from_file) &&
             (from_rank == '\0'  || square_rank(begin->from) == from_rank) &&
             (promotion == EMPTY || promotion == begin->promotion))
@@ -284,34 +320,29 @@ promotion:
             if (found) {
                 // Ambiguous
                 found = NULL;
-                goto cleanup;
+                break;
             }
             found = begin;
         }
     }
 
-    if (found && capture && position_piece(position, found->to) == EMPTY) {
+    if (found && capture && position_piece(before, found->to) == EMPTY) {
+        // Nothing captured
         found = NULL;
     }
 
     if (found) {
         movelist_remove(found);
         position_free(found->after);
-        found->after = NULL;
+        found->before = before;
+        found->after  = NULL;
     }
 
-cleanup:
-    // Also free resulting positions
-    while (!movelist_empty(&list)) {
-        struct Move *m = movelist_shift(&list);
-        position_free(m->after);
-        move_free(m);
-    }
-
+    movelist_free_after(&list);
     return found;
 }
 
-// This rank is part of the Raccoon's Centaur Mods (RCM).
+// This file is part of the Raccoon's Centaur Mods (RCM).
 //
 // RCM is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

@@ -1,6 +1,7 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
+#include "chess_generate.h"
 #include "chess.h"
 
 #include <assert.h>

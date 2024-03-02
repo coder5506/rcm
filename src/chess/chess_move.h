@@ -12,7 +12,8 @@
 // directed).
 //
 // Note that moves are not shared, but positions are.  This means that moves
-// are not generally responsible for freeing their positions.
+// are generally not responsible for freeing their positions, but there are
+// convenience functions to do so.
 
 struct Position;
 
@@ -29,9 +30,15 @@ struct Move {
 
 void move_free(struct Move *move);
 
+// Also frees after position
+void move_free_after(struct Move *move);
+
 struct Move *move_alloc(void);
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
+
+bool move_validate(enum Square from, enum Square to, enum Piece promotion);
 bool move_valid(const struct Move *move);
+
 bool move_equal(const struct Move *a, const struct Move *b);
 
 struct Move *movelist_find_equal(const struct Move *list, const struct Move *move);
@@ -44,7 +51,7 @@ struct Move *move_named(const char *name);
 // Standard Algebraic Notation
 int move_san(char *buf, int len, const struct Move *move);
 const char *move_san_static(const struct Move *move);
-struct Move *move_from_san(const struct Position *position, const char *san);
+struct Move *move_from_san(struct Position *before, const char *san);
 
 //
 // List utilites
@@ -76,6 +83,11 @@ movelist_length(const struct Move *move) {
 
 static inline void movelist_free(struct Move *list) {
     list_free((struct Node*)list, (void(*)(struct Node*))move_free);
+}
+
+// Also frees after positions
+static inline void movelist_free_after(struct Move *list) {
+    list_free((struct Node*)list, (void(*)(struct Node*))move_free_after);
 }
 
 #endif

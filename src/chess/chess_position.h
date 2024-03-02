@@ -6,7 +6,6 @@
 
 #include "chess_move.h"
 
-#include <stddef.h>
 #include <stdint.h>
 
 // Positions are the nodes of the game graph.  As such, they are listable and
@@ -14,6 +13,8 @@
 //
 // As moves are not shared, positions are generally responsible for freeing
 // their moves.  The positions themselves are owned by the game.
+
+struct Move;
 
 // Flags
 enum Castle {

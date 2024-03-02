@@ -1,20 +1,23 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Inspired by Tripplehappy Chess library, MIT-licensed:
-// - https://github.com/billforsternz/thc-chess-library
-//
-// (Personal bias, not a fan of C++, THC is otherwise excellent.)
+#ifndef CHESS_GENERATE_H
+#define CHESS_GENERATE_H
 
-#ifndef CHESS_H
-#define CHESS_H
+#include <stdbool.h>
 
-#include "chess_board.h"
-#include "chess_fen.h"
-#include "chess_game.h"
-#include "chess_generate.h"
-#include "chess_move.h"
-#include "chess_position.h"
+struct Move;
+struct Position;
+
+// Return result of making move in position
+struct Position*
+position_move(const struct Position *position, const struct Move *move);
+
+void position_castle_moves(struct Move *list, const struct Position *position);
+bool position_legal(const struct Position *position);
+
+// Return list of all legal moves and their resulting positions
+void position_legal_moves(struct Move *list, const struct Position *position);
 
 #endif
 
