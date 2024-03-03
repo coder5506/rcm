@@ -6,6 +6,9 @@
 
 #include "chess/chess.h"
 
+// 0xffff00000000ffff
+extern const uint64_t STARTING_POSITION;
+
 // Shutdown connection to board
 void board_close(void);
 
@@ -24,14 +27,6 @@ int board_batterylevel(void);
 int board_charging(void);
 
 void board_leds_off(void);
-
-// Action can be either lift or place
-struct Action {
-    enum Square lift;
-    enum Square place;
-};
-
-#define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}
 
 // Return number of actions read
 int board_read_actions(struct Action *actions, int max_actions);

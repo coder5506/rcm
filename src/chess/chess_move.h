@@ -36,6 +36,9 @@ void move_free_after(struct Move *move);
 struct Move *move_alloc(void);
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
 
+struct Move *move_copy(const struct Move *move);
+struct Move *move_copy_after(const struct Move *move);
+
 bool move_validate(enum Square from, enum Square to, enum Piece promotion);
 bool move_valid(const struct Move *move);
 

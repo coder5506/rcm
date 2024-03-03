@@ -59,6 +59,7 @@ struct Position *position_alloc(void) {
         .next         = NULL,
         .prev         = NULL,
         .moves_played = (struct Move)LIST_INIT(position->moves_played),
+        .legal_moves  = (struct Move)LIST_INIT(position->legal_moves),
         .bitmap       = 0,
         .turn         = WHITE,
         .castle       = 0,
@@ -103,6 +104,206 @@ bool position_equal(const struct Position *a, const struct Position *b) {
            a->halfmove   == b->halfmove   &&
            a->fullmove   == b->fullmove   &&
            memcmp(&a->mailbox, &b->mailbox, sizeof a->mailbox) == 0;
+}
+
+// True if boardstate might represent a transition into this position
+bool position_incomplete(struct Position *position, uint64_t boardstate) {
+    assert(position);
+
+    // The boardstate for a move in-progress can differ only in small ways from
+    // the boardstate of the completed move:
+    // - It can be missing up-to two pieces of the same color, but only when
+    //   castling.
+    // - It can be missing up-to one piece of each color, but only when capturing.
+    // - It can have up-to one extra piece of the opposite color, but only when
+    //   capturing en-passant.
+
+    // Present in position but not on board
+    const uint64_t removed_bmp = position->bitmap & ~boardstate;
+    const int removed = __builtin_popcountll(removed_bmp);
+
+    // Present on board but not in position
+    const int added   = __builtin_popcountll(boardstate & ~position->bitmap);
+
+    // First check: just count the differences
+    if (removed > 2 || added > 1 || removed + added > 2) {
+        return false;
+    }
+
+    // Second check: look at the colors involved
+    const uint64_t white_bitmap = position->white_bitmap;
+    const uint64_t black_bitmap = position->bitmap & ~white_bitmap;
+    const int white_removed = __builtin_popcountll(white_bitmap & ~boardstate);
+    const int black_removed = __builtin_popcountll(black_bitmap & ~boardstate);
+    assert(removed == white_removed + black_removed);
+
+    if (position->turn == 'w' && black_removed > 1) {
+        return false;
+    }
+    if (position->turn == 'b' && white_removed > 1) {
+        return false;
+    }
+
+    if (white_removed == 2) {
+        if ((position->castle & K_CASTLE) && removed_bmp == (1ull << E1 | 1ull << H1)) {
+            return true;
+        }
+        if ((position->castle & Q_CASTLE) && removed_bmp == (1ull << E1 | 1ull << A1)) {
+            return true;
+        }
+        return false;
+    }
+    if (black_removed == 2) {
+        if ((position->castle & k_CASTLE) && removed_bmp == (1ull << E8 | 1ull << H8)) {
+            return true;
+        }
+        if ((position->castle & q_CASTLE) && removed_bmp == (1ull << E8 | 1ull << A8)) {
+            return true;
+        }
+        return false;
+    }
+
+    // Third check: consider the possibility of en passant
+    if (added == 0) {
+        // i.e., we're unable to reject the possibility
+        return true;
+    }
+
+    assert(added == 1);
+    if (position->en_passant == INVALID_SQUARE) {
+        return false;
+    }
+
+    // In mailbox coordinates...
+    const int direction = position->turn == 'w' ? -10 : 10;
+    const int captured  = mailbox_index[position->en_passant] - direction;
+
+    uint64_t mask = 1 << position->en_passant | 1 << board_index[captured];
+    if (board_index[captured-1] != INVALID_SQUARE) {
+        mask |= 1 << board_index[captured-1];
+    }
+    if (board_index[captured+1] != INVALID_SQUARE) {
+        mask |= 1 << board_index[captured+1];
+    }
+
+    const uint64_t diff = position->bitmap ^ boardstate;
+    return (diff & ~mask) == 0;
+}
+
+// Construct a list of candidate moves in this position that match the given
+// boardstate.  The return indicates if there are any viable candidates:
+// - true if any candidates are found OR if the boardstate could be in
+//   transition to a valid move,
+// - false if the boardstate is incompatible with all legal moves in this
+//   position.
+static bool position_read_moves(
+    struct Move     *candidates,
+    struct Position *position,
+    uint64_t         boardstate)
+{
+    assert(candidates && movelist_empty(candidates));
+    assert(position);
+
+    // Ensure we've generated the legal moves for this position
+    if (movelist_empty(&position->legal_moves)) {
+        position_legal_moves(&position->legal_moves, position);
+    }
+
+    bool maybe_valid = false;
+
+    struct Move *begin = position->legal_moves.next;
+    for (; begin != &position->legal_moves; begin = begin->next) {
+        assert(begin->after);
+        if (begin->after->bitmap == boardstate) {
+            struct Move *copy = move_copy_after(begin);
+            movelist_push(candidates, copy);
+            maybe_valid = true;
+        } else {
+            maybe_valid =
+                maybe_valid || position_incomplete(begin->after, boardstate);
+        }
+    }
+
+    assert(maybe_valid || movelist_empty(candidates));
+    return maybe_valid;
+}
+
+// The boardstate alone can be ambiguous in the case of piece captures.  Here
+// we use the actions history to disambiguate the move.  Note that we still
+// generate a list, because (a) the candidates might be promotions which cannot
+// be resolved here and (b) the actions history might be incomplete.
+bool position_read_move(
+    struct Move     *candidates,
+    struct Position *position,
+    uint64_t         boardstate,
+    struct Action   *actions,
+    int              num_actions)
+{
+    assert(candidates && movelist_empty(candidates));
+    assert(position);
+    assert(actions || num_actions >= 0);
+
+    const bool maybe_valid =
+        position_read_moves(candidates, position, boardstate);
+    if (movelist_empty(candidates)) {
+        return maybe_valid;
+    }
+
+    assert(maybe_valid);
+
+    // This is a check.  When we're done, the list should contain either moves
+    // or promotions, but not both.
+    int num_moves      = 0;
+    int num_promotions = 0;
+
+    struct Move *begin = candidates->next;
+    while (begin != candidates) {
+        struct Move *const next = begin->next;
+        if (begin->promotion != EMPTY) {
+            // Can't resolve promotion here
+            ++num_promotions;
+            goto next;
+        }
+
+        const enum Piece capture = position_piece(position, begin->to);
+        if (capture == EMPTY) {
+            // No capture, not ambiguous
+            ++num_moves;
+            goto next;
+        }
+
+        // History should show a lift followed by a place on the capture square
+        bool got_place = false;
+        bool got_lift  = false;
+        for (int i = num_actions - 1; i >= 0; --i) {
+            if (!got_place) {
+                if (actions[i].place == begin->to) {
+                    got_place = true;
+                }
+            } else if (!got_lift) {
+                if (actions[i].lift == begin->to) {
+                    got_lift = true;
+                }
+            } else {
+                // Got both lift and place, so we're done
+                break;
+            }
+        }
+
+        if (!got_place || !got_lift) {
+            movelist_remove(begin);
+            goto next;
+        }
+        ++num_moves;
+
+    next:
+        begin = next;
+    }
+
+    assert(num_moves == 0 || num_promotions == 0);
+    assert(num_moves == 0 || num_moves == 1);
+    assert(0 <= num_promotions && num_promotions <= 4);
+    return maybe_valid;
 }
 
 // This rank is part of the Raccoon's Centaur Mods (RCM).

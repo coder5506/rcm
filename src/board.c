@@ -10,6 +10,8 @@
 
 #include <time.h>
 
+const uint64_t STARTING_POSITION = 0xffff00000000ffff;
+
 // Shutdown connection to board
 void board_close(void) {
     boardserial_close();

@@ -9,14 +9,12 @@
 struct Context;
 struct View;
 
-// No move needs more than 4 actions (two lifts and two places), and we
-// shouldn't ever need to buffer more than two moves...  so yeah, double that
-#define MAX_ACTIONS 16
+#define MAX_ACTIONS 32
 
 struct Centaur {
     struct Game   game;
     struct View  *screen_view;
-    struct Action actions[16];
+    struct Action actions[MAX_ACTIONS];
     int           num_actions;
 };
 

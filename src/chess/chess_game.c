@@ -112,159 +112,58 @@ int game_takeback(struct Game *game, const struct Move *takeback) {
     return 0;
 }
 
-// True only if boardstate might represent transition into position
-static bool
-in_progress(const struct Position *position, uint64_t boardstate) {
-    assert(position);
-
-    // The boardstate for a move in-progress can differ only in small
-    // ways from the boardstate of the completed move:
-    // - It can be missing up-to two pieces of the same color, but only
-    //   when castling.
-    // - It can be missing up-to one piece of each color, but only when
-    //   capturing.
-    // - It can have up-to one extra piece of the opposite color, but
-    //   only when capturing en-passant.
-
-    // Present in position but not on board
-    const uint64_t removed_bmp = position->bitmap & ~boardstate;
-    const int removed = __builtin_popcountll(removed_bmp);
-
-    // Present on board but not in position
-    const int added   = __builtin_popcountll(boardstate & ~position->bitmap);
-
-    // First check: just count the differences
-    if (removed > 2 || added > 1 || removed + added > 2) {
-        return false;
-    }
-
-    // Second check: look at the colors involved
-    const uint64_t white_bitmap = position->white_bitmap;
-    const uint64_t black_bitmap = position->bitmap & ~white_bitmap;
-    const int white_removed = __builtin_popcountll(white_bitmap & ~boardstate);
-    const int black_removed = __builtin_popcountll(black_bitmap & ~boardstate);
-    assert(removed == white_removed + black_removed);
-
-    if (position->turn == 'w' && black_removed > 1) {
-        return false;
-    }
-    if (position->turn == 'b' && white_removed > 1) {
-        return false;
-    }
-
-    if (white_removed == 2) {
-        if ((position->castle & K_CASTLE) && removed_bmp == (1ull << E1 | 1ull << H1)) {
-            return true;
-        }
-        if ((position->castle & Q_CASTLE) && removed_bmp == (1ull << E1 | 1ull << A1)) {
-            return true;
-        }
-        return false;
-    }
-    if (black_removed == 2) {
-        if ((position->castle & k_CASTLE) && removed_bmp == (1ull << E8 | 1ull << H8)) {
-            return true;
-        }
-        if ((position->castle & q_CASTLE) && removed_bmp == (1ull << E8 | 1ull << A8)) {
-            return true;
-        }
-        return false;
-    }
-
-    // Third check: consider the possibility of en passant
-    if (added == 0) {
-        // i.e., we're unable to reject the possibility
-        return true;
-    }
-    if (position->en_passant == INVALID_SQUARE) {
-        return false;
-    }
-
-    // ...in mailbox coordinates
-    const int direction = position->turn == 'w' ? -10 : 10;
-    const int captured  = mailbox_index[position->en_passant] - direction;
-
-    uint64_t mask = 1 << position->en_passant | 1 << board_index[captured];
-    if (board_index[captured-1] != INVALID_SQUARE) {
-        mask |= 1 << board_index[captured-1];
-    }
-    if (board_index[captured+1] != INVALID_SQUARE) {
-        mask |= 1 << board_index[captured+1];
-    }
-
-    const uint64_t diff = position->bitmap ^ boardstate;
-    return (diff & ~mask) == 0;
-}
-
-// We should be able to either match a position or flag the move as
-// in-progress.  If we can't do either, the move is illegal.
-struct Position*
-game_read_move(
-    struct Game  *game,
-    uint64_t      boardstate,
-    struct Move **move,
-    struct Move **takeback,
-    bool         *incomplete,
-    bool         *promotion)
+// Here we try to interpret the move at a higher-level than the position,
+// taking into account the context of the game.  So yes, the boardstate
+// might represent a move or a move in-progress, but it could also be the
+// completion of a two-part move (i.e., castling rook first) or a takeback.
+bool game_read_move(
+    struct Move   *candidates,
+    struct Move  **takeback,
+    struct Game   *game,
+    uint64_t       boardstate,
+    struct Action *actions,
+    int            num_actions)
 {
-    assert(game);
-    assert(move && !*move);
+    assert(candidates && movelist_empty(candidates));
     assert(takeback && !*takeback);
-    assert(incomplete && !*incomplete);
-    assert(promotion && !*promotion);
+    assert(game);
+    assert(actions && num_actions >= 0);
 
-    // Match start position?
-    struct Position *start = game->history.next;
-    if (start->bitmap == boardstate) {
-        return start;
-    }
-
-    // Match current position?
+    // If boardstate matches current position, there's no move to read.
     struct Position *current = game->history.prev;
     if (current->bitmap == boardstate) {
-        return current;
+        // i.e., not an error
+        return true;
     }
 
-    // Position reached by legal move?
-    struct Move *begin = game->moves.next;
-    for (; begin != &game->moves; begin = begin->next) {
-        assert(begin->after);
-        if (begin->after->bitmap == boardstate) {
-            if (*move) {
-                // Can have multiple matches only for pawn promotion
-                *promotion = true;
-            }
-            // Default to the last promotion, which will be the queen
-            *move = begin;
-        } else {
-            *incomplete = *incomplete || in_progress(begin->after, boardstate);
-        }
-    }
-    if (*move) {
-        return (*move)->after;
+    // Can boardstate be reached by a legal move?
+    bool maybe_valid = position_read_move(
+        candidates, current, boardstate, actions, num_actions);
+    if (maybe_valid) {
+        return true;
     }
 
-    // Completion of castling move?
+    // Is this the completion of a castling move?
     struct Move castling = LIST_INIT(castling);
     struct Position *previous = current->prev;
     if (previous != &game->history) {
         position_castle_moves(&castling, previous);
     }
-    begin = castling.next;
+    struct Move *begin = castling.next;
     for (; begin != &castling; begin = begin->next) {
-        struct Position *p = position_move(previous, begin);
-        if (!position_legal(p)) {
+        struct Position *after = position_move(previous, begin);
+        if (!position_legal(after)) {
             continue;
         }
-        if (p->bitmap != boardstate) {
-            *incomplete = *incomplete || in_progress(p, boardstate);
+        if (after->bitmap != boardstate) {
+            maybe_valid = maybe_valid || position_incomplete(after, boardstate);
             continue;
         }
 
         // Find takeback move
         struct Move *m = previous->moves_played.next;
         for (; m != &previous->moves_played; m = m->next) {
-            if (m->after == p) {
+            if (position_equal(m->after, after)) {
                 *takeback = m;
                 break;
             }
@@ -272,23 +171,26 @@ game_read_move(
         assert(*takeback);
 
         // Undo previous move and apply castling move
-        *move = begin;
-        return p;
+        struct Move *copy = move_copy(begin);
+        copy->after = after;
+        movelist_push(candidates, copy);
+
+        return true;
     }
 
-    // Takeback?
+    // Is this a takeback?
     if (previous->bitmap == boardstate) {
         struct Move *m = previous->moves_played.next;
         for (; m != &previous->moves_played; m = m->next) {
-            if (m->after == current) {
+            if (position_equal(m->after, current)) {
                 *takeback = m;
-                return previous;
+                return true;
             }
         }
     }
-    *incomplete = *incomplete || in_progress(previous, boardstate);
 
-    return NULL;
+    // Possibly a takeback in progress?
+    return position_incomplete(previous, boardstate);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

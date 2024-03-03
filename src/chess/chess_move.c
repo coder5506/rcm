@@ -79,6 +79,16 @@ bool move_equal(const struct Move *a, const struct Move *b) {
     return a->from == b->from && a->to == b->to && a->promotion == b->promotion;
 }
 
+struct Move *move_copy(const struct Move *move) {
+    return move_new(move->from, move->to, move->promotion);
+}
+
+struct Move *move_copy_after(const struct Move *move) {
+    struct Move *copy = move_copy(move);
+    copy->after = position_copy(move->after);
+    return copy;
+}
+
 struct Move*
 movelist_find_equal(const struct Move *list, const struct Move *move) {
     assert(list && move_valid(move));

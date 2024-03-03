@@ -19,14 +19,13 @@ void game_from_fen(struct Game *game, const char *fen);
 int game_move(struct Game *game, const struct Move *move);
 int game_takeback(struct Game *game, const struct Move *takeback);
 
-struct Position*
-game_read_move(
-    struct Game  *game,
-    uint64_t      boardstate,
-    struct Move **move,
-    struct Move **takeback,
-    bool         *incomplete,
-    bool         *promotion);
+bool game_read_move(
+    struct Move   *candidates,
+    struct Move  **takeback,
+    struct Game   *game,
+    uint64_t       boardstate,
+    struct Action *actions,
+    int            num_actions);
 
 #endif
 

@@ -93,21 +93,22 @@ START_TEST(test_read_e4)
     struct Game g; /* = */ game_from_fen(&g, NULL);
     const uint64_t boardstate = move(START, E2, E4);
 
-    struct Move *move = NULL, *takeback = NULL;
-    bool incomplete = false, promotion = false;
-    struct Position *p = game_read_move(
-        &g, boardstate, &move, &takeback, &incomplete, &promotion);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, boardstate, actions, 0);
 
     // Got move and new position
-    ck_assert_ptr_nonnull(p);
-    ck_assert_ptr_nonnull(move);
+    ck_assert(maybe_valid);
+    ck_assert_int_eq(movelist_length(&candidates), 1);
     ck_assert_ptr_null(takeback);
-    ck_assert(!incomplete);
-    ck_assert(!promotion);
+
+    game_move(&g, movelist_pop(&candidates));
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
+    position_fen(g.history.prev, fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 
     game_destroy(&g);
@@ -124,13 +125,17 @@ START_TEST(test_read_e4e5)
     uint64_t boardstate = move(START, E2, E4);
     boardstate = move(boardstate, E7, E5);
 
-    struct Move *move = NULL, *takeback = NULL;
-    bool incomplete = false, promotion = false;
-    struct Position *p = game_read_move(
-        &g, boardstate, &move, &takeback, &incomplete, &promotion);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, boardstate, actions, 0);
+
+    ck_assert(maybe_valid);
+    game_move(&g, movelist_pop(&candidates));
 
     char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
+    position_fen(g.history.prev, fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 
     game_destroy(&g);
@@ -151,43 +156,39 @@ START_TEST(test_read_takeback)
     // N.B., name conflict
     const uint64_t boardstate = move(START, E2, E4);
 
-    struct Move *move = NULL, *takeback = NULL;
-    bool incomplete = false, promotion = false;
-    struct Position *p = game_read_move(
-        &g, boardstate, &move, &takeback, &incomplete, &promotion);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, boardstate, actions, 0);
 
     // Got move and new position
-    ck_assert_ptr_nonnull(p);
+    ck_assert(maybe_valid);
+    ck_assert_int_eq(movelist_length(&candidates), 0);
     ck_assert_ptr_nonnull(takeback);
-    ck_assert_ptr_null(move);
-    ck_assert(!incomplete);
-    ck_assert(!promotion);
+
+    game_takeback(&g, takeback);
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
+    position_fen(g.history.prev, fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 
     game_destroy(&g);
 }
 END_TEST
 
-static struct Position*
-read_forward(struct Game *g, uint64_t boardstate, struct Move **move, bool *incomplete) {
-    struct Move *takeback = NULL;
-    bool promotion = false;
-    return game_read_move(g, boardstate, move, &takeback, incomplete, &promotion);
-}
-
 START_TEST(test_illegal)
 {
     struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move = NULL;
-    bool incomplete = false;
-    struct Position *p = read_forward(&g, lift(START, F1), &move, &incomplete);
-    ck_assert_ptr_null(p);
-    ck_assert(!incomplete);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, lift(START, F1), actions, 0);
+
+    ck_assert(!maybe_valid);
 
     game_destroy(&g);
 }
@@ -197,11 +198,14 @@ START_TEST(test_incomplete)
 {
     struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move = NULL;
-    bool incomplete = false;
-    struct Position *p = read_forward(&g, lift(START, G1), &move, &incomplete);
-    ck_assert_ptr_null(p);
-    ck_assert(incomplete);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, lift(START, G1), actions, 0);
+
+    ck_assert(maybe_valid);
+    ck_assert_int_eq(movelist_length(&candidates), 0);
 
     game_destroy(&g);
 }
@@ -211,11 +215,13 @@ START_TEST(test_out_of_turn)
 {
     struct Game g; /* = */ game_from_fen(&g, NULL);
 
-    struct Move *move = NULL;
-    bool incomplete = false;
-    struct Position *p = read_forward(&g, lift(START, E7), &move, &incomplete);
-    ck_assert_ptr_null(p);
-    ck_assert(!incomplete);
+    struct Move   candidates = LIST_INIT(candidates);
+    struct Move  *takeback   = NULL;
+    struct Action actions[1];
+    const bool maybe_valid =
+        game_read_move(&candidates, &takeback, &g, lift(START, E7), actions, 0);
+
+    ck_assert(!maybe_valid);
 
     game_destroy(&g);
 }

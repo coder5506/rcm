@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 // Positions are the nodes of the game graph.  As such, they are listable and
-// hold a list of their out-egdes (moves_played).
+// hold a list of their out-egdes (i.e., moves_played).
 //
 // As moves are not shared, positions are generally responsible for freeing
 // their moves.  The positions themselves are owned by the game.
@@ -28,6 +28,7 @@ struct Position {
     struct Position *next;
     struct Position *prev;
     struct Move      moves_played;
+    struct Move      legal_moves;
     struct Mailbox   mailbox;
     uint64_t         bitmap;
     uint64_t         white_bitmap;
@@ -51,6 +52,24 @@ bool position_equal(const struct Position *a, const struct Position *b);
 static inline void position_print(const struct Position *position) {
     mailbox_print(&position->mailbox);
 }
+
+// True if boardstate might represent a transition into this position
+bool position_incomplete(struct Position *position, uint64_t boardstate);
+
+// Action can be either lift or place
+struct Action {
+    enum Square lift;
+    enum Square place;
+};
+
+#define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}
+
+bool position_read_move(
+    struct Move     *candidates,
+    struct Position *position,
+    uint64_t         boardstate,
+    struct Action   *actions,
+    int              num_actions);
 
 //
 // List utilities
