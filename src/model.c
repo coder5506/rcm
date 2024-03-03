@@ -9,7 +9,7 @@
 #include <gc/gc.h>
 
 void model_init(struct Model *model) {
-    model->observers = (struct Observer)LIST_INIT(model->observers);
+    model->observers = LIST_INIT(model->observers);
 }
 
 void model_destroy(struct Model *model) {
@@ -20,28 +20,26 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data) 
     struct Observer *observer = GC_MALLOC(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
-    list_push((struct Node*)&model->observers, (struct Node*)observer);
+    list_push(&model->observers, observer);
 }
 
 void model_unobserve(struct Model *model, ModelChanged model_changed, void *data) {
     struct Observer *unobserve = NULL;
-    struct Observer *begin = model->observers.next;
+    struct Node     *begin = model->observers.next;
     for (; !unobserve && begin != &model->observers; begin = begin->next) {
-        if (begin->model_changed == model_changed && begin->data == data) {
-            unobserve = begin;
+        struct Observer *observer = begin->data;
+        if (observer->model_changed == model_changed && observer->data == data) {
+            list_remove(begin);
+            return;
         }
-    }
-
-    if (unobserve) {
-        unobserve->next->prev = unobserve->prev;
-        unobserve->prev->next = unobserve->next;
     }
 }
 
 void model_changed(struct Model *model) {
-    struct Observer *begin = model->observers.next;
+    struct Node *begin = model->observers.next;
     for (; begin != &model->observers; begin = begin->next) {
-        begin->model_changed(model, begin->data);
+        struct Observer *observer = begin->data;
+        observer->model_changed(model, observer->data);
     }
 }
 

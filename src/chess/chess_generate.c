@@ -16,7 +16,7 @@
 // Return result of making move in position
 struct Position*
 position_move(const struct Position *position, const struct Move *move) {
-    struct Position *next = position_copy(position);
+    struct Position *next = position_dup(position);
 
     // Move and capture
     const int from_cell = mailbox_index[move->from];
@@ -102,12 +102,11 @@ position_move(const struct Position *position, const struct Move *move) {
     return next;
 
 error:
-    position_free(next);
     return NULL;
 }
 
 static void
-add_promotion(struct Move *list, int from, int to, enum Piece promotion) {
+add_promotion(struct Node *list, int from, int to, enum Piece promotion) {
     assert(0 <= from && from < 120);
     assert(0 <= to   && to   < 120);
     assert(to != from);
@@ -126,15 +125,15 @@ add_promotion(struct Move *list, int from, int to, enum Piece promotion) {
     assert(promotion == ' ' || is_last_rank(to_square, piece_color(promotion)));
 
     // Add move to list
-    movelist_push(list, move_new(from_square, to_square, promotion));
+    list_push(list, move_new(from_square, to_square, promotion));
 }
 
-static void add_move(struct Move *list, int from, int to) {
+static void add_move(struct Node *list, int from, int to) {
     add_promotion(list, from, to, EMPTY);
 }
 
 static void
-add_pawn_moves(struct Move *ilst, int from, int to, enum Color turn) {
+add_pawn_moves(struct Node *ilst, int from, int to, enum Color turn) {
     if (!is_last_rank(board_index[to], turn)) {
         add_move(ilst, from, to);
         return;
@@ -152,7 +151,7 @@ add_pawn_moves(struct Move *ilst, int from, int to, enum Color turn) {
 
 static void
 pawn_attacks(
-    struct Move          *list,
+    struct Node          *list,
     const struct Mailbox *mailbox,
     enum Color            turn)
 {
@@ -182,7 +181,7 @@ pawn_attacks(
 }
 
 static void
-pawn_moves(struct Move *list, const struct Position *position) {
+pawn_moves(struct Node *list, const struct Position *position) {
     const enum Piece pawn      = position->turn == 'w' ? 'P' : 'p';
     const enum Color other     = color_other(position->turn);
     const int        direction = pawn == 'P' ? -10 : 10;
@@ -273,7 +272,7 @@ static bool is_sliding(enum Piece piece) {
 
 static void
 piece_attacks(
-    struct Move          *list,
+    struct Node          *list,
     const struct Mailbox *mailbox,
     enum Color            turn)
 {
@@ -318,7 +317,7 @@ piece_attacks(
 }
 
 static void
-piece_moves(struct Move *list, const struct Position *position) {
+piece_moves(struct Node *list, const struct Position *position) {
     piece_attacks(list, &position->mailbox, position->turn);
 }
 
@@ -328,7 +327,7 @@ piece_moves(struct Move *list, const struct Position *position) {
 
 static void
 attacks_list(
-    struct Move          *list,
+    struct Node          *list,
     const struct Mailbox *mailbox,
     enum Color            turn)
 {
@@ -345,24 +344,20 @@ attacked_squares(
     // INVALID_PIECE is not attacked
     board_set_all(board, INVALID_PIECE);
 
-    struct Move list = LIST_INIT(list);
+    struct Node list = LIST_INIT(list);
     attacks_list(&list, mailbox, turn);
 
-    struct Move *begin = list.next;
-    while (begin != &list) {
-        struct Move *move = begin;
-        begin = begin->next;
+    for (struct Node *begin = list.next; begin != &list; begin = begin->next) {
+        struct Move *move = begin->data;
         board->squares[move->to] = mailbox->cells[mailbox_index[move->to]];
     }
-
-    movelist_free(&list);
 }
 
 //
 // Castling
 //
 
-void position_castle_moves(struct Move *list, const struct Position *position) {
+void position_castle_moves(struct Node *list, const struct Position *position) {
     struct Board board;
     attacked_squares(&board, &position->mailbox, color_other(position->turn));
 
@@ -426,7 +421,7 @@ void position_castle_moves(struct Move *list, const struct Position *position) {
 
 // All possible moves, legal or otherwise
 static void
-candidate_moves(struct Move *list, const struct Position *position) {
+candidate_moves(struct Node *list, const struct Position *position) {
     pawn_moves(list, position);
     piece_moves(list, position);
     position_castle_moves(list, position);
@@ -451,20 +446,18 @@ bool position_legal(const struct Position *position) {
     return !in_check(&position->mailbox, color_other(position->turn));
 }
 
-void position_legal_moves(struct Move *list, const struct Position *before) {
-    struct Move candidates = LIST_INIT(candidates);
+void position_legal_moves(struct Node *list, const struct Position *before) {
+    struct Node candidates = LIST_INIT(candidates);
     candidate_moves(&candidates, before);
 
-    while (!movelist_empty(&candidates)) {
-        struct Move     *move  = movelist_shift(&candidates);
+    struct Node *begin = candidates.next;
+    for (; begin != &candidates; begin = begin->next) {
+        struct Move     *move  = begin->data;
         struct Position *after = position_move(before, move);
         if (position_legal(after)) {
             move->before = (struct Position*)before;
             move->after  = after;
-            movelist_push(list, move);
-        } else {
-            position_free(after);
-            move_free(move);
+            list_push(list, move);
         }
     }
 }

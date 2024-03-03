@@ -5,11 +5,12 @@
 #define CHESS_GAME_H
 
 #include "chess_position.h"
+#include "../list.h"
 
 // Game is graph of positions joined by moves
 struct Game {
-    struct Position history; // Path from start to current position
-    struct Move     moves;   // Legal moves in current position
+    struct Node history; // Path from start to current position
+    struct Node moves;
 };
 
 void game_destroy(struct Game *game);
@@ -20,7 +21,7 @@ int game_move(struct Game *game, const struct Move *move);
 int game_takeback(struct Game *game, const struct Move *takeback);
 
 bool game_read_move(
-    struct Move   *candidates,
+    struct Node   *candidates,
     struct Move  **takeback,
     struct Game   *game,
     uint64_t       boardstate,

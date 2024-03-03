@@ -7,17 +7,18 @@
 #include <stdbool.h>
 
 struct Move;
+struct Node;
 struct Position;
 
 // Return result of making move in position
 struct Position*
 position_move(const struct Position *position, const struct Move *move);
 
-void position_castle_moves(struct Move *list, const struct Position *position);
+void position_castle_moves(struct Node *list, const struct Position *position);
 bool position_legal(const struct Position *position);
 
 // Return list of all legal moves and their resulting positions
-void position_legal_moves(struct Move *list, const struct Position *position);
+void position_legal_moves(struct Node *list, const struct Position *position);
 
 #endif
 

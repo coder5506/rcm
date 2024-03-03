@@ -6,7 +6,9 @@
 #include <assert.h>
 #include <stddef.h>
 
-void list_insert(struct Node *node, struct Node *before) {
+#include <gc/gc.h>
+
+static void list_insert(struct Node *node, struct Node *before) {
     assert(node && !node->next && !node->prev);
     assert(before && before != node);
 
@@ -27,27 +29,43 @@ void list_remove(struct Node *node) {
     node->prev = NULL;
 }
 
-struct Node *list_pop(struct Node *list) {
+static struct Node *node_alloc(void *data) {
+    struct Node *node = GC_MALLOC(sizeof *node);
+    *node = (struct Node){.data = data};
+    return node;
+}
+
+void list_push(struct Node *list, void *data) {
+    assert(list);
+    list_insert(node_alloc(data), list);
+}
+
+void list_unshift(struct Node *list, void *data) {
+    assert(list);
+    list_insert(node_alloc(data), list->next);
+}
+
+void *list_pop(struct Node *list) {
     assert(list);
     struct Node *node = list->prev != list ? list->prev : NULL;
     if (node) {
         list_remove(node);
     }
-    return node;
+    return node->data;
 }
 
-struct Node *list_shift(struct Node *list) {
+void *list_shift(struct Node *list) {
     assert(list);
     struct Node *node = (list->next != list) ? list->next : NULL;
     if (node) {
         list_remove(node);
     }
-    return node;
+    return node->data;
 }
 
-struct Node *list_find(const struct Node *list, const struct Node *node) {
+struct Node *list_find(const struct Node *list, void *data) {
     for (struct Node *begin = list->next; begin != list; begin = begin->next) {
-        if (begin == node) {
+        if (begin->data == data) {
             return begin;
         }
     }

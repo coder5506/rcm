@@ -335,7 +335,7 @@ get_fen(struct HttpdRequest *request) {
     (void)request;
 
     char *fen = malloc(FEN_MAX);
-    int   len = position_fen(centaur.game.history.prev, fen, FEN_MAX);
+    int   len = position_fen(centaur.game.history.prev->data, fen, FEN_MAX);
 
     struct MHD_Response *mhd_response =
         MHD_create_response_from_buffer(len, fen, MHD_RESPMEM_MUST_FREE);

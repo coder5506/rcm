@@ -4,19 +4,19 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include "list.h"
+
 struct Model;
 
 typedef void (*ModelChanged)(struct Model *model, void *data);
 
 struct Observer {
-    struct Observer *next;
-    struct Observer *prev;
     ModelChanged     model_changed;
     void            *data;
 };
 
 struct Model {
-    struct Observer observers;
+    struct Node observers;
 };
 
 void model_destroy(struct Model *model);

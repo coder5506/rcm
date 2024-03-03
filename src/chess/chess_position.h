@@ -5,14 +5,9 @@
 #define CHESS_POSITION_H
 
 #include "chess_move.h"
+#include "../list.h"
 
 #include <stdint.h>
-
-// Positions are the nodes of the game graph.  As such, they are listable and
-// hold a list of their out-egdes (i.e., moves_played).
-//
-// As moves are not shared, positions are generally responsible for freeing
-// their moves.  The positions themselves are owned by the game.
 
 struct Move;
 
@@ -25,26 +20,21 @@ enum Castle {
 };
 
 struct Position {
-    struct Position *next;
-    struct Position *prev;
-    struct Move      moves_played;
-    struct Move      legal_moves;
-    struct Mailbox   mailbox;
-    uint64_t         bitmap;
-    uint64_t         white_bitmap;
-    enum Color       turn;
-    enum Castle      castle;
-    enum Square      en_passant;
-    int              halfmove;
-    int              fullmove;
+    struct Mailbox  mailbox;
+    uint64_t        bitmap;
+    uint64_t        white_bitmap;
+    enum Color      turn;
+    enum Castle     castle;
+    enum Square     en_passant;
+    int             halfmove;
+    int             fullmove;
+    struct Node     legal_moves;
+    struct Node     moves_played;
 };
 
-void position_free(struct Position *position);
 struct Position *position_alloc(void);
-struct Position *position_from_fen(const char *fen);
-
 struct Position *position_dup(const struct Position *position);
-struct Position *position_copy(const struct Position *position);
+struct Position *position_from_fen(const char *fen);
 
 enum Piece position_piece(const struct Position *position, enum Square square);
 void position_update_bitmap(struct Position *position);
@@ -67,45 +57,11 @@ struct Action {
 #define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}
 
 bool position_read_move(
-    struct Move     *candidates,
+    struct Node     *candidates,
     struct Position *position,
     uint64_t         boardstate,
     struct Action   *actions,
     int              num_actions);
-
-//
-// List utilities
-//
-
-static inline void
-positionlist_push(struct Position *list, struct Position *position) {
-    LIST_PUSH(list, position);
-}
-
-static inline struct Position *positionlist_pop(struct Position *list) {
-    return (struct Position*)LIST_POP(list);
-}
-
-static inline struct Position *positionlist_shift(struct Position *list) {
-    return (struct Position*)LIST_SHIFT(list);
-}
-
-static inline void positionlist_clear(struct Position *list) {
-    LIST_CLEAR(list);
-}
-
-static inline bool positionlist_empty(const struct Position *position) {
-    return LIST_EMPTY(position);
-}
-
-static inline struct Position*
-positionlist_find(const struct Position *list, const struct Position *position) {
-    return (struct Position*)LIST_FIND(list, position);
-}
-
-static inline void positionlist_free(struct Position *list) {
-    LIST_CLEAR(list);
-}
 
 #endif
 

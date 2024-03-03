@@ -33,7 +33,7 @@ static void render_board(struct View *board_view, struct Context *context) {
     const int   square_size = 16;
 
     const struct Image    *pieces   = load_pieces();
-    const struct Position *position = centaur.game.history.prev;
+    const struct Position *position = centaur.game.history.prev->data;
     if (!pieces || !position) {
         return;
     }
@@ -204,7 +204,7 @@ static void show_feedback(uint64_t diff) {
 
 static bool
 history_read_move(
-    struct Move  *candidates, // Passed to game_read_move
+    struct Node  *candidates, // Passed to game_read_move
     struct Move **takeback,   // ...
     struct Game  *game,       // ...
     uint64_t      boardstate, // Current boardstate for comparison
@@ -215,7 +215,7 @@ history_read_move(
     assert(0 <= *begin && *begin <= end && end <= centaur.num_actions);
 
     // Replay actions, ignoring transient errors
-    struct Position *current = game->history.prev;
+    struct Position *current = game->history.prev->data;
 
     // Reconstruct boardstate from last known position
     uint64_t state = current->bitmap;
@@ -235,7 +235,7 @@ history_read_move(
             centaur.actions + *begin,
             (i + 1) - *begin);
 
-        if (movelist_length(candidates) > 0) {
+        if (list_length(candidates) > 0) {
             // We got a move, great!
             *begin = i + 1;
             return true;
@@ -255,11 +255,11 @@ history_read_move(
 
 static bool
 centaur_read_move(
-    struct Move  *candidates,
+    struct Node  *candidates,
     struct Move **takeback,
     struct Game  *game)
 {
-    assert(candidates && movelist_empty(candidates));
+    assert(candidates && list_empty(candidates));
     assert(takeback && !*takeback);
     assert(game);
 
@@ -278,7 +278,7 @@ centaur_read_move(
         centaur.actions,
         centaur.num_actions);
 
-    if (movelist_length(candidates) > 0) {
+    if (list_length(candidates) > 0) {
         // 5x5, we won't need to review actions history
         clear_actions();
         clear_feedback();
@@ -290,7 +290,7 @@ centaur_read_move(
     }
 
     // Looks like an illegal move, but we'll try to recover
-    assert(!maybe_valid && movelist_length(candidates) == 0);
+    assert(!maybe_valid && list_length(candidates) == 0);
     assert(!*takeback);
 
     // Assume we missed a move.  Revisit actions history to reconstruct.
@@ -299,10 +299,10 @@ centaur_read_move(
     for (; begin != end; ++begin) {
         // Replay actions, ignoring transient errors
         struct Game copy;
-        game_from_position(&copy, game->history.prev);
+        game_from_position(&copy, game->history.prev->data);
         bool step_valid = true;
         for (int i = begin; i != end;) {
-            struct Move  local_candidates = LIST_INIT(local_candidates);
+            struct Node  local_candidates = LIST_INIT(local_candidates);
             struct Move *local_takeback   = NULL;
             step_valid = history_read_move(
                 &local_candidates, &local_takeback, &copy, boardstate, &i, end);
@@ -310,7 +310,7 @@ centaur_read_move(
                 // This is going nowhere
                 break;
             }
-            if (!local_takeback && movelist_empty(&local_candidates)) {
+            if (!local_takeback && list_empty(&local_candidates)) {
                 // Should only happen at end of actions history
                 assert(i == end);
                 break;
@@ -321,17 +321,16 @@ centaur_read_move(
             if (local_takeback) {
                 err = game_takeback(&copy, local_takeback);
             }
-            struct Move *move = local_candidates.next;
-            if (!err && move != &local_candidates) {
-                err = game_move(&copy, move);
+            struct Node *b = local_candidates.next;
+            if (!err && b != &local_candidates) {
+                err = game_move(&copy, b->data);
             }
             if (err) {
                 step_valid = false;
                 break;
             }
         }
-        const uint64_t state = copy.history.prev->bitmap;
-        game_destroy(&copy);
+        const uint64_t state = ((struct Position*)copy.history.prev->data)->bitmap;
 
         if (step_valid && state == boardstate) {
             // OK, reconstruction makes some kind of sense
@@ -344,7 +343,7 @@ centaur_read_move(
         maybe_valid = history_read_move(
             candidates, takeback, game, boardstate, &begin, end);
 
-        if (*takeback || !movelist_empty(candidates)) {
+        if (*takeback || !list_empty(candidates)) {
             // Got reconstructed move from actions history
             consume_actions(begin);
             clear_feedback();
@@ -363,7 +362,7 @@ centaur_read_move(
     // We're out of options and must wait for the board to be restored.  If
     // the boardstate does not differ too much from the last known position,
     // we can provide some feedback.
-    show_feedback(game->history.prev->bitmap ^ boardstate);
+    show_feedback(((struct Position*)game->history.prev->data)->bitmap ^ boardstate);
     return NULL;
 }
 
@@ -378,7 +377,7 @@ void centaur_sync(void) {
 // How about a nice game of chess?
 void centaur_main(void) {
     while (true) {
-        struct Move  candidates = LIST_INIT(candidates);
+        struct Node  candidates = LIST_INIT(candidates);
         struct Move *takeback   = NULL;
 
         const bool maybe_valid =
@@ -392,8 +391,8 @@ void centaur_main(void) {
             }
 
             // TODO promotions menu
-            if (!movelist_empty(&candidates)) {
-                struct Move *move = candidates.next;
+            if (!list_empty(&candidates)) {
+                struct Move *move = candidates.next->data;
                 printf("Move: %s\n", move_name_static(move));
                 game_move(&centaur.game, move);
                 should_render = true;

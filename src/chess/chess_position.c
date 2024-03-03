@@ -12,12 +12,6 @@
 
 #include <gc/gc.h>
 
-static struct Position position_freelist = LIST_INIT(position_freelist);
-
-void position_free(struct Position *position) {
-    (void)position;
-}
-
 enum Piece position_piece(const struct Position *position, enum Square square) {
     return position->mailbox.cells[mailbox_index[square]];
 }
@@ -46,29 +40,19 @@ void position_update_bitmap(struct Position *position) {
 struct Position *position_alloc(void) {
     struct Position *position = GC_MALLOC(sizeof *position);
     *position = (struct Position){
-        .next         = NULL,
-        .prev         = NULL,
-        .moves_played = (struct Move)LIST_INIT(position->moves_played),
-        .legal_moves  = (struct Move)LIST_INIT(position->legal_moves),
         .bitmap       = 0,
+        .white_bitmap = 0,
         .turn         = WHITE,
         .castle       = 0,
         .en_passant   = INVALID_SQUARE,
         .halfmove     = 0,
         .fullmove     = 1,
+        .legal_moves  = LIST_INIT(position->legal_moves),
+        .moves_played = LIST_INIT(position->moves_played),
     };
     mailbox_invalid(&position->mailbox);
     for (enum Square sq = A8; sq <= H1; ++sq) {
         position->mailbox.cells[mailbox_index[sq]] = EMPTY;
-    }
-    position_update_bitmap(position);
-    return position;
-}
-
-struct Position *position_from_fen(const char *fen) {
-    struct Position *position = position_alloc();
-    if (!fen || !position_read_fen(position, fen)) {
-        position_read_fen(position, STARTING_FEN);
     }
     position_update_bitmap(position);
     return position;
@@ -86,8 +70,13 @@ struct Position *position_dup(const struct Position *position) {
     return copy;
 }
 
-struct Position *position_copy(const struct Position *position) {
-    return position_dup(position);
+struct Position *position_from_fen(const char *fen) {
+    struct Position *position = position_alloc();
+    if (!fen || !position_read_fen(position, fen)) {
+        position_read_fen(position, STARTING_FEN);
+    }
+    position_update_bitmap(position);
+    return position;
 }
 
 bool position_equal(const struct Position *a, const struct Position *b) {
@@ -191,34 +180,34 @@ bool position_incomplete(struct Position *position, uint64_t boardstate) {
 // - false if the boardstate is incompatible with all legal moves in this
 //   position.
 static bool position_read_moves(
-    struct Move     *candidates,
+    struct Node     *candidates,
     struct Position *position,
     uint64_t         boardstate)
 {
-    assert(candidates && movelist_empty(candidates));
+    assert(candidates && list_empty(candidates));
     assert(position);
 
     // Ensure we've generated the legal moves for this position
-    if (movelist_empty(&position->legal_moves)) {
+    if (list_empty(&position->legal_moves)) {
         position_legal_moves(&position->legal_moves, position);
     }
 
     bool maybe_valid = false;
 
-    struct Move *begin = position->legal_moves.next;
+    struct Node *begin = position->legal_moves.next;
     for (; begin != &position->legal_moves; begin = begin->next) {
-        assert(begin->after);
-        if (begin->after->bitmap == boardstate) {
-            struct Move *copy = move_copy_after(begin);
-            movelist_push(candidates, copy);
+        struct Move *m = begin->data;
+        assert(m->after);
+        if (m->after->bitmap == boardstate) {
+            list_push(candidates, m);
             maybe_valid = true;
         } else {
             maybe_valid =
-                maybe_valid || position_incomplete(begin->after, boardstate);
+                maybe_valid || position_incomplete(m->after, boardstate);
         }
     }
 
-    assert(maybe_valid || movelist_empty(candidates));
+    assert(maybe_valid || list_empty(candidates));
     return maybe_valid;
 }
 
@@ -227,19 +216,19 @@ static bool position_read_moves(
 // generate a list, because (a) the candidates might be promotions which cannot
 // be resolved here and (b) the actions history might be incomplete.
 bool position_read_move(
-    struct Move     *candidates,
+    struct Node     *candidates,
     struct Position *position,
     uint64_t         boardstate,
     struct Action   *actions,
     int              num_actions)
 {
-    assert(candidates && movelist_empty(candidates));
+    assert(candidates && list_empty(candidates));
     assert(position);
     assert(actions || num_actions >= 0);
 
     const bool maybe_valid =
         position_read_moves(candidates, position, boardstate);
-    if (movelist_empty(candidates)) {
+    if (list_empty(candidates)) {
         return maybe_valid;
     }
 
@@ -250,20 +239,20 @@ bool position_read_move(
     int num_moves      = 0;
     int num_promotions = 0;
 
-    struct Move *begin = candidates->next;
-    while (begin != candidates) {
-        struct Move *const next = begin->next;
-        if (begin->promotion != EMPTY) {
+    struct Node *begin = candidates->next;
+    for (; begin != candidates; begin = begin->next) {
+        struct Move *m = begin->data;
+        if (m->promotion != EMPTY) {
             // Can't resolve promotion here
             ++num_promotions;
-            goto next;
+            continue;
         }
 
-        const enum Piece capture = position_piece(position, begin->to);
+        const enum Piece capture = position_piece(position, m->to);
         if (capture == EMPTY) {
             // No capture, not ambiguous
             ++num_moves;
-            goto next;
+            continue;
         }
 
         // History should show a lift followed by a place on the capture square
@@ -271,11 +260,11 @@ bool position_read_move(
         bool got_lift  = false;
         for (int i = num_actions - 1; i >= 0; --i) {
             if (!got_place) {
-                if (actions[i].place == begin->to) {
+                if (actions[i].place == m->to) {
                     got_place = true;
                 }
             } else if (!got_lift) {
-                if (actions[i].lift == begin->to) {
+                if (actions[i].lift == m->to) {
                     got_lift = true;
                 }
             } else {
@@ -285,13 +274,9 @@ bool position_read_move(
         }
 
         if (!got_place || !got_lift) {
-            movelist_remove(begin);
-            goto next;
+            continue;
         }
         ++num_moves;
-
-    next:
-        begin = next;
     }
 
     assert(num_moves == 0 || num_promotions == 0);
