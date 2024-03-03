@@ -42,6 +42,8 @@ struct Position {
 void position_free(struct Position *position);
 struct Position *position_alloc(void);
 struct Position *position_from_fen(const char *fen);
+
+struct Position *position_dup(const struct Position *position);
 struct Position *position_copy(const struct Position *position);
 
 enum Piece position_piece(const struct Position *position, enum Square square);
@@ -77,31 +79,32 @@ bool position_read_move(
 
 static inline void
 positionlist_push(struct Position *list, struct Position *position) {
-    list_push((struct Node*)list, (struct Node*)position);
+    LIST_PUSH(list, position);
 }
 
 static inline struct Position *positionlist_pop(struct Position *list) {
-    return (struct Position*)list_pop((struct Node*)list);
+    return (struct Position*)LIST_POP(list);
 }
 
 static inline struct Position *positionlist_shift(struct Position *list) {
-    return (struct Position*)list_shift((struct Node*)list);
+    return (struct Position*)LIST_SHIFT(list);
 }
 
-static inline void
-positionlist_clear(struct Position *list) { list_clear((struct Node*)list); }
+static inline void positionlist_clear(struct Position *list) {
+    LIST_CLEAR(list);
+}
 
 static inline bool positionlist_empty(const struct Position *position) {
-    return list_empty((struct Node*)position);
+    return LIST_EMPTY(position);
 }
 
 static inline struct Position*
 positionlist_find(const struct Position *list, const struct Position *position) {
-    return (struct Position*)list_find((struct Node*)list, (struct Node*)position);
+    return (struct Position*)LIST_FIND(list, position);
 }
 
 static inline void positionlist_free(struct Position *list) {
-    list_free((struct Node*)list, (void(*)(struct Node*))position_free);
+    LIST_CLEAR(list);
 }
 
 #endif

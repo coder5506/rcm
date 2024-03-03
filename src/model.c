@@ -3,27 +3,21 @@
 
 #include "model.h"
 #include "list.h"
-#include "mem.h"
 
 #include <stddef.h>
+
+#include <gc/gc.h>
 
 void model_init(struct Model *model) {
     model->observers = (struct Observer)LIST_INIT(model->observers);
 }
 
 void model_destroy(struct Model *model) {
-    struct Observer *begin = model->observers.next;
-    while (begin != &model->observers) {
-        struct Observer *observer = begin;
-        begin = begin->next;
-        mem_free((void**)observer, sizeof *observer);
-    }
     model_init(model);
 }
 
 void model_observe(struct Model *model, ModelChanged model_changed, void *data) {
-    struct Observer *observer = NULL;
-    mem_alloc((void**)&observer, sizeof *observer);
+    struct Observer *observer = GC_MALLOC(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
     list_push((struct Node*)&model->observers, (struct Node*)observer);
@@ -41,7 +35,6 @@ void model_unobserve(struct Model *model, ModelChanged model_changed, void *data
     if (unobserve) {
         unobserve->next->prev = unobserve->prev;
         unobserve->prev->next = unobserve->next;
-        mem_free((void**)&unobserve, sizeof *unobserve);
     }
 }
 

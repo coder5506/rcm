@@ -3,7 +3,6 @@
 
 #include "chess_position.h"
 #include "chess.h"
-#include "../mem.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -11,17 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 static struct Position position_freelist = LIST_INIT(position_freelist);
 
 void position_free(struct Position *position) {
-    assert(position);
-
-    movelist_free(&position->moves_played);
-
-    mem_erase(position, sizeof *position);
-    position->next = NULL;
-    position->prev = NULL;
-    positionlist_push(&position_freelist, position);
+    (void)position;
 }
 
 enum Piece position_piece(const struct Position *position, enum Square square) {
@@ -50,11 +44,7 @@ void position_update_bitmap(struct Position *position) {
 }
 
 struct Position *position_alloc(void) {
-    struct Position *position = positionlist_pop(&position_freelist);
-    if (!position) {
-        mem_alloc((void**)&position, sizeof *position);
-    }
-    mem_erase(position, sizeof *position);
+    struct Position *position = GC_MALLOC(sizeof *position);
     *position = (struct Position){
         .next         = NULL,
         .prev         = NULL,
@@ -84,7 +74,7 @@ struct Position *position_from_fen(const char *fen) {
     return position;
 }
 
-struct Position *position_copy(const struct Position *position) {
+struct Position *position_dup(const struct Position *position) {
     struct Position *copy = position_alloc();
     copy->bitmap     = position->bitmap;
     copy->turn       = position->turn;
@@ -94,6 +84,10 @@ struct Position *position_copy(const struct Position *position) {
     copy->fullmove   = position->fullmove;
     memcpy(&copy->mailbox, &position->mailbox, sizeof copy->mailbox);
     return copy;
+}
+
+struct Position *position_copy(const struct Position *position) {
+    return position_dup(position);
 }
 
 bool position_equal(const struct Position *a, const struct Position *b) {

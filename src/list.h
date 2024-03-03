@@ -37,7 +37,26 @@ list_empty(const struct Node *list) { return list->next == list; }
 struct Node *list_find(const struct Node *list, const struct Node *node);
 int list_length(const struct Node *list);
 
-void list_free(struct Node *list, void (*free_node)(struct Node *node));
+static inline void
+list_free(struct Node *list, void (*free_node)(struct Node *node)) {
+    (void)free_node;
+    list_clear(list);
+}
+
+//
+// Convenience macros
+//
+
+#define LIST_INSERT(node, before) list_insert((struct Node*)(node), (struct Node*)(before))
+#define LIST_REMOVE(node) list_remove((struct Node*)(node))
+#define LIST_PUSH(list, node) list_push((struct Node*)(list), (struct Node*)(node))
+#define LIST_UNSHIFT(list, node) list_unshift((struct Node*)(list), (struct Node*)(node))
+#define LIST_POP(list) (struct Node*)list_pop((struct Node*)(list))
+#define LIST_SHIFT(list) (struct Node*)list_shift((struct Node*)(list))
+#define LIST_CLEAR(list) list_clear((struct Node*)(list))
+#define LIST_EMPTY(list) list_empty((const struct Node*)(list))
+#define LIST_FIND(list, node) (struct Node*)list_find((const struct Node*)(list), (const struct Node*)(node))
+#define LIST_LENGTH(list) list_length((const struct Node*)(list))
 
 #endif
 

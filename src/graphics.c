@@ -3,12 +3,13 @@
 
 #include "graphics.h"
 #include "fonts/fonts.h"
-#include "mem.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <gc/gc.h>
 
 struct Context default_context = {
     .next       = NULL,
@@ -23,22 +24,12 @@ struct Context default_context = {
     .font       = &Font16,
 };
 
-static struct Context *context_free_list = NULL;
-
 void context_free(struct Context *context) {
-    assert(context && context != &default_context);
-    context->next = context_free_list;
-    context_free_list = context;
+    (void)context;
 }
 
 struct Context *context_alloc() {
-    struct Context *context = context_free_list;
-    if (context) {
-        context_free_list = context->next;
-    } else {
-        mem_alloc((void **)&context, sizeof *context);
-    }
-    mem_erase(context, sizeof *context);
+    struct Context *context = GC_MALLOC(sizeof *context);
     *context = default_context;
     return context;
 }

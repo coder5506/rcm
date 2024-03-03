@@ -3,7 +3,6 @@
 
 #include "chess_move.h"
 #include "chess.h"
-#include "../mem.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -11,31 +10,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-static struct Move move_freelist = LIST_INIT(move_freelist);
+#include <gc/gc.h>
 
 void move_free(struct Move *move) {
-    assert(move);
-    mem_erase(move, sizeof *move);
-    move->next = NULL;
-    move->prev = NULL;
-    movelist_push(&move_freelist, move);
+    (void)move;
 }
 
 void move_free_after(struct Move *move) {
-    assert(move);
-    if (move->after) {
-        position_free(move->after);
-        move->after = NULL;
-    }
-    move_free(move);
+    (void)move;
 }
 
 struct Move *move_alloc(void) {
-    struct Move *move = movelist_pop(&move_freelist);
-    if (!move) {
-        mem_alloc((void**)&move, sizeof *move);
-    }
-    mem_erase(move, sizeof *move);
+    struct Move *move = GC_MALLOC(sizeof *move);
     *move = (struct Move){
         .next      = NULL,
         .prev      = NULL,
@@ -79,12 +65,16 @@ bool move_equal(const struct Move *a, const struct Move *b) {
     return a->from == b->from && a->to == b->to && a->promotion == b->promotion;
 }
 
-struct Move *move_copy(const struct Move *move) {
+struct Move *move_dup(const struct Move *move) {
     return move_new(move->from, move->to, move->promotion);
 }
 
+struct Move *move_copy(const struct Move *move) {
+    return move_dup(move);
+}
+
 struct Move *move_copy_after(const struct Move *move) {
-    struct Move *copy = move_copy(move);
+    struct Move *copy = move_dup(move);
     copy->after = position_copy(move->after);
     return copy;
 }

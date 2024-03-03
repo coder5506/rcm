@@ -36,6 +36,7 @@ void move_free_after(struct Move *move);
 struct Move *move_alloc(void);
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
 
+struct Move *move_dup(const struct Move *move);
 struct Move *move_copy(const struct Move *move);
 struct Move *move_copy_after(const struct Move *move);
 
@@ -60,37 +61,36 @@ struct Move *move_from_san(struct Position *before, const char *san);
 // List utilites
 //
 
-static inline void
-movelist_remove(struct Move *move) { list_remove((struct Node*)move); }
+static inline void movelist_remove(struct Move *move) {
+    LIST_REMOVE(move);
+}
 
 static inline void movelist_push(struct Move *list, struct Move *move) {
-    list_push((struct Node*)list, (struct Node*)move);
+    LIST_PUSH(list, move);
 }
 
 static inline struct Move *movelist_pop(struct Move *list) {
-    return (struct Move*)list_pop((struct Node*)list);
+    return (struct Move*)LIST_POP(list);
 }
 
 static inline struct Move *movelist_shift(struct Move *list) {
-    return (struct Move*)list_shift((struct Node*)list);
+    return (struct Move*)LIST_SHIFT(list);
 }
 
-static inline bool movelist_empty(const struct Move *move) {
-    return list_empty((struct Node*)move);
+static inline bool movelist_empty(const struct Move *list) {
+    return LIST_EMPTY(list);
 }
 
-static inline int
-movelist_length(const struct Move *move) {
-    return list_length((struct Node*)move);
+static inline int movelist_length(const struct Move *list) {
+    return LIST_LENGTH(list);
 }
 
 static inline void movelist_free(struct Move *list) {
-    list_free((struct Node*)list, (void(*)(struct Node*))move_free);
+    LIST_CLEAR(list);
 }
 
-// Also frees after positions
 static inline void movelist_free_after(struct Move *list) {
-    list_free((struct Node*)list, (void(*)(struct Node*))move_free_after);
+    LIST_CLEAR(list);
 }
 
 #endif

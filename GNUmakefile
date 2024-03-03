@@ -12,7 +12,7 @@ objects  = $(foreach s,$(sources),$(patsubst src/%.c,obj/%.o,$s))
 CPPFLAGS = -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
-LDLIBS   = $(if $(centaur),-lpigpio,) -lmicrohttpd -lpcre2-8 -lpng -lrt -lm
+LDLIBS   = $(if $(centaur),-lpigpio,) -lgc -lmicrohttpd -lpcre2-8 -lpng -lrt -lm
 
 $(shell mkdir -p bin $(obj_dirs))
 all: bin/rcm
@@ -28,10 +28,9 @@ bin/rcm: $(objects)
 
 test_sources = \
 	$(wildcard src/chess/*.c) \
-	src/list.c \
-	src/mem.c
+	src/list.c
 bin/check: $(wildcard t/*.c) $(test_sources)
-	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lrt -lm
+	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
 
 obj/%.o: src/%.c
 	$(COMPILE.c) $< -o $@

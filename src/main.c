@@ -8,6 +8,8 @@
 
 #include <signal.h>
 
+#include <gc/gc.h>
+
 static void shut_it_down(void) {
     httpd_stop();
     centaur_close();
@@ -20,6 +22,8 @@ static void handle_sigint(int signal) {
 }
 
 int main(void) {
+    GC_INIT();
+
     struct sigaction action = {.sa_handler = handle_sigint};
     sigaction(SIGINT, &action, NULL);
 
