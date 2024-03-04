@@ -3,6 +3,7 @@
 
 #include "chess_position.h"
 #include "chess.h"
+#include "../list.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -16,7 +17,7 @@ enum Piece position_piece(const struct Position *position, enum Square square) {
     return position->mailbox.cells[mailbox_index[square]];
 }
 
-void position_update_bitmap(struct Position *position) {
+void position_update_bitmap(const struct Position *position) {
     uint64_t white = 0;
     uint64_t black = 0;
     uint64_t mask  = 1;
@@ -33,11 +34,11 @@ void position_update_bitmap(struct Position *position) {
         }
         mask <<= 1;
     }
-    position->bitmap = white | black;
-    position->white_bitmap = white;
+    ((struct Position*)position)->bitmap = white | black;
+    ((struct Position*)position)->white_bitmap = white;
 }
 
-struct Position *position_alloc(void) {
+struct Position *position_new(void) {
     struct Position *position = GC_MALLOC(sizeof *position);
     *position = (struct Position){
         .bitmap       = 0,
@@ -47,31 +48,28 @@ struct Position *position_alloc(void) {
         .en_passant   = INVALID_SQUARE,
         .halfmove     = 0,
         .fullmove     = 1,
-        .legal_moves  = LIST_INIT(position->legal_moves),
-        .moves_played = LIST_INIT(position->moves_played),
+        .moves_played = list_new(),
+        .legal_moves  = NULL,
     };
-    mailbox_invalid(&position->mailbox);
-    for (enum Square sq = A8; sq <= H1; ++sq) {
-        position->mailbox.cells[mailbox_index[sq]] = EMPTY;
-    }
+    mailbox_empty(&position->mailbox);
     position_update_bitmap(position);
     return position;
 }
 
 struct Position *position_dup(const struct Position *position) {
-    struct Position *copy = position_alloc();
+    struct Position *copy = position_new();
     copy->bitmap     = position->bitmap;
     copy->turn       = position->turn;
     copy->castle     = position->castle;
     copy->en_passant = position->en_passant;
     copy->halfmove   = position->halfmove;
     copy->fullmove   = position->fullmove;
-    memcpy(&copy->mailbox, &position->mailbox, sizeof copy->mailbox);
+    mailbox_copy(&copy->mailbox, &position->mailbox);
     return copy;
 }
 
 struct Position *position_from_fen(const char *fen) {
-    struct Position *position = position_alloc();
+    struct Position *position = position_new();
     if (!fen || !position_read_fen(position, fen)) {
         position_read_fen(position, STARTING_FEN);
     }
@@ -86,11 +84,100 @@ bool position_equal(const struct Position *a, const struct Position *b) {
            a->en_passant == b->en_passant &&
            a->halfmove   == b->halfmove   &&
            a->fullmove   == b->fullmove   &&
-           memcmp(&a->mailbox, &b->mailbox, sizeof a->mailbox) == 0;
+           mailbox_equal(&a->mailbox, &b->mailbox);
+}
+
+// Result of making move in position
+struct Position*
+position_apply_move(const struct Position *before, const struct Move *move) {
+    struct Position *after = position_dup(before);
+
+    // Move and capture
+    const int from_cell = mailbox_index[move->from];
+    const int to_cell   = mailbox_index[move->to];
+    const enum Piece moving = after->mailbox.cells[from_cell];
+    enum Piece captured = after->mailbox.cells[to_cell];
+    if (piece_color(moving)   != before->turn ||
+        piece_color(captured) == before->turn)
+    {
+        return NULL;
+    }
+
+    // Update mailbox
+    after->mailbox.cells[from_cell] = ' ';
+    after->mailbox.cells[to_cell]   = move->promotion != ' ' ? move->promotion : moving;
+
+    // Capture en passant
+    if ((moving == 'P' || moving == 'p') && move->to == after->en_passant) {
+        // Direction of moving pawn, not captured pawn
+        const int direction = piece_color(moving) == WHITE ? -10 : 10;
+
+        // Capture opposite moving pawn's direction of travel
+        captured = after->mailbox.cells[to_cell - direction];
+        after->mailbox.cells[to_cell + direction] = ' ';
+    }
+
+    // Move rook when castling
+    if (moving == 'K' && move->from == E1 && move->to == G1) {
+        after->mailbox.cells[mailbox_index[H1]] = ' ';
+        after->mailbox.cells[mailbox_index[F1]] = 'R';
+    } else if (moving == 'K' && move->from == E1 && move->to == C1) {
+        after->mailbox.cells[mailbox_index[A1]] = ' ';
+        after->mailbox.cells[mailbox_index[D1]] = 'R';
+    } else if (moving == 'k' && move->from == E8 && move->to == G8) {
+        after->mailbox.cells[mailbox_index[H8]] = ' ';
+        after->mailbox.cells[mailbox_index[F8]] = 'r';
+    } else if (moving == 'k' && move->from == E8 && move->to == C8) {
+        after->mailbox.cells[mailbox_index[A8]] = ' ';
+        after->mailbox.cells[mailbox_index[D8]] = 'r';
+    }
+
+    // Mailbox updated
+    position_update_bitmap(after);
+
+    // Update turn
+    after->turn = color_other(after->turn);
+
+    // Update castling
+    if (moving == 'K') {
+        after->castle &= ~(K_CASTLE | Q_CASTLE);
+    } else if (moving == 'k') {
+        after->castle &= ~(k_CASTLE | q_CASTLE);
+    }
+
+    if (moving == 'R' && move->from == H1) {
+        after->castle &= ~K_CASTLE;
+    } else if (moving == 'R' && move->from == A1) {
+        after->castle &= ~Q_CASTLE;
+    } else if (moving == 'r' && move->from == H8) {
+        after->castle &= ~k_CASTLE;
+    } else if (moving == 'r' && move->from == A8) {
+        after->castle &= ~q_CASTLE;
+    }
+
+    // Update en passant
+    after->en_passant = INVALID_SQUARE;
+    if ((moving == 'P' || moving == 'p') && abs(move->to - move->from) == 20) {
+        // i.e., pawn moved two rows, en passant is on the skipped row
+        after->en_passant = move->from + (move->to - move->from) / 2;
+    }
+
+    // Update halfmove clock
+    ++after->halfmove;
+    if (moving == 'P' || moving == 'p' || captured != ' ') {
+        after->halfmove = 0;
+    }
+
+    // Update fullmove number
+    if (after->turn == 'w') {
+        ++after->fullmove;
+    }
+
+    return after;
 }
 
 // True if boardstate might represent a transition into this position
-bool position_incomplete(struct Position *position, uint64_t boardstate) {
+bool position_incomplete(const struct Position *position, uint64_t boardstate) {
     assert(position);
 
     // The boardstate for a move in-progress can differ only in small ways from
@@ -180,30 +267,28 @@ bool position_incomplete(struct Position *position, uint64_t boardstate) {
 // - false if the boardstate is incompatible with all legal moves in this
 //   position.
 static bool position_read_moves(
-    struct Node     *candidates,
-    struct Position *position,
-    uint64_t         boardstate)
+    struct List           *candidates,
+    const struct Position *position,
+    uint64_t               boardstate)
 {
     assert(candidates && list_empty(candidates));
     assert(position);
 
     // Ensure we've generated the legal moves for this position
-    if (list_empty(&position->legal_moves)) {
-        position_legal_moves(&position->legal_moves, position);
-    }
+    (void)position_legal_moves(position);
 
     bool maybe_valid = false;
 
-    struct Node *begin = position->legal_moves.next;
-    for (; begin != &position->legal_moves; begin = begin->next) {
-        struct Move *m = begin->data;
-        assert(m->after);
-        if (m->after->bitmap == boardstate) {
-            list_push(candidates, m);
+    struct List *it = list_begin(position->legal_moves);
+    for (; it != list_end(position->legal_moves); it = it->next) {
+        struct Move *move = it->data;
+        assert(move->after);
+        if (move->after->bitmap == boardstate) {
+            list_push(candidates, move);
             maybe_valid = true;
         } else {
             maybe_valid =
-                maybe_valid || position_incomplete(m->after, boardstate);
+                maybe_valid || position_incomplete(move->after, boardstate);
         }
     }
 
@@ -216,11 +301,11 @@ static bool position_read_moves(
 // generate a list, because (a) the candidates might be promotions which cannot
 // be resolved here and (b) the actions history might be incomplete.
 bool position_read_move(
-    struct Node     *candidates,
-    struct Position *position,
-    uint64_t         boardstate,
-    struct Action   *actions,
-    int              num_actions)
+    struct List           *candidates,
+    const struct Position *position,
+    uint64_t               boardstate,
+    struct Action         *actions,
+    int                    num_actions)
 {
     assert(candidates && list_empty(candidates));
     assert(position);
@@ -239,20 +324,22 @@ bool position_read_move(
     int num_moves      = 0;
     int num_promotions = 0;
 
-    struct Node *begin = candidates->next;
-    for (; begin != candidates; begin = begin->next) {
-        struct Move *m = begin->data;
-        if (m->promotion != EMPTY) {
+    struct List *begin = list_begin(candidates);
+    while (begin != list_end(candidates)) {
+        struct List *next = begin->next;
+
+        const struct Move *move = begin->data;
+        if (move->promotion != EMPTY) {
             // Can't resolve promotion here
             ++num_promotions;
-            continue;
+            goto next;
         }
 
-        const enum Piece capture = position_piece(position, m->to);
+        const enum Piece capture = position_piece(position, move->to);
         if (capture == EMPTY) {
             // No capture, not ambiguous
             ++num_moves;
-            continue;
+            goto next;
         }
 
         // History should show a lift followed by a place on the capture square
@@ -260,11 +347,11 @@ bool position_read_move(
         bool got_lift  = false;
         for (int i = num_actions - 1; i >= 0; --i) {
             if (!got_place) {
-                if (actions[i].place == m->to) {
+                if (actions[i].place == move->to) {
                     got_place = true;
                 }
             } else if (!got_lift) {
-                if (actions[i].lift == m->to) {
+                if (actions[i].lift == move->to) {
                     got_lift = true;
                 }
             } else {
@@ -274,14 +361,19 @@ bool position_read_move(
         }
 
         if (!got_place || !got_lift) {
-            continue;
+            list_unlink(begin);
+            goto next;
         }
         ++num_moves;
+
+    next:
+        begin = next;
     }
 
     assert(num_moves == 0 || num_promotions == 0);
     assert(num_moves == 0 || num_moves == 1);
     assert(0 <= num_promotions && num_promotions <= 4);
+    assert(list_length(candidates) == num_moves + num_promotions);
     return maybe_valid;
 }
 

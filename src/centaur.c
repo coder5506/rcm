@@ -3,6 +3,7 @@
 
 #include "centaur.h"
 #include "graphics.h"
+#include "list.h"
 #include "screen.h"
 
 #include <assert.h>
@@ -33,7 +34,7 @@ static void render_board(struct View *board_view, struct Context *context) {
     const int   square_size = 16;
 
     const struct Image    *pieces   = load_pieces();
-    const struct Position *position = centaur.game.history.prev->data;
+    const struct Position *position = game_current(&centaur.game);
     if (!pieces || !position) {
         return;
     }
@@ -204,7 +205,7 @@ static void show_feedback(uint64_t diff) {
 
 static bool
 history_read_move(
-    struct Node  *candidates, // Passed to game_read_move
+    struct List  *candidates, // Passed to game_read_move
     struct Move **takeback,   // ...
     struct Game  *game,       // ...
     uint64_t      boardstate, // Current boardstate for comparison
@@ -215,7 +216,7 @@ history_read_move(
     assert(0 <= *begin && *begin <= end && end <= centaur.num_actions);
 
     // Replay actions, ignoring transient errors
-    struct Position *current = game->history.prev->data;
+    struct Position *current = game_current(game);
 
     // Reconstruct boardstate from last known position
     uint64_t state = current->bitmap;
@@ -255,7 +256,7 @@ history_read_move(
 
 static bool
 centaur_read_move(
-    struct Node  *candidates,
+    struct List  *candidates,
     struct Move **takeback,
     struct Game  *game)
 {
@@ -299,18 +300,18 @@ centaur_read_move(
     for (; begin != end; ++begin) {
         // Replay actions, ignoring transient errors
         struct Game copy;
-        game_from_position(&copy, game->history.prev->data);
+        game_from_position(&copy, game_current(game));
         bool step_valid = true;
         for (int i = begin; i != end;) {
-            struct Node  local_candidates = LIST_INIT(local_candidates);
+            struct List *local_candidates = list_new();
             struct Move *local_takeback   = NULL;
             step_valid = history_read_move(
-                &local_candidates, &local_takeback, &copy, boardstate, &i, end);
+                local_candidates, &local_takeback, &copy, boardstate, &i, end);
             if (!step_valid) {
                 // This is going nowhere
                 break;
             }
-            if (!local_takeback && list_empty(&local_candidates)) {
+            if (!local_takeback && list_empty(local_candidates)) {
                 // Should only happen at end of actions history
                 assert(i == end);
                 break;
@@ -319,20 +320,18 @@ centaur_read_move(
             // Simulate move
             int err = 0;
             if (local_takeback) {
-                err = game_takeback(&copy, local_takeback);
+                err = game_apply_takeback(&copy, local_takeback);
             }
-            struct Node *b = local_candidates.next;
-            if (!err && b != &local_candidates) {
-                err = game_move(&copy, b->data);
+            if (!err && !list_empty(local_candidates)) {
+                err = game_apply_move(&copy, list_first(local_candidates));
             }
             if (err) {
                 step_valid = false;
                 break;
             }
         }
-        const uint64_t state = ((struct Position*)copy.history.prev->data)->bitmap;
 
-        if (step_valid && state == boardstate) {
+        if (step_valid && game_current(&copy)->bitmap == boardstate) {
             // OK, reconstruction makes some kind of sense
             break;
         }
@@ -362,7 +361,7 @@ centaur_read_move(
     // We're out of options and must wait for the board to be restored.  If
     // the boardstate does not differ too much from the last known position,
     // we can provide some feedback.
-    show_feedback(((struct Position*)game->history.prev->data)->bitmap ^ boardstate);
+    show_feedback(game_current(game)->bitmap ^ boardstate);
     return NULL;
 }
 
@@ -377,24 +376,24 @@ void centaur_sync(void) {
 // How about a nice game of chess?
 void centaur_main(void) {
     while (true) {
-        struct Node  candidates = LIST_INIT(candidates);
+        struct List *candidates = list_new();
         struct Move *takeback   = NULL;
 
         const bool maybe_valid =
-            centaur_read_move(&candidates, &takeback, &centaur.game);
+            centaur_read_move(candidates, &takeback, &centaur.game);
         if (maybe_valid) {
             bool should_render = false;
             if (takeback) {
                 printf("Takeback: %s\n", move_name_static(takeback));
-                game_takeback(&centaur.game, takeback);
+                game_apply_takeback(&centaur.game, takeback);
                 should_render = true;
             }
 
             // TODO promotions menu
-            if (!list_empty(&candidates)) {
-                struct Move *move = candidates.next->data;
+            if (!list_empty(candidates)) {
+                struct Move *move = list_first(candidates);
                 printf("Move: %s\n", move_name_static(move));
-                game_move(&centaur.game, move);
+                game_apply_move(&centaur.game, move);
                 should_render = true;
             }
 

@@ -8,7 +8,19 @@
 
 #include <gc/gc.h>
 
-static void list_insert(struct Node *node, struct Node *before) {
+static struct List *node_new(void *data) {
+    struct List *node = GC_MALLOC(sizeof *node);
+    *node = (struct List){.data = data};
+    return node;
+}
+
+struct List *list_new() {
+    struct List *list = node_new(NULL);
+    *list = (struct List){.next = list, .prev = list};
+    return list;
+}
+
+void list_link(struct List *node, struct List *before) {
     assert(node && !node->next && !node->prev);
     assert(before && before != node);
 
@@ -18,7 +30,7 @@ static void list_insert(struct Node *node, struct Node *before) {
     before->prev = node;
 }
 
-void list_remove(struct Node *node) {
+void list_unlink(struct List *node) {
     assert(node);
     assert(node->next && node->next != node);
     assert(node->prev && node->prev != node);
@@ -29,52 +41,72 @@ void list_remove(struct Node *node) {
     node->prev = NULL;
 }
 
-static struct Node *node_alloc(void *data) {
-    struct Node *node = GC_MALLOC(sizeof *node);
-    *node = (struct Node){.data = data};
-    return node;
+void list_push(struct List *list, void *data) {
+    assert(list);
+    list_link(node_new(data), list);
 }
 
-void list_push(struct Node *list, void *data) {
+void *list_pop(struct List *list) {
     assert(list);
-    list_insert(node_alloc(data), list);
-}
-
-void list_unshift(struct Node *list, void *data) {
-    assert(list);
-    list_insert(node_alloc(data), list->next);
-}
-
-void *list_pop(struct Node *list) {
-    assert(list);
-    struct Node *node = list->prev != list ? list->prev : NULL;
+    struct List *node = list->prev != list ? list->prev : NULL;
     if (node) {
-        list_remove(node);
+        list_unlink(node);
     }
     return node->data;
 }
 
-void *list_shift(struct Node *list) {
+void list_unshift(struct List *list, void *data) {
     assert(list);
-    struct Node *node = (list->next != list) ? list->next : NULL;
+    list_link(node_new(data), list->next);
+}
+
+void *list_shift(struct List *list) {
+    assert(list);
+    struct List *node = (list->next != list) ? list->next : NULL;
     if (node) {
-        list_remove(node);
+        list_unlink(node);
     }
     return node->data;
 }
 
-struct Node *list_find(const struct Node *list, void *data) {
-    for (struct Node *begin = list->next; begin != list; begin = begin->next) {
-        if (begin->data == data) {
-            return begin;
+struct List *list_find(const struct List *list, void *data) {
+    for (struct List *it = list->next; it != list; it = it->next) {
+        if (it->data == data) {
+            return it;
         }
     }
     return NULL;
 }
 
-int list_length(const struct Node *list) {
+void *list_first(const struct List *list) {
+    return list->next != list ? list->next->data : NULL;
+}
+
+void *list_index(const struct List *list, int index) {
+    assert(list);
+
+    if (index < 0) {
+        struct List *it = list->prev;
+        while (++index < 0 && it != list) {
+            it = it->prev;
+        }
+        return it != list ? it->data : NULL;
+    }
+
+    struct List *it = list->next;
+    while (--index >= 0 && it != list) {
+        it = it->next;
+    }
+    return it != list ? it->data : NULL;
+}
+
+void *list_last(const struct List *list) {
+    return list->prev != list ? list->prev->data : NULL;
+}
+
+int list_length(const struct List *list) {
     int length = 0;
-    for (struct Node *begin = list->next; begin != list; begin = begin->next) {
+    for (struct List *it = list->next; it != list; it = it->next) {
         ++length;
     }
     return length;

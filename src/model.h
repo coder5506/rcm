@@ -4,8 +4,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include "list.h"
-
+struct List;
 struct Model;
 
 typedef void (*ModelChanged)(struct Model *model, void *data);
@@ -16,7 +15,7 @@ struct Observer {
 };
 
 struct Model {
-    struct Node observers;
+    struct List *observers;
 };
 
 void model_destroy(struct Model *model);

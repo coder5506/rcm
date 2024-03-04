@@ -96,6 +96,9 @@ void board_empty(struct Board *board);
 
 void mailbox_print(const struct Mailbox *mailbox);
 void mailbox_invalid(struct Mailbox *mailbox);
+void mailbox_empty(struct Mailbox *mailbox);
+void mailbox_copy(struct Mailbox *dst, const struct Mailbox *src);
+bool mailbox_equal(const struct Mailbox *a, const struct Mailbox *b);
 
 void board_from_mailbox(struct Board *board, const struct Mailbox *mailbox);
 void mailbox_from_board(struct Mailbox *mailbox, const struct Board *board);

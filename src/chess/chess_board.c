@@ -172,6 +172,24 @@ void mailbox_invalid(struct Mailbox *mailbox) {
     memset(mailbox, INVALID_PIECE, sizeof *mailbox);
 }
 
+void mailbox_empty(struct Mailbox *mailbox) {
+    mailbox_invalid(mailbox);
+    for (enum Square sq = A8; sq <= H1; ++sq) {
+        mailbox->cells[mailbox_index[sq]] = EMPTY;
+    }
+}
+
+void mailbox_copy(struct Mailbox *dst, const struct Mailbox *src) {
+    assert(dst && src);
+    memcpy(dst, src, sizeof *dst);
+}
+
+bool mailbox_equal(const struct Mailbox *a, const struct Mailbox *b) {
+    assert(a && b);
+    return memcmp(a, b, sizeof *a) == 0;
+}
+
+
 void board_from_mailbox(struct Board *board, const struct Mailbox *mailbox) {
     assert(board && mailbox);
     for (enum Square sq = A8; sq <= H1; ++sq) {

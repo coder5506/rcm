@@ -13,18 +13,6 @@
 
 #include <gc/gc.h>
 
-struct Move *move_alloc(void) {
-    struct Move *move = GC_MALLOC(sizeof *move);
-    *move = (struct Move){
-        .from      = INVALID_SQUARE,
-        .to        = INVALID_SQUARE,
-        .promotion = EMPTY,
-        .before    = NULL,
-        .after     = NULL,
-    };
-    return move;
-}
-
 bool move_validate(enum Square from, enum Square to, enum Piece promotion) {
     if (from == to || !square_valid(from) || !square_valid(to)) {
         return false;
@@ -32,7 +20,7 @@ bool move_validate(enum Square from, enum Square to, enum Piece promotion) {
     if (!promotion || !strchr(" NBRQnbrq", promotion)) {
         return false;
     }
-    return promotion == EMPTY || is_last_rank(to, piece_color(promotion));
+    return promotion == ' ' || is_last_rank(to, piece_color(promotion));
 }
 
 bool move_valid(const struct Move *move) {
@@ -42,10 +30,14 @@ bool move_valid(const struct Move *move) {
 
 struct Move *move_new(enum Square from, enum Square to, enum Piece promotion) {
     assert(move_validate(from, to, promotion));
-    struct Move *move = move_alloc();
-    move->from = from;
-    move->to   = to;
-    move->promotion = promotion;
+    struct Move *move = GC_MALLOC(sizeof *move);
+    *move = (struct Move){
+        .from      = from,
+        .to        = to,
+        .promotion = promotion,
+        .before    = NULL,
+        .after     = NULL,
+    };
     assert(move_valid(move));
     return move;
 }
@@ -57,11 +49,13 @@ bool move_equal(const struct Move *a, const struct Move *b) {
 }
 
 struct Move*
-movelist_find_equal(const struct Node *list, const struct Move *move) {
-    assert(list && move_valid(move));
-    for (struct Node *begin = list->next; begin != list; begin = begin->next) {
-        if (move_equal(begin->data, move)) {
-            return begin->data;
+movelist_find_equal(const struct List *list, const struct Move *move) {
+    assert(list);
+    assert(move_valid(move));
+
+    for (struct List *each = list->next; each != list; each = each->next) {
+        if (move_equal(each->data, move)) {
+            return each->data;
         }
     }
     return NULL;
@@ -147,15 +141,14 @@ int move_san(char *buf, int len, const struct Move *move) {
         *san++ = toupper(piece);
     }
 
-    struct Node list = LIST_INIT(list);
-    position_legal_moves(&list, move->before);
+    struct List *list = position_legal_moves(move->before);
 
     // Look for ambiguity (can skip search for pawns)
-    struct Node *begin = (piece != 'P' && piece != 'p') ? list.next : &list;
-    for (; begin != &list; begin = begin->next) {
-        struct Move *m = begin->data;
-        if (m->to == move->to && m->from != move->from &&
-            position_piece(move->before, m->from) == piece)
+    struct List *it = (piece != 'P' && piece != 'p') ? list->next : list;
+    for (; it != list; it = it->next) {
+        struct Move *each = it->data;
+        if (each->to == move->to && each->from != move->from &&
+            position_piece(move->before, each->from) == piece)
         {
             // SAN is potentially ambiguous
             break;
@@ -163,12 +156,12 @@ int move_san(char *buf, int len, const struct Move *move) {
     }
 
     // Disambiguate from square
-    if (begin != &list) {
-        struct Move *m = begin->data;
-        if (square_rank(m->from) == square_rank(move->from)) {
+    if (it != list) {
+        struct Move *each = it->data;
+        if (square_rank(each->from) == square_rank(move->from)) {
             *san++ = square_file(move->from);
         }
-        if (square_file(m->from) == square_file(move->from)) {
+        if (square_file(each->from) == square_file(move->from)) {
             *san++ = square_rank(move->from);
         }
     }
@@ -282,25 +275,22 @@ promotion:
     const enum Square to = square(to_file, to_rank);
     struct Move *found = NULL;
 
-    struct Node list = LIST_INIT(list);
-    position_legal_moves(&list, before);
-
     // Find matching move
-    struct Node *begin = list.next;
-    for (; begin != &list; begin = begin->next) {
-        struct Move *m = begin->data;
-        if (m->to == to &&
-            position_piece(before, m->from) == piece &&
-            (from_file == '\0'  || square_file(m->from) == from_file) &&
-            (from_rank == '\0'  || square_rank(m->from) == from_rank) &&
-            (promotion == EMPTY || promotion == m->promotion))
+    struct List *list = position_legal_moves(before);
+    for (struct List *it = list->next; it != list; it = it->next) {
+        struct Move *move = it->data;
+        if (move->to == to &&
+            position_piece(before, move->from) == piece &&
+            (from_file == '\0'  || square_file(move->from) == from_file) &&
+            (from_rank == '\0'  || square_rank(move->from) == from_rank) &&
+            (promotion == EMPTY || promotion == move->promotion))
         {
             if (found) {
                 // Ambiguous
                 found = NULL;
                 break;
             }
-            found = m;
+            found = move;
         }
     }
 

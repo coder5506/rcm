@@ -6,33 +6,40 @@
 
 #include <stdbool.h>
 
-struct Node {
-    struct Node *next;
-    struct Node *prev;
+struct List {
+    struct List *next;
+    struct List *prev;
     void        *data;
 };
 
-// Initialize doubly-linked list with sentinel
-#define LIST_INIT(list) ((struct Node){.next = &(list), .prev = &(list)})
+static inline struct List*
+list_begin(struct List *list) { return list->next; }
 
-void list_remove(struct Node *node);
+static inline struct List*
+list_end(struct List *list) { return list; }
 
-void list_push(struct Node *list, void *data);
-void list_unshift(struct Node *list, void *data);
-void *list_pop(struct Node *list);
-void *list_shift(struct Node *list);
+static inline void
+list_clear(struct List *list) { list->next = list; list->prev = list; }
 
-static inline void list_clear(struct Node *list) {
-    list->next = list;
-    list->prev = list;
-}
+static inline bool
+list_empty(const struct List *list) { return list->next == list; }
 
-static inline bool list_empty(const struct Node *list) {
-    return list->next == list;
-}
+struct List *list_new();
 
-struct Node *list_find(const struct Node *list, void *data);
-int list_length(const struct Node *list);
+void list_link(struct List *node, struct List *before);
+void list_unlink(struct List *node);
+
+void list_push(struct List *list, void *data);
+void *list_pop(struct List *list);
+
+void list_unshift(struct List *list, void *data);
+void *list_shift(struct List *list);
+
+struct List *list_find(const struct List *list, void *data);
+void *list_first(const struct List *list);
+void *list_index(const struct List *list, int index);
+void *list_last(const struct List *list);
+int list_length(const struct List *list);
 
 #endif
 

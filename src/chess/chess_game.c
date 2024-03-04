@@ -3,22 +3,33 @@
 
 #include "chess_game.h"
 #include "chess.h"
+#include "../list.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static void game_update_moves(struct Game *game) {
-    list_clear(&game->moves);
-    const struct Position *position = game->history.prev->data;
-    position_legal_moves(&game->moves, position);
+struct Position *game_position(struct Game *game, int index) {
+    assert(game && !list_empty(game->history));
+    return list_index(game->history, index);
+}
+
+struct Position *game_start(struct Game *game) {
+    return game_position(game, 0);
+}
+
+struct Position *game_current(struct Game *game) {
+    return game_position(game, -1);
+}
+
+struct Position *game_previous(struct Game *game) {
+    return game_position(game, -2);
 }
 
 void game_from_position(struct Game *game, const struct Position *start) {
-    game->history = LIST_INIT(game->history);
-    game->moves   = LIST_INIT(game->moves);
-    list_push(&game->history, (struct Position*)start);
-    game_update_moves(game);
+    game->history = list_new();
+    // We share a lot, but don't share positions between games!
+    list_push(game->history, position_dup(start));
 }
 
 void game_from_fen(struct Game *game, const char *fen) {
@@ -26,51 +37,49 @@ void game_from_fen(struct Game *game, const char *fen) {
     game_from_position(game, start);
 }
 
-int game_move(struct Game *game, const struct Move *move) {
-    assert(game && game->history.prev != &game->history);
+int game_apply_move(struct Game *game, const struct Move *move) {
+    assert(game && !list_empty(game->history));
 
-    struct Position *current = game->history.prev->data;
-    struct Move *existing = movelist_find_equal(&current->moves_played, move);
+    struct Position *current = game_current(game);
+    struct Move *existing = movelist_find_equal(current->moves_played, move);
     if (existing) {
         // Move already in graph
-        list_push(&game->history, existing->after);
-        game_update_moves(game);
+        list_push(game->history, (struct Position*)existing->after);
         return 0;
     }
 
-    struct Move *candidate = movelist_find_equal(&game->moves, move);
+    struct Move *candidate =
+        movelist_find_equal(position_legal_moves(current), move);
     if (!candidate) {
         // Not a legal move
         return 1;
     }
 
-    list_push(&current->moves_played, candidate);
-    list_push(&game->history, candidate->after);
-    game_update_moves(game);
+    list_push(current->moves_played, candidate);
+    list_push(game->history, (struct Position*)candidate->after);
     return 0;
 }
 
-int game_takeback(struct Game *game, const struct Move *takeback) {
-    assert(game && game->history.prev != &game->history);
+int game_apply_takeback(struct Game *game, const struct Move *takeback) {
+    assert(game && !list_empty(game->history));
     assert(takeback);
 
-    struct Position *current  = game->history.prev->data;
-    if (game->history.prev->prev == &game->history) {
+    struct Position *current  = game_current(game);
+    struct Position *previous = game_previous(game);
+    if (!previous) {
         // No takeback available
         return 1;
     }
 
-    struct Position *previous = game->history.prev->prev->data;
     struct Move *matching =
-        movelist_find_equal(&previous->moves_played, takeback);
+        movelist_find_equal(previous->moves_played, takeback);
     if (!matching) {
         // Not a legal takeback
         return 1;
     }
 
     assert(matching->after == current);
-    list_pop(&game->history);
-    game_update_moves(game);
+    list_pop(game->history);
     return 0;
 }
 
@@ -79,7 +88,7 @@ int game_takeback(struct Game *game, const struct Move *takeback) {
 // might represent a move or a move in-progress, but it could also be the
 // completion of a two-part move (i.e., castling rook first) or a takeback.
 bool game_read_move(
-    struct Node   *candidates,
+    struct List   *candidates,
     struct Move  **takeback,
     struct Game   *game,
     uint64_t       boardstate,
@@ -92,7 +101,7 @@ bool game_read_move(
     assert(actions && num_actions >= 0);
 
     // If boardstate matches current position, there's no move to read.
-    struct Position *current = game->history.prev->data;
+    struct Position *current = game_current(game);
     if (current->bitmap == boardstate) {
         // i.e., not an error
         return true;
@@ -106,15 +115,13 @@ bool game_read_move(
     }
 
     // Is this the completion of a castling move?
-    struct Node castling = LIST_INIT(castling);
-    struct Position *previous = NULL;
-    if (game->history.prev->prev != &game->history) {
-        previous = game->history.prev->prev->data;
-        position_castle_moves(&castling, previous);
+    struct List     *castling = list_new();
+    struct Position *previous = game_previous(game);
+    if (previous) {
+        generate_castle_moves(castling, previous);
     }
-    struct Node *begin = castling.next;
-    for (; begin != &castling; begin = begin->next) {
-        struct Position *after = position_move(previous, begin->data);
+    for (struct List *it = castling->next; it != castling; it = it->next) {
+        struct Position *after = position_apply_move(previous, it->data);
         if (!position_legal(after)) {
             continue;
         }
@@ -124,29 +131,29 @@ bool game_read_move(
         }
 
         // Find takeback move
-        struct Node *b = previous->moves_played.next;
-        for (; b != &previous->moves_played; b = b->next) {
-            struct Move *m = b->data;
-            if (position_equal(m->after, after)) {
-                *takeback = m;
+        struct List *each = previous->moves_played->next;
+        for (; each != previous->moves_played; each = each->next) {
+            struct Move *move = each->data;
+            if (position_equal(move->after, after)) {
+                *takeback = move;
                 break;
             }
         }
         assert(*takeback);
 
         // Undo previous move and apply castling move
-        list_push(candidates, begin->data);
+        list_push(candidates, it->data);
 
         return true;
     }
 
     // Is this a takeback?
     if (previous && previous->bitmap == boardstate) {
-        struct Node *b = previous->moves_played.next;
-        for (; b != &previous->moves_played; b = b->next) {
-            struct Move *m = b->data;
-            if (position_equal(m->after, current)) {
-                *takeback = m;
+        struct List *each = previous->moves_played->next;
+        for (; each != previous->moves_played; each = each->next) {
+            struct Move *move = each->data;
+            if (position_equal(move->after, current)) {
+                *takeback = move;
                 return true;
             }
         }

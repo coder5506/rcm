@@ -9,7 +9,7 @@
 #include <gc/gc.h>
 
 void model_init(struct Model *model) {
-    model->observers = LIST_INIT(model->observers);
+    model->observers = list_new();
 }
 
 void model_destroy(struct Model *model) {
@@ -20,24 +20,24 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data) 
     struct Observer *observer = GC_MALLOC(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
-    list_push(&model->observers, observer);
+    list_push(model->observers, observer);
 }
 
 void model_unobserve(struct Model *model, ModelChanged model_changed, void *data) {
     struct Observer *unobserve = NULL;
-    struct Node     *begin = model->observers.next;
-    for (; !unobserve && begin != &model->observers; begin = begin->next) {
+    struct List     *begin = model->observers->next;
+    for (; !unobserve && begin != model->observers; begin = begin->next) {
         struct Observer *observer = begin->data;
         if (observer->model_changed == model_changed && observer->data == data) {
-            list_remove(begin);
+            list_unlink(begin);
             return;
         }
     }
 }
 
 void model_changed(struct Model *model) {
-    struct Node *begin = model->observers.next;
-    for (; begin != &model->observers; begin = begin->next) {
+    struct List *begin = model->observers->next;
+    for (; begin != model->observers; begin = begin->next) {
         struct Observer *observer = begin->data;
         observer->model_changed(model, observer->data);
     }

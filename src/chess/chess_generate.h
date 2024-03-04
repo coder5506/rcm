@@ -6,19 +6,13 @@
 
 #include <stdbool.h>
 
-struct Move;
-struct Node;
+struct List;
 struct Position;
 
-// Return result of making move in position
-struct Position*
-position_move(const struct Position *position, const struct Move *move);
+void generate_castle_moves(struct List *list, const struct Position *position);
 
-void position_castle_moves(struct Node *list, const struct Position *position);
-bool position_legal(const struct Position *position);
-
-// Return list of all legal moves and their resulting positions
-void position_legal_moves(struct Node *list, const struct Position *position);
+// List of all legal moves and their resulting positions
+void generate_legal_moves(struct List *list, const struct Position *position);
 
 #endif
 

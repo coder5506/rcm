@@ -4,11 +4,11 @@
 #ifndef CHESS_POSITION_H
 #define CHESS_POSITION_H
 
-#include "chess_move.h"
-#include "../list.h"
+#include "chess_board.h"
 
 #include <stdint.h>
 
+struct List;
 struct Move;
 
 // Flags
@@ -20,24 +20,24 @@ enum Castle {
 };
 
 struct Position {
-    struct Mailbox  mailbox;
-    uint64_t        bitmap;
-    uint64_t        white_bitmap;
-    enum Color      turn;
-    enum Castle     castle;
-    enum Square     en_passant;
-    int             halfmove;
-    int             fullmove;
-    struct Node     legal_moves;
-    struct Node     moves_played;
+    struct Mailbox mailbox;
+    uint64_t       bitmap;
+    uint64_t       white_bitmap;
+    enum Color     turn;
+    enum Castle    castle;
+    enum Square    en_passant;
+    int            halfmove;
+    int            fullmove;
+    struct List   *moves_played;
+    struct List   *legal_moves;
 };
 
-struct Position *position_alloc(void);
+struct Position *position_new(void);
 struct Position *position_dup(const struct Position *position);
 struct Position *position_from_fen(const char *fen);
 
 enum Piece position_piece(const struct Position *position, enum Square square);
-void position_update_bitmap(struct Position *position);
+void position_update_bitmap(const struct Position *position);
 
 bool position_equal(const struct Position *a, const struct Position *b);
 
@@ -45,8 +45,14 @@ static inline void position_print(const struct Position *position) {
     mailbox_print(&position->mailbox);
 }
 
+struct Position*
+position_apply_move(const struct Position *before, const struct Move *move);
+
+bool position_legal(const struct Position *position);
+struct List *position_legal_moves(const struct Position *before);
+
 // True if boardstate might represent a transition into this position
-bool position_incomplete(struct Position *position, uint64_t boardstate);
+bool position_incomplete(const struct Position *position, uint64_t boardstate);
 
 // Action can be either lift or place
 struct Action {
@@ -57,11 +63,11 @@ struct Action {
 #define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}
 
 bool position_read_move(
-    struct Node     *candidates,
-    struct Position *position,
-    uint64_t         boardstate,
-    struct Action   *actions,
-    int              num_actions);
+    struct List           *candidates,
+    const struct Position *position,
+    uint64_t               boardstate,
+    struct Action         *actions,
+    int                    num_actions);
 
 #endif
 

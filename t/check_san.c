@@ -38,7 +38,7 @@ END_TEST
 START_TEST(test_black_legal) {
     struct Position *p = position_from_fen(NULL);
     struct Move *m = move_from_san(p, "e4");
-    p = position_move(p, m);
+    p = position_apply_move(p, m);
 
     m = move_from_san(p, "e5");
     ck_assert_ptr_nonnull(m);
@@ -59,7 +59,7 @@ END_TEST
 START_TEST(test_black_illegal) {
     struct Position *p = position_from_fen(NULL);
     struct Move *m = move_from_san(p, "e4");
-    p = position_move(p, m);
+    p = position_apply_move(p, m);
 
     m = move_from_san(p, "e4");
     ck_assert_ptr_null(m);

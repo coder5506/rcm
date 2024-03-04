@@ -6,7 +6,7 @@
 
 #include "chess_board.h"
 
-struct Node;
+struct List;
 struct Position;
 
 // Represent moves in terms of named squares on an 8x8 board
@@ -14,19 +14,16 @@ struct Move {
     enum Square from;
     enum Square to;
     enum Piece  promotion;
-    struct Position *before;
-    struct Position *after;
+    const struct Position *before;
+    const struct Position *after;
 };
-
-struct Move *move_alloc(void);
-struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
 
 bool move_validate(enum Square from, enum Square to, enum Piece promotion);
 bool move_valid(const struct Move *move);
+struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
 
 bool move_equal(const struct Move *a, const struct Move *b);
-
-struct Move *movelist_find_equal(const struct Node *list, const struct Move *move);
+struct Move *movelist_find_equal(const struct List *list, const struct Move *move);
 
 // Pure Coordinate Notation
 int move_name(char *buf, int len, const struct Move *move);
