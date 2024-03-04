@@ -21,8 +21,13 @@ struct Position *game_previous(struct Game *game);
 void game_from_position(struct Game *game, const struct Position *start);
 void game_from_fen(struct Game *game, const char *fen);
 
+struct List *game_legal_moves(const struct Game *game);
+
 int game_apply_move(struct Game *game, const struct Move *move);
 int game_apply_takeback(struct Game *game, const struct Move *takeback);
+
+int game_apply_move_name(struct Game *game, const char *name);
+int game_apply_move_san(struct Game *game, const char *san);
 
 bool game_read_move(
     struct List   *candidates,

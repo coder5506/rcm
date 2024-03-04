@@ -28,7 +28,7 @@ struct Move *movelist_find_equal(const struct List *list, const struct Move *mov
 // Pure Coordinate Notation
 int move_name(char *buf, int len, const struct Move *move);
 const char *move_name_static(const struct Move *move);
-struct Move *move_named(const char *name);
+struct Move *move_from_name(const char *name);
 
 // Standard Algebraic Notation
 int move_san(char *buf, int len, const struct Move *move);

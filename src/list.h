@@ -24,6 +24,9 @@ list_clear(struct List *list) { list->next = list; list->prev = list; }
 static inline bool
 list_empty(const struct List *list) { return list->next == list; }
 
+static inline bool
+list_valid(const struct List *list) { return list && list->data == list; }
+
 struct List *list_new();
 
 void list_link(struct List *node, struct List *before);

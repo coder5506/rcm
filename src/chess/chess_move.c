@@ -76,7 +76,7 @@ const char *move_name_static(const struct Move *move) {
     return move_name(buf, sizeof buf, move) > 0 ? buf : NULL;
 }
 
-struct Move *move_named(const char *name) {
+struct Move *move_from_name(const char *name) {
     assert(name);
     if (strlen(name) < 4) {
         return NULL;
@@ -200,10 +200,10 @@ struct Move *move_from_san(struct Position *before, const char *san) {
 
     // Handle castling as a special case
     if (!strcmp(san, "O-O")) {
-        return move_named(before->turn == 'w' ? "e1g1" : "e8g8");
+        return move_from_name(before->turn == 'w' ? "e1g1" : "e8g8");
     }
     if (!strcmp(san, "O-O-O")) {
-        return move_named(before->turn == 'w' ? "e1c1" : "e8c8");
+        return move_from_name(before->turn == 'w' ? "e1c1" : "e8c8");
     }
 
     char piece     = 'P';

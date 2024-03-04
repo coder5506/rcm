@@ -13,11 +13,35 @@
 
 #include <gc/gc.h>
 
+// Piece at square
 enum Piece position_piece(const struct Position *position, enum Square square) {
     return position->mailbox.cells[mailbox_index[square]];
 }
 
-void position_update_bitmap(const struct Position *position) {
+static bool bitmap_valid(uint64_t bitmap) {
+    const int popcount = __builtin_popcountll(bitmap);
+    return 2 <= popcount && popcount <= 32;
+}
+
+static bool color_bitmap_valid(uint64_t bitmap) {
+    const int popcount = __builtin_popcountll(bitmap);
+    return 1 <= popcount && popcount <= 16;
+}
+
+static bool position_valid(const struct Position *position) {
+    return position &&
+        bitmap_valid(position->bitmap) &&
+        color_bitmap_valid(position->white_bitmap) &&
+        color_bitmap_valid(position->bitmap & ~position->white_bitmap) &&
+        (position->turn == WHITE || position->turn == BLACK) &&
+        (position->castle & ~0x0F) == 0 &&
+        (position->en_passant == INVALID_SQUARE ||
+         (A3 <= position->en_passant && position->en_passant <= H6)) &&
+        (0 <= position->halfmove && position->halfmove <= 100) &&
+        (1 <= position->fullmove);
+}
+
+static void position_update_bitmap(const struct Position *position) {
     uint64_t white = 0;
     uint64_t black = 0;
     uint64_t mask  = 1;
@@ -34,8 +58,10 @@ void position_update_bitmap(const struct Position *position) {
         }
         mask <<= 1;
     }
-    ((struct Position*)position)->bitmap = white | black;
-    ((struct Position*)position)->white_bitmap = white;
+
+    struct Position *mutable = (struct Position*)position;
+    mutable->bitmap = white | black;
+    mutable->white_bitmap = white;
 }
 
 struct Position *position_new(void) {
@@ -56,16 +82,12 @@ struct Position *position_new(void) {
     return position;
 }
 
-struct Position *position_dup(const struct Position *position) {
-    struct Position *copy = position_new();
-    copy->bitmap     = position->bitmap;
-    copy->turn       = position->turn;
-    copy->castle     = position->castle;
-    copy->en_passant = position->en_passant;
-    copy->halfmove   = position->halfmove;
-    copy->fullmove   = position->fullmove;
-    mailbox_copy(&copy->mailbox, &position->mailbox);
-    return copy;
+struct Position *position_dup(const struct Position *src) {
+    struct Position *dst = position_new();
+    memcpy(dst, src, sizeof *dst);  // Bit-copy picks up mailbox and bitmaps
+    dst->moves_played = list_new(); // Don't share moves played
+    dst->legal_moves  = NULL;       // Don't share legal moves
+    return dst;
 }
 
 struct Position *position_from_fen(const char *fen) {
@@ -74,12 +96,14 @@ struct Position *position_from_fen(const char *fen) {
         position_read_fen(position, STARTING_FEN);
     }
     position_update_bitmap(position);
+    assert(position_valid(position));
     return position;
 }
 
 bool position_equal(const struct Position *a, const struct Position *b) {
-    return a->bitmap == b->bitmap &&
-           a->turn   == b->turn   &&
+    assert(position_valid(a));
+    assert(position_valid(b));
+    return a->turn   == b->turn   &&
            a->castle == b->castle &&
            a->en_passant == b->en_passant &&
            a->halfmove   == b->halfmove   &&
@@ -88,6 +112,10 @@ bool position_equal(const struct Position *a, const struct Position *b) {
 }
 
 // Result of making move in position
+//
+// N.B., We don't check move legality here, because we have to generate
+// positions to determine if moves are legal.  The appropriate checks happen
+// higher-up, in game_apply_move.
 struct Position*
 position_apply_move(const struct Position *before, const struct Move *move) {
     struct Position *after = position_dup(before);
@@ -100,6 +128,7 @@ position_apply_move(const struct Position *before, const struct Move *move) {
     if (piece_color(moving)   != before->turn ||
         piece_color(captured) == before->turn)
     {
+        // Not a possible move
         return NULL;
     }
 
@@ -268,27 +297,24 @@ bool position_incomplete(const struct Position *position, uint64_t boardstate) {
 //   position.
 static bool position_read_moves(
     struct List           *candidates,
-    const struct Position *position,
+    const struct Position *before,
     uint64_t               boardstate)
 {
     assert(candidates && list_empty(candidates));
-    assert(position);
-
-    // Ensure we've generated the legal moves for this position
-    (void)position_legal_moves(position);
+    assert(before);
 
     bool maybe_valid = false;
 
-    struct List *it = list_begin(position->legal_moves);
-    for (; it != list_end(position->legal_moves); it = it->next) {
-        struct Move *move = it->data;
-        assert(move->after);
-        if (move->after->bitmap == boardstate) {
-            list_push(candidates, move);
+    struct List *legal_moves = position_legal_moves(before);
+    struct List *each = list_begin(legal_moves);
+    for (; each != list_end(legal_moves); each = each->next) {
+        const struct Move     *move  = each->data;
+        const struct Position *after = move->after;
+        if (after->bitmap == boardstate) {
+            list_push(candidates, (struct Move*)move);
             maybe_valid = true;
         } else {
-            maybe_valid =
-                maybe_valid || position_incomplete(move->after, boardstate);
+            maybe_valid = maybe_valid || position_incomplete(after, boardstate);
         }
     }
 
@@ -302,17 +328,16 @@ static bool position_read_moves(
 // be resolved here and (b) the actions history might be incomplete.
 bool position_read_move(
     struct List           *candidates,
-    const struct Position *position,
+    const struct Position *before,
     uint64_t               boardstate,
     struct Action         *actions,
     int                    num_actions)
 {
     assert(candidates && list_empty(candidates));
-    assert(position);
+    assert(before);
     assert(actions || num_actions >= 0);
 
-    const bool maybe_valid =
-        position_read_moves(candidates, position, boardstate);
+    const bool maybe_valid = position_read_moves(candidates, before, boardstate);
     if (list_empty(candidates)) {
         return maybe_valid;
     }
@@ -324,18 +349,18 @@ bool position_read_move(
     int num_moves      = 0;
     int num_promotions = 0;
 
-    struct List *begin = list_begin(candidates);
-    while (begin != list_end(candidates)) {
-        struct List *next = begin->next;
+    struct List *each = list_begin(candidates);
+    while (each != list_end(candidates)) {
+        struct List *next = each->next;
 
-        const struct Move *move = begin->data;
+        const struct Move *move = each->data;
         if (move->promotion != EMPTY) {
             // Can't resolve promotion here
             ++num_promotions;
             goto next;
         }
 
-        const enum Piece capture = position_piece(position, move->to);
+        const enum Piece capture = position_piece(before, move->to);
         if (capture == EMPTY) {
             // No capture, not ambiguous
             ++num_moves;
@@ -361,13 +386,13 @@ bool position_read_move(
         }
 
         if (!got_place || !got_lift) {
-            list_unlink(begin);
+            list_unlink(each);
             goto next;
         }
         ++num_moves;
 
     next:
-        begin = next;
+        each = next;
     }
 
     assert(num_moves == 0 || num_promotions == 0);

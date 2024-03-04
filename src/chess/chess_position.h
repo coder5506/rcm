@@ -37,8 +37,6 @@ struct Position *position_dup(const struct Position *position);
 struct Position *position_from_fen(const char *fen);
 
 enum Piece position_piece(const struct Position *position, enum Square square);
-void position_update_bitmap(const struct Position *position);
-
 bool position_equal(const struct Position *a, const struct Position *b);
 
 static inline void position_print(const struct Position *position) {
@@ -64,7 +62,7 @@ struct Action {
 
 bool position_read_move(
     struct List           *candidates,
-    const struct Position *position,
+    const struct Position *before,
     uint64_t               boardstate,
     struct Action         *actions,
     int                    num_actions);

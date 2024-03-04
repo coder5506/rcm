@@ -38,7 +38,7 @@ END_TEST
 START_TEST(test_opening_moves)
 {
     struct Game g; /* = */ game_from_fen(&g, NULL);
-    struct List *moves = position_legal_moves(game_current(&g));
+    struct List *moves = game_legal_moves(&g);
     ck_assert_int_eq(list_length(moves), 20);
 }
 END_TEST

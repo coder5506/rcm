@@ -9,8 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static bool game_valid(const struct Game *game) {
+    return game && !list_empty(game->history);
+}
+
 struct Position *game_position(struct Game *game, int index) {
-    assert(game && !list_empty(game->history));
+    assert(game_valid(game));
     return list_index(game->history, index);
 }
 
@@ -30,6 +34,7 @@ void game_from_position(struct Game *game, const struct Position *start) {
     game->history = list_new();
     // We share a lot, but don't share positions between games!
     list_push(game->history, position_dup(start));
+    assert(game_valid(game));
 }
 
 void game_from_fen(struct Game *game, const char *fen) {
@@ -37,8 +42,13 @@ void game_from_fen(struct Game *game, const char *fen) {
     game_from_position(game, start);
 }
 
+struct List *game_legal_moves(const struct Game *game) {
+    assert(game_valid(game));
+    return position_legal_moves(game_current((struct Game*)game));
+}
+
 int game_apply_move(struct Game *game, const struct Move *move) {
-    assert(game && !list_empty(game->history));
+    assert(game_valid(game));
 
     struct Position *current = game_current(game);
     struct Move *existing = movelist_find_equal(current->moves_played, move);
@@ -57,11 +67,20 @@ int game_apply_move(struct Game *game, const struct Move *move) {
 
     list_push(current->moves_played, candidate);
     list_push(game->history, (struct Position*)candidate->after);
+    assert(game_valid(game));
     return 0;
 }
 
+int game_apply_move_name(struct Game *game, const char *name) {
+    return game_apply_move(game, move_from_name(name));
+}
+
+int game_apply_move_san(struct Game *game, const char *san) {
+    return game_apply_move(game, move_from_san(game_current(game), san));
+}
+
 int game_apply_takeback(struct Game *game, const struct Move *takeback) {
-    assert(game && !list_empty(game->history));
+    assert(game_valid(game));
     assert(takeback);
 
     struct Position *current  = game_current(game);
@@ -95,9 +114,9 @@ bool game_read_move(
     struct Action *actions,
     int            num_actions)
 {
-    assert(candidates && list_empty(candidates));
+    assert(list_valid(candidates) && list_empty(candidates));
     assert(takeback && !*takeback);
-    assert(game);
+    assert(game_valid(game));
     assert(actions && num_actions >= 0);
 
     // If boardstate matches current position, there's no move to read.

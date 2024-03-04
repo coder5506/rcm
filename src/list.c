@@ -17,6 +17,8 @@ static struct List *node_new(void *data) {
 struct List *list_new() {
     struct List *list = node_new(NULL);
     *list = (struct List){.next = list, .prev = list};
+    list->data = list;
+    assert(list_valid(list));
     return list;
 }
 
