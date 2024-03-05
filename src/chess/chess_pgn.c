@@ -7,6 +7,22 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <gc/gc.h>
+
+static bool position_is_checkmate(const struct Position *position)
+{
+    (void)position;
+    return false;
+}
+
+static bool position_is_check(const struct Position *position)
+{
+    (void)position;
+    return false;
+}
 
 static void pgn_write_move(
     FILE *out,
@@ -14,10 +30,24 @@ static void pgn_write_move(
     const struct Move     *move,
     bool                   show_move_number)
 {
-    if (show_move_number || before->turn == 'w') {
-        fprintf(out, before->turn == 'w' ? "%d. " : "%d... ", before->fullmove);
+    if (!show_move_number && before->turn == 'w') {
+        fputc(' ', out);
     }
+
+    if (show_move_number || before->turn == 'w') {
+        fprintf(out, before->turn == 'w' ? "%d." : "%d...", before->fullmove);
+    }
+    fputc(' ', out);
     san_write_move(out, before, move);
+
+    const struct Position *after = move->after;
+    if (after) {
+        if (position_is_checkmate(after)) {
+            fputc('#', out);
+        } else if (position_is_check(after)) {
+            fputc('+', out);
+        }
+    }
 }
 
 static void
@@ -37,11 +67,11 @@ pgn_write_moves(FILE *out, const struct Position *before, bool is_first_move)
         show_move_number = false;
 
         for (begin = begin->next; begin != end; begin = begin->next) {
-            fprintf(out, "(");
+            fprintf(out, " (");
             const struct Move *variation = begin->data;
             pgn_write_move(out, before, variation, true);
             pgn_write_moves(out, variation->after, false);
-            fprintf(out, ")");
+            fprintf(out, ") ");
 
             show_move_number = true;
         }
@@ -55,8 +85,9 @@ static void pgn_write_movetext(FILE *out, const struct Game *game)
     pgn_write_moves(out, game_start((struct Game*)game), true);
 }
 
-static void pgn_write(FILE *out, const struct Game *game) {
+static int pgn_write(FILE *out, const struct Game *game) {
     pgn_write_movetext(out, game);
+    return 0;
 }
 
 char *game_pgn(const struct Game *game) {
@@ -69,9 +100,21 @@ char *game_pgn(const struct Game *game) {
         return NULL;
     }
 
-    pgn_write(out, game);
+    const int err = pgn_write(out, game);
     fclose(out);
-    return buf;
+    if (buf == NULL || len == 0) {
+        return NULL;
+    }
+    if (err != 0) {
+        free(buf);
+        return NULL;
+    }
+
+    // Move to GC heap
+    char *result = GC_MALLOC(len + 1);
+    strncpy(result, buf, len + 1);
+    free(buf);
+    return result;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

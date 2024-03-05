@@ -9,7 +9,7 @@ sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.c))
 obj_dirs = $(patsubst src%,obj%,$(src_dirs))
 objects  = $(foreach s,$(sources),$(patsubst src/%.c,obj/%.o,$s))
 
-CPPFLAGS = -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
+CPPFLAGS = -DGC_THREADS -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
 LDLIBS   = $(if $(centaur),-lpigpio,) -lgc -lmicrohttpd -lpcre2-8 -lpng -lrt -lm

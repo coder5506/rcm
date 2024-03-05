@@ -6,6 +6,7 @@
 #include <check.h>
 
 Suite *game_suite(void);
+Suite *pgn_suite(void);
 Suite *san_suite(void);
 
 static Suite *chess_suite(void) {
@@ -15,6 +16,7 @@ static Suite *chess_suite(void) {
 int main(void) {
     SRunner *sr = srunner_create(chess_suite());
     srunner_add_suite(sr, game_suite());
+    srunner_add_suite(sr, pgn_suite());
     srunner_add_suite(sr, san_suite());
 
     srunner_run_all(sr, CK_NORMAL);

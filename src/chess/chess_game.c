@@ -80,8 +80,20 @@ int game_apply_move_name(struct Game *game, const char *name) {
     return game_apply_move(game, move_from_name(name));
 }
 
-int game_apply_move_san(struct Game *game, const char *san) {
+int game_move_san(struct Game *game, const char *san) {
     return game_apply_move(game, move_from_san(game_current(game), san));
+}
+
+int game_takeback(struct Game *game) {
+    assert(game_valid(game));
+    if (list_length(game->history) <= 1) {
+        // No takeback available
+        return 1;
+    }
+
+    list_pop(game->history);
+    assert(game_valid(game));
+    return 0;
 }
 
 int game_apply_takeback(struct Game *game, const struct Move *takeback) {
