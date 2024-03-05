@@ -350,8 +350,8 @@ void generate_legal_moves(struct List *list, const struct Position *before) {
     struct List *candidates = list_new();
     candidate_moves(candidates, before);
 
-    for (struct List *it = candidates->next; it != candidates; it = it->next) {
-        struct Move     *move  = it->data;
+    for (struct List *each = candidates->next; each != candidates; each = each->next) {
+        struct Move     *move  = each->data;
         struct Position *after = position_apply_move(before, move);
         if (position_legal(after)) {
             move->before = before;
@@ -363,7 +363,7 @@ void generate_legal_moves(struct List *list, const struct Position *before) {
 
 struct List *position_legal_moves(const struct Position *before) {
     if (!before->legal_moves) {
-        struct Position *mutable = (struct Position *)before;
+        struct Position *mutable = (struct Position*)before;
         mutable->legal_moves = list_new();
         generate_legal_moves(mutable->legal_moves, before);
     }

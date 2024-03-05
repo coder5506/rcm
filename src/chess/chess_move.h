@@ -30,11 +30,6 @@ int move_name(char *buf, int len, const struct Move *move);
 const char *move_name_static(const struct Move *move);
 struct Move *move_from_name(const char *name);
 
-// Standard Algebraic Notation
-int move_san(char *buf, int len, const struct Move *move);
-const char *move_san_static(const struct Move *move);
-struct Move *move_from_san(struct Position *before, const char *san);
-
 #endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

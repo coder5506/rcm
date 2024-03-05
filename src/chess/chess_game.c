@@ -9,13 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static bool game_valid(const struct Game *game) {
-    return game && !list_empty(game->history);
+bool game_valid(const struct Game *game) {
+    return game && !list_empty(game->history) &&
+           position_valid(game->history->prev->data);
 }
 
 struct Position *game_position(struct Game *game, int index) {
     assert(game_valid(game));
-    return list_index(game->history, index);
+    struct Position *position = list_index(game->history, index);
+    assert(!position || position_valid(position));
+    return position;
 }
 
 struct Position *game_start(struct Game *game) {
@@ -31,6 +34,7 @@ struct Position *game_previous(struct Game *game) {
 }
 
 void game_from_position(struct Game *game, const struct Position *start) {
+    assert(position_valid(start));
     game->history = list_new();
     // We share a lot, but don't share positions between games!
     list_push(game->history, position_dup(start));
@@ -67,6 +71,7 @@ int game_apply_move(struct Game *game, const struct Move *move) {
 
     list_push(current->moves_played, candidate);
     list_push(game->history, (struct Position*)candidate->after);
+    assert(position_valid(candidate->after));
     assert(game_valid(game));
     return 0;
 }
@@ -99,6 +104,7 @@ int game_apply_takeback(struct Game *game, const struct Move *takeback) {
 
     assert(matching->after == current);
     list_pop(game->history);
+    assert(game_valid(game));
     return 0;
 }
 
@@ -139,8 +145,8 @@ bool game_read_move(
     if (previous) {
         generate_castle_moves(castling, previous);
     }
-    for (struct List *it = castling->next; it != castling; it = it->next) {
-        struct Position *after = position_apply_move(previous, it->data);
+    for (struct List *each = castling->next; each != castling; each = each->next) {
+        struct Position *after = position_apply_move(previous, each->data);
         if (!position_legal(after)) {
             continue;
         }
@@ -150,9 +156,9 @@ bool game_read_move(
         }
 
         // Find takeback move
-        struct List *each = previous->moves_played->next;
-        for (; each != previous->moves_played; each = each->next) {
-            struct Move *move = each->data;
+        struct List *it = previous->moves_played->next;
+        for (; it != previous->moves_played; it = it->next) {
+            struct Move *move = it->data;
             if (position_equal(move->after, after)) {
                 *takeback = move;
                 break;
@@ -161,7 +167,7 @@ bool game_read_move(
         assert(*takeback);
 
         // Undo previous move and apply castling move
-        list_push(candidates, it->data);
+        list_push(candidates, each->data);
 
         return true;
     }

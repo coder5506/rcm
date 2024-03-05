@@ -21,16 +21,18 @@ enum Castle {
 
 struct Position {
     struct Mailbox mailbox;
-    uint64_t       bitmap;
-    uint64_t       white_bitmap;
     enum Color     turn;
     enum Castle    castle;
     enum Square    en_passant;
     int            halfmove;
     int            fullmove;
+    uint64_t       bitmap;
+    uint64_t       white_bitmap;
     struct List   *moves_played;
     struct List   *legal_moves;
 };
+
+bool position_valid(const struct Position *position);
 
 struct Position *position_new(void);
 struct Position *position_dup(const struct Position *position);

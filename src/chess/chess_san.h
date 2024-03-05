@@ -1,22 +1,21 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Inspired by Tripplehappy Chess library, MIT-licensed:
-// - https://github.com/billforsternz/thc-chess-library
-//
-// (Personal bias, not a fan of C++, THC is otherwise excellent.)
+#ifndef CHESS_SAN_H
+#define CHESS_SAN_H
 
-#ifndef CHESS_H
-#define CHESS_H
+#include <stdio.h>
 
-#include "chess_board.h"
-#include "chess_fen.h"
-#include "chess_game.h"
-#include "chess_generate.h"
-#include "chess_move.h"
-#include "chess_pgn.h"
-#include "chess_position.h"
-#include "chess_san.h"
+struct Move;
+struct Position;
+
+// Standard Algebraic Notation
+int
+san_write_move(FILE *out, const struct Position *before, const struct Move *move);
+
+int move_san(char *buf, int len, const struct Move *move);
+const char *move_san_static(const struct Move *move);
+struct Move *move_from_san(const struct Position *before, const char *san);
 
 #endif
 

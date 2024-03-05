@@ -1,22 +1,13 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Inspired by Tripplehappy Chess library, MIT-licensed:
-// - https://github.com/billforsternz/thc-chess-library
-//
-// (Personal bias, not a fan of C++, THC is otherwise excellent.)
+#ifndef CHESS_PGN_H
+#define CHESS_PGN_H
 
-#ifndef CHESS_H
-#define CHESS_H
+struct Game;
 
-#include "chess_board.h"
-#include "chess_fen.h"
-#include "chess_game.h"
-#include "chess_generate.h"
-#include "chess_move.h"
-#include "chess_pgn.h"
-#include "chess_position.h"
-#include "chess_san.h"
+// Portable Game Notation
+char *game_pgn(const struct Game *game);
 
 #endif
 

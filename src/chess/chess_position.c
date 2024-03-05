@@ -28,17 +28,18 @@ static bool color_bitmap_valid(uint64_t bitmap) {
     return 1 <= popcount && popcount <= 16;
 }
 
-static bool position_valid(const struct Position *position) {
+bool position_valid(const struct Position *position) {
     return position &&
-        bitmap_valid(position->bitmap) &&
-        color_bitmap_valid(position->white_bitmap) &&
-        color_bitmap_valid(position->bitmap & ~position->white_bitmap) &&
-        (position->turn == WHITE || position->turn == BLACK) &&
-        (position->castle & ~0x0F) == 0 &&
-        (position->en_passant == INVALID_SQUARE ||
-         (A3 <= position->en_passant && position->en_passant <= H6)) &&
-        (0 <= position->halfmove && position->halfmove <= 100) &&
-        (1 <= position->fullmove);
+           color_valid(position->turn) &&
+           (position->castle & ~0x0F) == 0 &&
+           (position->en_passant == INVALID_SQUARE ||
+            (A6 <= position->en_passant && position->en_passant <= H6) ||
+            (A3 <= position->en_passant && position->en_passant <= H3)) &&
+           (0 <= position->halfmove && position->halfmove <= 100) &&
+           (1 <= position->fullmove) &&
+           bitmap_valid(position->bitmap) &&
+           color_bitmap_valid(position->white_bitmap) &&
+           color_bitmap_valid(position->bitmap & ~position->white_bitmap);
 }
 
 static void position_update_bitmap(const struct Position *position) {
@@ -47,14 +48,14 @@ static void position_update_bitmap(const struct Position *position) {
     uint64_t mask  = 1;
     for (enum Square sq = A8; sq <= H1; ++sq) {
         switch (position_piece(position, sq)) {
-            case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
-                white |= mask;
-                break;
-            case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
-                black |= mask;
-                break;
-            default:
-                break;
+        case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
+            white |= mask;
+            break;
+        case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
+            black |= mask;
+            break;
+        default:
+            break;
         }
         mask <<= 1;
     }
@@ -67,13 +68,13 @@ static void position_update_bitmap(const struct Position *position) {
 struct Position *position_new(void) {
     struct Position *position = GC_MALLOC(sizeof *position);
     *position = (struct Position){
-        .bitmap       = 0,
-        .white_bitmap = 0,
         .turn         = WHITE,
         .castle       = 0,
         .en_passant   = INVALID_SQUARE,
         .halfmove     = 0,
         .fullmove     = 1,
+        .bitmap       = 0,
+        .white_bitmap = 0,
         .moves_played = list_new(),
         .legal_moves  = NULL,
     };
@@ -118,6 +119,7 @@ bool position_equal(const struct Position *a, const struct Position *b) {
 // higher-up, in game_apply_move.
 struct Position*
 position_apply_move(const struct Position *before, const struct Move *move) {
+    assert(position_valid(before));
     struct Position *after = position_dup(before);
 
     // Move and capture
@@ -202,12 +204,13 @@ position_apply_move(const struct Position *before, const struct Move *move) {
         ++after->fullmove;
     }
 
+    assert(position_valid(after));
     return after;
 }
 
 // True if boardstate might represent a transition into this position
 bool position_incomplete(const struct Position *position, uint64_t boardstate) {
-    assert(position);
+    assert(position_valid(position));
 
     // The boardstate for a move in-progress can differ only in small ways from
     // the boardstate of the completed move:
@@ -300,8 +303,8 @@ static bool position_read_moves(
     const struct Position *before,
     uint64_t               boardstate)
 {
-    assert(candidates && list_empty(candidates));
-    assert(before);
+    assert(list_valid(candidates) && list_empty(candidates));
+    assert(position_valid(before));
 
     bool maybe_valid = false;
 
@@ -333,8 +336,8 @@ bool position_read_move(
     struct Action         *actions,
     int                    num_actions)
 {
-    assert(candidates && list_empty(candidates));
-    assert(before);
+    assert(list_valid(candidates) && list_empty(candidates));
+    assert(position_valid(before));
     assert(actions || num_actions >= 0);
 
     const bool maybe_valid = position_read_moves(candidates, before, boardstate);
@@ -386,6 +389,7 @@ bool position_read_move(
         }
 
         if (!got_place || !got_lift) {
+            // This capture doesn't match the history
             list_unlink(each);
             goto next;
         }

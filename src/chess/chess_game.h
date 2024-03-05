@@ -5,6 +5,7 @@
 #define CHESS_GAME_H
 
 #include "chess_position.h"
+#include <stdbool.h>
 
 struct List;
 
@@ -12,6 +13,8 @@ struct List;
 struct Game {
     struct List *history; // Path from start to current position
 };
+
+bool game_valid(const struct Game *game);
 
 struct Position *game_position(struct Game *game, int index);
 struct Position *game_start(struct Game *game);
