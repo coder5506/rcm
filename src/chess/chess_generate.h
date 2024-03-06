@@ -14,6 +14,12 @@ void generate_castle_moves(struct List *list, const struct Position *position);
 // List of all legal moves and their resulting positions
 void generate_legal_moves(struct List *list, const struct Position *position);
 
+bool position_legal(const struct Position *position);
+struct List *position_legal_moves(const struct Position *before);
+
+bool position_is_check(const struct Position *position);
+bool position_is_checkmate(const struct Position *position);
+
 #endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

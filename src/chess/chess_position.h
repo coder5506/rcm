@@ -48,9 +48,6 @@ static inline void position_print(const struct Position *position) {
 struct Position*
 position_apply_move(const struct Position *before, const struct Move *move);
 
-bool position_legal(const struct Position *position);
-struct List *position_legal_moves(const struct Position *before);
-
 // True if boardstate might represent a transition into this position
 bool position_incomplete(const struct Position *position, uint64_t boardstate);
 

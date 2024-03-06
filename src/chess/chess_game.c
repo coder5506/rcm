@@ -4,19 +4,12 @@
 #include "chess_game.h"
 #include "chess.h"
 #include "../list.h"
-#include "../model.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <gc/gc.h>
-
-// Game is graph of positions joined by moves
-struct Game {
-    struct Model model;
-    struct List *history; // Path from start to current position
-};
 
 bool game_valid(const struct Game *game) {
     return game && !list_empty(game->history) &&

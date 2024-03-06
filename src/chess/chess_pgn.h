@@ -8,6 +8,7 @@ struct Game;
 
 // Portable Game Notation
 char *game_pgn(const struct Game *game);
+struct List *game_pgn_list(const struct Game *game);
 
 #endif
 

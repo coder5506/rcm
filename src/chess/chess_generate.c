@@ -370,6 +370,14 @@ struct List *position_legal_moves(const struct Position *before) {
     return before->legal_moves;
 }
 
+bool position_is_check(const struct Position *position) {
+    return in_check(&position->mailbox, position->turn);
+}
+
+bool position_is_checkmate(const struct Position *position) {
+    return position_is_check(position) && list_empty(position_legal_moves(position));
+}
+
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //
 // RCM is free software: you can redistribute it and/or modify

@@ -4,6 +4,8 @@
 #ifndef CHESS_GAME_H
 #define CHESS_GAME_H
 
+#include "../model.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -11,7 +13,11 @@ struct Action;
 struct Move;
 struct Position;
 
-struct Game;
+// Game is graph of positions joined by moves
+struct Game {
+    struct Model model;
+    struct List *history; // Path from start to current position
+};
 
 bool game_valid(const struct Game *game);
 
