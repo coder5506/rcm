@@ -30,8 +30,8 @@ struct Position *game_position(struct Game *game, int index) {
     return position;
 }
 
-struct Position *game_start(struct Game *game) {
-    return game_position(game, 0);
+const struct Position *game_start(const struct Game *game) {
+    return game_position((struct Game*)game, 0);
 }
 
 struct Position *game_current(struct Game *game) {
@@ -42,15 +42,40 @@ struct Position *game_previous(struct Game *game) {
     return game_position(game, -2);
 }
 
+bool game_started(const struct Game *game) {
+    assert(game_valid(game));
+    return list_length(game->history) > 1;
+}
+
+void game_set_start(struct Game *game, const struct Position *start) {
+    assert(game);
+    assert(!start || position_valid(start));
+
+    list_clear(game->history);
+    if (start) {
+        // We share a lot, but don't share positions between games!
+        list_push(game->history, position_dup(start));
+    } else {
+        list_push(game->history, position_from_fen(NULL));
+    }
+    assert(game_valid(game));
+    model_changed(&game->model);
+}
+
 struct Game *game_from_position(const struct Position *start) {
     assert(position_valid(start));
+
     struct Game *game = GC_MALLOC(sizeof *game);
     model_init(&game->model);
     game->history = list_new();
-    // We share a lot, but don't share positions between games!
-    list_push(game->history, position_dup(start));
-    assert(game_valid(game));
+    game_set_start(game, start);
+
     return game;
+}
+
+struct Game *game_fork(const struct Game *game) {
+    assert(game_valid(game));
+    return game_from_position(game_current((struct Game*)game));
 }
 
 struct Game *game_from_fen(const char *fen) {

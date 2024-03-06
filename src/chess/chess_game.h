@@ -16,12 +16,18 @@ struct Game;
 bool game_valid(const struct Game *game);
 
 struct Position *game_position(struct Game *game, int index);
-struct Position *game_start(struct Game *game);
+const struct Position *game_start(const struct Game *game);
 struct Position *game_current(struct Game *game);
 struct Position *game_previous(struct Game *game);
 
+bool game_started(const struct Game *game);
+void game_set_start(struct Game *game, const struct Position *start);
+
 struct Game *game_from_position(const struct Position *start);
 struct Game *game_from_fen(const char *fen);
+
+// Not a dup, does not share history
+struct Game *game_fork(const struct Game *game);
 
 struct List *game_legal_moves(const struct Game *game);
 

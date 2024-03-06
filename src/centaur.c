@@ -266,17 +266,12 @@ static bool
 centaur_read_move(
     struct List  *candidates,
     struct Move **takeback,
-    struct Game  *game)
+    struct Game  *game,
+    uint64_t      boardstate)
 {
     assert(candidates && list_empty(candidates));
     assert(takeback && !*takeback);
     assert(game);
-
-    // Update history before reading boardstate.  We don't want actions
-    // that are newer than the boardstate, but we can handle possibly not
-    // having the very latest action.
-    update_actions();
-    const uint64_t boardstate = centaur_getstate();
 
     // Try to read a move
     bool maybe_valid = game_read_move(
@@ -307,7 +302,7 @@ centaur_read_move(
     int end   = centaur.num_actions;
     for (; begin != end; ++begin) {
         // Replay actions, ignoring transient errors
-        struct Game *copy = game_from_position(game_current(game));
+        struct Game *copy = game_fork(game);
         bool step_valid = true;
         for (int i = begin; i != end;) {
             struct List *local_candidates = list_new();
@@ -382,12 +377,28 @@ void centaur_sync(void) {
 
 // How about a nice game of chess?
 void centaur_main(void) {
+    struct List *candidates = list_new();
+    struct Move *takeback   = NULL;
+
     while (true) {
-        struct List *candidates = list_new();
-        struct Move *takeback   = NULL;
+        list_clear(candidates);
+        takeback = NULL;
+
+        // Update history before reading boardstate.  We don't want actions
+        // that are newer than the boardstate, but we can handle possibly not
+        // having the very latest action.
+        update_actions();
+        const uint64_t boardstate = centaur_getstate();
+
+        if (boardstate == STARTING_POSITION) {
+            clear_actions();
+            if (game_started(centaur.game)) {
+                game_set_start(centaur.game, NULL);
+            }
+        }
 
         const bool maybe_valid =
-            centaur_read_move(candidates, &takeback, centaur.game);
+            centaur_read_move(candidates, &takeback, centaur.game, boardstate);
         if (maybe_valid) {
             if (takeback) {
                 printf("Takeback: %s\n", move_name_static(takeback));
