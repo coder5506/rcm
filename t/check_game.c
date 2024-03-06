@@ -25,12 +25,8 @@ move(uint64_t boardstate, enum Square from, enum Square to) {
 START_TEST(test_starting_position)
 {
     struct Game *g = game_from_fen(NULL);
-    struct Position *p = game_current(g);
-    ck_assert_int_eq(p->bitmap, START);
-
-    char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    ck_assert_int_eq(game_current(g)->bitmap, START);
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 END_TEST
 
@@ -49,15 +45,9 @@ START_TEST(test_open_e4)
     struct Game *g = game_from_fen(NULL);
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     game_apply_move(g, &e4);
-    struct Position *p = game_current(g);
 
-    // Pawn has moved
-    char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
-
-    // Bitmap reflects pawn move
-    ck_assert_int_eq(p->bitmap, move(START, E2, E4));
+    ck_assert_int_eq(game_current(g)->bitmap, move(START, E2, E4));
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 }
 END_TEST
 
@@ -73,12 +63,8 @@ START_TEST(test_open_e4e5)
 
     uint64_t boardstate = move(START, E2, E4);
     boardstate = move(boardstate, E7, E5);
-    struct Position *p = game_current(g);
-    ck_assert_int_eq(p->bitmap, boardstate);
-
-    char fen[FEN_MAX];
-    position_fen(p, fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+    ck_assert_int_eq(game_current(g)->bitmap, boardstate);
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 }
 END_TEST
 
@@ -102,9 +88,7 @@ START_TEST(test_read_e4)
     game_apply_move(g, list_pop(candidates));
 
     // Position matches "1. e4"
-    char fen[FEN_MAX];
-    position_fen(game_current(g), fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 }
 END_TEST
 
@@ -127,9 +111,7 @@ START_TEST(test_read_e4e5)
     ck_assert(maybe_valid);
     game_apply_move(g, list_pop(candidates));
 
-    char fen[FEN_MAX];
-    position_fen(game_current(g), fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 }
 END_TEST
 
@@ -161,9 +143,7 @@ START_TEST(test_read_takeback)
     game_apply_takeback(g, takeback);
 
     // Position matches "1. e4"
-    char fen[FEN_MAX];
-    position_fen(game_current(g), fen, sizeof fen);
-    ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+    ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 }
 END_TEST
 

@@ -351,11 +351,11 @@ static struct HttpdResponse*
 get_fen(struct HttpdRequest *request) {
     (void)request;
 
-    char *fen = GC_MALLOC(FEN_MAX);
-    int   len = position_fen(game_current(centaur.game), fen, FEN_MAX);
+    const char *fen = position_fen(game_current(centaur.game));
+    size_t      len = strlen(fen);
 
     struct MHD_Response *mhd_response =
-        MHD_create_response_from_buffer(len, fen, MHD_RESPMEM_PERSISTENT);
+        MHD_create_response_from_buffer(len, (void*)fen, MHD_RESPMEM_PERSISTENT);
     MHD_add_response_header(mhd_response, "Content-Type", "text/plain");
 
     return httpd_response_new(mhd_response, 200);
@@ -365,11 +365,11 @@ static struct HttpdResponse*
 get_pgn(struct HttpdRequest *request) {
     (void)request;
 
-    char  *pgn = game_pgn(centaur.game);
-    size_t len = strlen(pgn);
+    const char *pgn = game_pgn(centaur.game);
+    size_t      len = strlen(pgn);
 
     struct MHD_Response *mhd_response =
-        MHD_create_response_from_buffer(len, pgn, MHD_RESPMEM_PERSISTENT);
+        MHD_create_response_from_buffer(len, (void*)pgn, MHD_RESPMEM_PERSISTENT);
     MHD_add_response_header(mhd_response, "Content-Type", "text/plain");
 
     return httpd_response_new(mhd_response, 200);

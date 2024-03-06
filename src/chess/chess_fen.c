@@ -6,19 +6,18 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <gc/gc.h>
 
 const char *STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// Space for 8 ranks, 7 separators, and 1 terminator
-static const int BOARD_FEN_MAX = 8 * 8 + 7 + 1;
+static void fen_write_board(FILE *out, const struct Board *board) {
+    assert(out && board);
 
-// Return num chars written not including terminator
-static int to_board_fen(const struct Board *board, char *fen, int len) {
-    assert(board && fen && len >= BOARD_FEN_MAX);
-
-    char *p  = fen;
-    int   sq = A8;
-    for (int r = 8; r >= 1; --r) {
+    int sq = A8;
+    for (char r = '8'; r >= '1'; --r) {
         int empty = 0;
         for (char f = 'a'; f <= 'h'; ++f) {
             const enum Piece piece = board->squares[sq++];
@@ -26,38 +25,97 @@ static int to_board_fen(const struct Board *board, char *fen, int len) {
                 ++empty;
             } else {
                 if (empty) {
-                    *p++ = '0' + empty;
+                    fputc('0' + empty, out);
                     empty = 0;
                 }
-                *p++ = piece;
+                fputc(piece, out);
             }
         }
         if (empty) {
-            *p++ = '0' + empty;
+            fputc('0' + empty, out);
         }
-        if (r > 1) {
-            *p++ = '/';
+        if (r > '1') {
+            fputc('/', out);
         }
     }
     assert(sq == 64);
-
-    *p = '\0';
-    return p - fen;
 }
 
-// Return num chars consumed
-static int from_board_fen(struct Board *board, const char *fen) {
-    assert(board && fen);
-    board_empty(board);
+static void fen_write(FILE *out, const struct Position *position) {
+    assert(out);
+    assert(position_valid(position));
 
-    const char *p = fen;
+    struct Board board;
+    board_from_mailbox(&board, &position->mailbox);
+    fen_write_board(out, &board);
+
+    fputc(' ', out);
+    fputc(position->turn, out);
+
+    fputc(' ', out);
+    if (position->castle & K_CASTLE) {
+        fputc('K', out);
+    }
+    if (position->castle & Q_CASTLE) {
+        fputc('Q', out);
+    }
+    if (position->castle & k_CASTLE) {
+        fputc('k', out);
+    }
+    if (position->castle & q_CASTLE) {
+        fputc('q', out);
+    }
+
+    fputc(' ', out);
+    if (position->en_passant == INVALID_SQUARE) {
+        fputc('-', out);
+    } else {
+        fputc(square_file(position->en_passant), out);
+        fputc(square_rank(position->en_passant), out);
+    }
+
+    fprintf(out, " %d", position->halfmove);
+    fprintf(out, " %d", position->fullmove);
+}
+
+char *position_fen(const struct Position *position) {
+    assert(position_valid(position));
+
+    char  *buf = NULL;
+    size_t len = 0;
+    FILE *out = open_memstream(&buf, &len);
+    if (!out) {
+        return NULL;
+    }
+
+    fen_write(out, position);
+    fclose(out);
+    if (buf == NULL || len == 0) {
+        return NULL;
+    }
+
+    // Move to GC heap
+    char *result = GC_MALLOC(len + 1);
+    strncpy(result, buf, len + 1);
+    free(buf);
+    return result;
+}
+
+char *game_fen(const struct Game *game) {
+    return position_fen(game_current((struct Game*)game));
+}
+
+static int fen_read_board(struct Board *board, FILE *in) {
+    assert(board && in);
+
+    board_empty(board);
     int sq = A8;
     while (sq <= H1) {
-        const char c = *p++;
+        const int c = fgetc(in);
         if (c == '/') {
             if (square_file(sq) != 'a') {
                 // Misplaced separator
-                return 0;
+                return 1;
             }
             continue;
         }
@@ -67,136 +125,104 @@ static int from_board_fen(struct Board *board, const char *fen) {
             board->squares[sq++] = c;
         } else {
             // Invalid character
-            return 0;
+            return 1;
         }
     }
-    return sq == 64 ? p - fen : 0;
+    return sq == 64 ? 0 : 1;
 }
 
-const int FEN_MAX =
-    /* board      */ 71 +  // 8x8 + 7 separators
-    /* turn       */  2 +
-    /* castle     */  5 +
-    /* en passant */  3 +
-    /* halfmove   */  3 +  // max value 99
-    /* fullmove   */  4 +  // max value 269... so far
-    /* terminator */  1;
-
-int position_fen(const struct Position *position, char *fen, int len) {
-    assert(position && fen && len >= FEN_MAX);
+static int fen_read(struct Position *position, FILE *in) {
+    assert(position && in);
 
     struct Board board;
-    board_from_mailbox(&board, &position->mailbox);
-
-    char *p = fen;
-    p += to_board_fen(&board, fen, len);
-
-    *p++ = ' ';
-    *p++ = position->turn;
-
-    *p++ = ' ';
-    if (position->castle & K_CASTLE) {
-        *p++ = 'K';
+    const int err = fen_read_board(&board, in);
+    if (err) {
+        return err;
     }
-    if (position->castle & Q_CASTLE) {
-        *p++ = 'Q';
-    }
-    if (position->castle & k_CASTLE) {
-        *p++ = 'k';
-    }
-    if (position->castle & q_CASTLE) {
-        *p++ = 'q';
-    }
-
-    *p++ = ' ';
-    if (position->en_passant == INVALID_SQUARE) {
-        *p++ = '-';
-    } else {
-        *p++ = square_file(position->en_passant);
-        *p++ = '0' + square_rank(position->en_passant);
-    }
-
-    p += snprintf(p, 4, " %d", position->halfmove);
-    p += snprintf(p, 5, " %d", position->fullmove);
-    return p - fen;
-}
-
-int position_read_fen(struct Position *position, const char *fen) {
-    assert(position && fen);
-    const char *p = fen;
-
-    struct Board board;
-    int consumed = from_board_fen(&board, p);
-    if (!consumed) {
-        return 0;
+    if (fgetc(in) != ' ') {
+        return 1;
     }
 
     mailbox_from_board(&position->mailbox, &board);
-    p += consumed;
 
-    if (*p++ != ' ') {
-        return 0;
+    int c = fgetc(in);
+    if (c != 'w' && c != 'b') {
+        return 1;
     }
-    if (*p != 'w' && *p != 'b') {
-        return 0;
+    if (fgetc(in) != ' ') {
+        return 1;
     }
-    position->turn = *p++;
+    position->turn = c;
 
-    if (*p++ != ' ') {
-        return 0;
-    }
     position->castle = 0;
-    while (*p != ' ') {
-        switch (*p++) {
+    while ((c = fgetc(in)) != ' ') {
+        switch (c) {
         case 'K': position->castle |= K_CASTLE; break;
         case 'Q': position->castle |= Q_CASTLE; break;
         case 'k': position->castle |= k_CASTLE; break;
         case 'q': position->castle |= q_CASTLE; break;
-        default: return 0;
+        default:
+            return 1;
         }
     }
+    assert(c == ' ');
 
-    if (*p++ != ' ') {
-        return 0;
-    }
-    if (*p == '-') {
+    c = fgetc(in);
+    if (c == '-') {
         position->en_passant = INVALID_SQUARE;
-        ++p;
     } else {
-        if (*p < 'a' || 'h' < *p) {
-            return 0;
+        if (c < 'a' || 'h' < c) {
+            return 1;
         }
-        const char file = *p++;
-        if (*p != '3' && *p != '6') {
-            return 0;
+        const char file = c;
+        c = fgetc(in);
+        if (c != '3' && c != '6') {
+            return 1;
         }
-        const char rank = *p++;
+        const char rank = c;
         position->en_passant = square(file, rank);
     }
-
-    if (*p++ != ' ') {
-        return 0;
+    if (fgetc(in) != ' ') {
+        return 1;
     }
-    if (*p < '0' || '9' < *p) {
-        return 0;
+
+    c = fgetc(in);
+    if (c < '0' || '9' < c) {
+        return 1;
     }
     position->halfmove = 0;
-    while ('0' <= *p && *p <= '9') {
-        position->halfmove = 10 * position->halfmove + (*p++ - '0');
+    while ('0' <= c && c <= '9') {
+        position->halfmove = 10 * position->halfmove + (c - '0');
+        c = fgetc(in);
+    }
+    if (c != ' ') {
+        return 1;
     }
 
-    if (*p++ != ' ') {
-        return 0;
-    }
-    if (*p < '1' || '9' < *p) {
-        return 0;
+    c = fgetc(in);
+    if (c < '1' || '9' < c) {
+        return 1;
     }
     position->fullmove = 0;
-    while ('0' <= *p && *p <= '9') {
-        position->fullmove = 10 * position->fullmove + (*p++ - '0');
+    while ('0' <= c && c <= '9') {
+        position->fullmove = 10 * position->fullmove + (c - '0');
+        c = fgetc(in);
     }
 
-    return position->fullmove > 0 ? p - fen : 0;
+    return position->fullmove > 0 ? 0 : 1;
+}
+
+int position_read_fen(struct Position *position, const char *fen) {
+    assert(position && fen);
+
+    FILE *in = fmemopen((void *)fen, strlen(fen), "r");
+    if (!in) {
+        return 1;
+    }
+
+    const int err = fen_read(position, in);
+    fclose(in);
+    return err;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

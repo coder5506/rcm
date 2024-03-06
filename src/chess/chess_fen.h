@@ -4,16 +4,15 @@
 #ifndef CHESS_FEN_H
 #define CHESS_FEN_H
 
-struct Position;
-
 // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 extern const char *STARTING_FEN;
-extern const int FEN_MAX;
 
-// Return num chars written not including terminator
-int position_fen(const struct Position *position, char *fen, int len);
+struct Game;
+struct Position;
 
-// Return num chars consumed
+char *position_fen(const struct Position *position);
+char *game_fen(const struct Game *game);
+
 int position_read_fen(struct Position *position, const char *fen);
 
 #endif

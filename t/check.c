@@ -2,7 +2,6 @@
 // See license at end of file
 
 #include <stdlib.h>
-
 #include <check.h>
 
 Suite *game_suite(void);
