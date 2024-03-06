@@ -8,6 +8,11 @@
 
 #include <gc/gc.h>
 
+struct Observer {
+    ModelChanged  model_changed;
+    void         *data;
+};
+
 void model_init(struct Model *model) {
     model->observers = list_new();
 }

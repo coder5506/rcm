@@ -4,12 +4,14 @@
 #include "httpd.h"
 #include "centaur.h"
 #include "chess/chess.h"
+#include "list.h"
 #include "screen.h"
 
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
 
+#include <gc/gc.h>
 #include <pcre2.h>
 #include <pthread.h>
 
@@ -24,15 +26,15 @@ struct key_value {
 };
 
 struct HttpdRequest {
-    struct MHD_Connection      *mhd_connection;
-    const char                 *method;
-    const char                 *url;
-    HttpdRequestHandler         handler;
-    uint8_t                    *body;
-    size_t                      body_allocated;
-    size_t                      body_used;
-    struct key_value           *post_vars;
-    void                       *userdata;
+    struct MHD_Connection *mhd_connection;
+    const char            *method;
+    const char            *url;
+    HttpdRequestHandler    handler;
+    uint8_t               *body;
+    size_t                 body_allocated;
+    size_t                 body_used;
+    struct key_value      *post_vars;
+    void                  *userdata;
 };
 
 struct HttpdResponse {
@@ -267,23 +269,33 @@ httpd_response_new(struct MHD_Response *mhd_response, int status_code) {
 struct EventStream {
     pthread_cond_t  cond;
     pthread_mutex_t mutex;
+    struct List    *events;
 };
+
+static void observe_game(struct Model *model, struct EventStream *stream) {
+    (void)model;
+    pthread_mutex_lock(&stream->mutex);
+    list_push(stream->events, "game_changed");
+    pthread_cond_signal(&stream->cond);
+    pthread_mutex_unlock(&stream->mutex);
+}
 
 static void observe_screen(struct Model *model, struct EventStream *stream) {
     (void)model;
     pthread_mutex_lock(&stream->mutex);
+    list_push(stream->events, "screen_changed");
     pthread_cond_signal(&stream->cond);
     pthread_mutex_unlock(&stream->mutex);
 }
 
 void stream_free(struct EventStream *stream) {
     pthread_mutex_lock(&stream->mutex);
-    model_unobserve(&screen.model, (ModelChanged)observe_screen, stream);
+    MODEL_UNOBSERVE(centaur.game, observe_game, stream);
+    MODEL_UNOBSERVE(&screen, observe_screen, stream);
     pthread_mutex_unlock(&stream->mutex);
     pthread_mutex_destroy(&stream->mutex);
 
     pthread_cond_destroy(&stream->cond);
-    free(stream);
 }
 
 static ssize_t
@@ -292,7 +304,7 @@ stream_events(struct EventStream *stream, uint64_t pos, char *buf, size_t max)
     (void)pos;
 
     // Keepalive
-    int rc  = snprintf(buf, max, ":\n\n");
+    int rc = snprintf(buf, max, ":\n\n");
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -302,7 +314,11 @@ stream_events(struct EventStream *stream, uint64_t pos, char *buf, size_t max)
     int err = pthread_cond_timedwait(&stream->cond, &stream->mutex, &ts);
     if (!err) {
         clock_gettime(CLOCK_REALTIME, &ts);
-        rc = snprintf(buf, max, "event: screen\ndata: {\"timestamp\": %ld}\n\n", ts.tv_sec);
+        const char *event = list_shift(stream->events);
+        if (event) {
+            rc = snprintf(
+                buf, max, "event: %s\ndata: {\"timestamp\": %ld}\n\n", event, ts.tv_sec);
+        }
     }
     pthread_mutex_unlock(&stream->mutex);
 
@@ -313,11 +329,12 @@ static struct HttpdResponse*
 get_events(struct HttpdRequest *request) {
     (void)request;
 
-    struct EventStream *stream = malloc(sizeof *stream);
+    struct EventStream *stream = GC_MALLOC(sizeof *stream);
     pthread_cond_init(&stream->cond, NULL);
     pthread_mutex_init(&stream->mutex, NULL);
 
-    model_observe(&screen.model, (ModelChanged)observe_screen, stream);
+    MODEL_OBSERVE(centaur.game, observe_game, stream);
+    MODEL_OBSERVE(&screen, observe_screen, stream);
 
     struct MHD_Response *mhd_response = MHD_create_response_from_callback(
         MHD_SIZE_UNKNOWN,
@@ -334,11 +351,25 @@ static struct HttpdResponse*
 get_fen(struct HttpdRequest *request) {
     (void)request;
 
-    char *fen = malloc(FEN_MAX);
+    char *fen = GC_MALLOC(FEN_MAX);
     int   len = position_fen(game_current(centaur.game), fen, FEN_MAX);
 
     struct MHD_Response *mhd_response =
-        MHD_create_response_from_buffer(len, fen, MHD_RESPMEM_MUST_FREE);
+        MHD_create_response_from_buffer(len, fen, MHD_RESPMEM_PERSISTENT);
+    MHD_add_response_header(mhd_response, "Content-Type", "text/plain");
+
+    return httpd_response_new(mhd_response, 200);
+}
+
+static struct HttpdResponse*
+get_pgn(struct HttpdRequest *request) {
+    (void)request;
+
+    char  *pgn = game_pgn(centaur.game);
+    size_t len = strlen(pgn);
+
+    struct MHD_Response *mhd_response =
+        MHD_create_response_from_buffer(len, pgn, MHD_RESPMEM_PERSISTENT);
     MHD_add_response_header(mhd_response, "Content-Type", "text/plain");
 
     return httpd_response_new(mhd_response, 200);
@@ -386,11 +417,13 @@ struct Endpoint {
     HttpdRequestHandler handler;
 };
 
-#define NUM_ENDPOINTS 3
+#define NUM_ENDPOINTS 4
+
 static const struct Endpoint
 endpoints[NUM_ENDPOINTS] = {
     {"/api/events", MATCH_PREFIX, METHOD_GET, get_events},
     {"/api/fen",    MATCH_PREFIX, METHOD_GET, get_fen},
+    {"/api/pgn",    MATCH_PREFIX, METHOD_GET, get_pgn},
     {"/api/screen", MATCH_PREFIX, METHOD_GET, get_screen},
 };
 

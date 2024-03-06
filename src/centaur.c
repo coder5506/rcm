@@ -138,7 +138,7 @@ int centaur_open(void) {
 
     centaur.game = game_from_fen(NULL);
     centaur.screen_view = &board_view;
-    model_observe((struct Model*)centaur.game, (ModelChanged)game_changed, NULL);
+    MODEL_OBSERVE(centaur.game, game_changed, NULL);
 
     centaur.num_actions = MAX_ACTIONS;
     clear_actions();

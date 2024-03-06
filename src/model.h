@@ -9,11 +9,6 @@ struct Model;
 
 typedef void (*ModelChanged)(struct Model *model, void *data);
 
-struct Observer {
-    ModelChanged     model_changed;
-    void            *data;
-};
-
 struct Model {
     struct List *observers;
 };
@@ -25,6 +20,21 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data);
 void model_unobserve(struct Model *model, ModelChanged model_changed, void *data);
 
 void model_changed(struct Model *model);
+
+//
+// Convenience macros
+//
+
+#define MODEL_DESTROY(model) model_destroy((struct Model*)model)
+#define MODEL_INIT(model) model_init((struct Model*)model)
+
+#define MODEL_OBSERVE(model, model_changed, data) \
+model_observe((struct Model*)model, (ModelChanged)model_changed, data)
+
+#define MODEL_UNOBSERVE(model, model_changed, data) \
+model_unobserve((struct Model*)model, (ModelChanged)model_changed, data)
+
+#define MODEL_CHANGED(model) model_changed((struct Model*)model)
 
 #endif
 
