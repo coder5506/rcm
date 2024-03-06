@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import { Chessboard } from './Chessboard'
@@ -79,9 +79,11 @@ export const BoardPanel = () => {
   }, [turn])
 
   return (
-    <div className="flex flex-auto flex-col overflow-hidden">
-      <Chessboard />
-      <div className="flex-none text-center" style={{ width: boardSize }}>
+    <div className="flex flex-auto flex-col h-full" style={{ containerType: 'size' }}>
+      <div style={{ width: '100cqmin', height: '100cqmin' }}>
+        <Chessboard />
+      </div>
+      <div className="text-center" style={{ width: boardSize }}>
         {synchronized ?
           <div>
             <h3 className="font-bold">{turnCaption}</h3>
@@ -94,6 +96,7 @@ export const BoardPanel = () => {
           </div>
         }
       </div>
+      <div className="flex-auto" />
     </div>
   )
 }

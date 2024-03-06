@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import '@chrisoakman/chessboardjs/dist/chessboard-1.0.0.css'
@@ -13,8 +13,9 @@ import * as boardStore from './store/boardSlice'
 import * as chessboardStore from './store/chessboardSlice'
 import * as display from './store/displaySlice'
 import * as history from './store/historySlice'
+import { watch } from 'fs'
 
-export const Chessboard = (props) => {
+export const Chessboard = () => {
   const activeBoard = useAppSelector(display.selectSetting('activeBoard'))
   const board = useRef<HTMLDivElement | null>(null)
   const boardSize = useAppSelector(chessboardStore.selectBoardSize)
@@ -101,14 +102,12 @@ export const Chessboard = (props) => {
   }, [currentFEN])
 
   return (
-    <div className="flex flex-auto flex-col">
-      <div {...props} className="relative">
-        <div ref={board} className="absolute left-0 top-0 w-full h-full" />
-        <ChessboardArrows
-          canvasSize={boardSize}
-          className="absolute left-0 top-0 p-0 opacity-70 pointer-events-none"
-        />
-      </div>
+    <div className="relative w-full h-full">
+      <div ref={board} className="absolute left-0 top-0 w-full h-full" />
+      <ChessboardArrows
+        canvasSize={boardSize}
+        className="absolute left-0 top-0 p-0 opacity-70 pointer-events-none"
+      />
     </div>
   )
 }

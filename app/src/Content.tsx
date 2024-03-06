@@ -1,19 +1,17 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import { BoardPanel } from './BoardPanel'
 import { CentaurScreen } from './CentaurScreen'
 import { PgnPanel } from './PgnPanel'
 
-export const Content = (): JSX.Element => {
-  return (
-    <div className="flex flex-row h-full overflow-hidden">
-      <BoardPanel />
-      <PgnPanel />
-      <CentaurScreen />
-    </div>
-  )
-}
+export const Content = (): JSX.Element => (
+  <div className="flex flex-row h-full overflow-hidden">
+    <BoardPanel />
+    <PgnPanel />
+    <CentaurScreen />
+  </div>
+)
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import './PgnPanel.css'
@@ -13,7 +13,7 @@ export const PgnPanel = () => {
   const go = (move: number) => dispatch(history.go(move))
 
   return (
-    <div className="flex-1 h-full min-w-56 overflow-y-auto">
+    <div className="h-full min-w-48 overflow-y-auto">
       {pgnList.map(({ move, wsan, bsan }) => (
         <div key={move}>
           <span className={move === Math.floor(index / 2) ? 'current' : ''}>

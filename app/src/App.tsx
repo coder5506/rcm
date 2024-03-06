@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import { Content } from './Content'
@@ -28,7 +28,7 @@ export const App = (): JSX.Element => {
         {showEditor ?
           <Editor />
         : <>
-            <Navbar />
+            {/* <Navbar /> */}
             <Content />
           </>
         }

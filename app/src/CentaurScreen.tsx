@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 import {
@@ -27,7 +27,7 @@ export const CentaurScreen = () => {
   }, [])
 
   return (
-    <div className="flex flex-col flex-none align-items-center">
+    <div className="align-items-center flex flex-col">
       <img className="rotate-180" src={imageUrl} width="128" height="296" />
       <div className="grid grid-cols-3">
         <ChevronUpIcon
