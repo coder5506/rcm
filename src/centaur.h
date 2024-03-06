@@ -12,7 +12,7 @@ struct View;
 #define MAX_ACTIONS 32
 
 struct Centaur {
-    struct Game   game;
+    struct Game  *game;
     struct View  *screen_view;
     struct Action actions[MAX_ACTIONS];
     int           num_actions;

@@ -24,8 +24,8 @@ move(uint64_t boardstate, enum Square from, enum Square to) {
 // Initialized to starting position
 START_TEST(test_starting_position)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
-    struct Position *p = game_current(&g);
+    struct Game *g = game_from_fen(NULL);
+    struct Position *p = game_current(g);
     ck_assert_int_eq(p->bitmap, START);
 
     char fen[FEN_MAX];
@@ -37,8 +37,8 @@ END_TEST
 // White has 20 choices to start
 START_TEST(test_opening_moves)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
-    struct List *moves = game_legal_moves(&g);
+    struct Game *g = game_from_fen(NULL);
+    struct List *moves = game_legal_moves(g);
     ck_assert_int_eq(list_length(moves), 20);
 }
 END_TEST
@@ -46,10 +46,10 @@ END_TEST
 // Play "1. e4"
 START_TEST(test_open_e4)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
-    game_apply_move(&g, &e4);
-    struct Position *p = game_current(&g);
+    game_apply_move(g, &e4);
+    struct Position *p = game_current(g);
 
     // Pawn has moved
     char fen[FEN_MAX];
@@ -64,16 +64,16 @@ END_TEST
 // Play "1. e4 e5"
 START_TEST(test_open_e4e5)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
 
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     struct Move e5 = { .from = E7, .to = E5, .promotion = EMPTY };
-    game_apply_move(&g, &e4);
-    game_apply_move(&g, &e5);
+    game_apply_move(g, &e4);
+    game_apply_move(g, &e5);
 
     uint64_t boardstate = move(START, E2, E4);
     boardstate = move(boardstate, E7, E5);
-    struct Position *p = game_current(&g);
+    struct Position *p = game_current(g);
     ck_assert_int_eq(p->bitmap, boardstate);
 
     char fen[FEN_MAX];
@@ -85,25 +85,25 @@ END_TEST
 // Read "1. e4" from a bitmap
 START_TEST(test_read_e4)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
     const uint64_t boardstate = move(START, E2, E4);
 
     struct List  *candidates = list_new();
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, boardstate, actions, 0);
+        game_read_move(candidates, &takeback, g, boardstate, actions, 0);
 
     // Got move and new position
     ck_assert(maybe_valid);
     ck_assert_int_eq(list_length(candidates), 1);
     ck_assert_ptr_null(takeback);
 
-    game_apply_move(&g, list_pop(candidates));
+    game_apply_move(g, list_pop(candidates));
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
-    position_fen(game_current(&g), fen, sizeof fen);
+    position_fen(game_current(g), fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 }
 END_TEST
@@ -111,9 +111,9 @@ END_TEST
 // Read "1. ... e5" from a bitmap
 START_TEST(test_read_e4e5)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
-    game_apply_move(&g, &e4);
+    game_apply_move(g, &e4);
 
     uint64_t boardstate = move(START, E2, E4);
     boardstate = move(boardstate, E7, E5);
@@ -122,13 +122,13 @@ START_TEST(test_read_e4e5)
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, boardstate, actions, 0);
+        game_read_move(candidates, &takeback, g, boardstate, actions, 0);
 
     ck_assert(maybe_valid);
-    game_apply_move(&g, list_pop(candidates));
+    game_apply_move(g, list_pop(candidates));
 
     char fen[FEN_MAX];
-    position_fen(game_current(&g), fen, sizeof fen);
+    position_fen(game_current(g), fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 }
 END_TEST
@@ -136,13 +136,13 @@ END_TEST
 // Takeback "1. ... e5"
 START_TEST(test_read_takeback)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
 
     // Play "1. e4 e5"
     struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
     struct Move e5 = { .from = E7, .to = E5, .promotion = EMPTY };
-    game_apply_move(&g, &e4);
-    game_apply_move(&g, &e5);
+    game_apply_move(g, &e4);
+    game_apply_move(g, &e5);
 
     // N.B., name conflict
     const uint64_t boardstate = move(START, E2, E4);
@@ -151,31 +151,31 @@ START_TEST(test_read_takeback)
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, boardstate, actions, 0);
+        game_read_move(candidates, &takeback, g, boardstate, actions, 0);
 
     // Got move and new position
     ck_assert(maybe_valid);
     ck_assert_int_eq(list_length(candidates), 0);
     ck_assert_ptr_nonnull(takeback);
 
-    game_apply_takeback(&g, takeback);
+    game_apply_takeback(g, takeback);
 
     // Position matches "1. e4"
     char fen[FEN_MAX];
-    position_fen(game_current(&g), fen, sizeof fen);
+    position_fen(game_current(g), fen, sizeof fen);
     ck_assert_str_eq(fen, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
 }
 END_TEST
 
 START_TEST(test_illegal)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
 
     struct List  *candidates = list_new();
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, lift(START, F1), actions, 0);
+        game_read_move(candidates, &takeback, g, lift(START, F1), actions, 0);
 
     ck_assert(!maybe_valid);
 }
@@ -183,13 +183,13 @@ END_TEST
 
 START_TEST(test_incomplete)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
 
     struct List  *candidates = list_new();
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, lift(START, G1), actions, 0);
+        game_read_move(candidates, &takeback, g, lift(START, G1), actions, 0);
 
     ck_assert(maybe_valid);
     ck_assert_int_eq(list_length(candidates), 0);
@@ -198,13 +198,13 @@ END_TEST
 
 START_TEST(test_out_of_turn)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
+    struct Game *g = game_from_fen(NULL);
 
     struct List  *candidates = list_new();
     struct Move  *takeback   = NULL;
     struct Action actions[1];
     const bool maybe_valid =
-        game_read_move(candidates, &takeback, &g, lift(START, E7), actions, 0);
+        game_read_move(candidates, &takeback, g, lift(START, E7), actions, 0);
 
     ck_assert(!maybe_valid);
 }

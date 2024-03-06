@@ -28,7 +28,8 @@ bin/rcm: $(objects)
 
 test_sources = \
 	$(wildcard src/chess/*.c) \
-	src/list.c
+	src/list.c \
+	src/model.c
 bin/check: $(wildcard t/*.c) $(test_sources)
 	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
 

@@ -4,15 +4,14 @@
 #ifndef CHESS_GAME_H
 #define CHESS_GAME_H
 
-#include "chess_position.h"
 #include <stdbool.h>
+#include <stdint.h>
 
-struct List;
+struct Action;
+struct Move;
+struct Position;
 
-// Game is graph of positions joined by moves
-struct Game {
-    struct List *history; // Path from start to current position
-};
+struct Game;
 
 bool game_valid(const struct Game *game);
 
@@ -21,8 +20,8 @@ struct Position *game_start(struct Game *game);
 struct Position *game_current(struct Game *game);
 struct Position *game_previous(struct Game *game);
 
-void game_from_position(struct Game *game, const struct Position *start);
-void game_from_fen(struct Game *game, const char *fen);
+struct Game *game_from_position(const struct Position *start);
+struct Game *game_from_fen(const char *fen);
 
 struct List *game_legal_moves(const struct Game *game);
 

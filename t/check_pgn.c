@@ -18,21 +18,21 @@ static void play_san_moves(struct Game *game, ...) {
 
 START_TEST(test_steinitz)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
-    play_san_moves(&g, "e4", "e5", "Nf3", "Nc6", "Bb5", "d6", "d4", NULL);
-    ck_assert_str_eq(game_pgn(&g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 d6 4. d4");
+    struct Game *g = game_from_fen(NULL);
+    play_san_moves(g, "e4", "e5", "Nf3", "Nc6", "Bb5", "d6", "d4", NULL);
+    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 d6 4. d4");
 }
 END_TEST
 
 START_TEST(test_semi_steinitz)
 {
-    struct Game g; /* = */ game_from_fen(&g, NULL);
-    play_san_moves(&g, "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "d6", NULL);
-    ck_assert_str_eq(game_pgn(&g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 d6");
+    struct Game *g = game_from_fen(NULL);
+    play_san_moves(g, "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "d6", NULL);
+    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 d6");
 
-    game_takeback(&g); game_takeback(&g); game_takeback(&g);
-    play_san_moves(&g, "d6", "d4", NULL);
-    ck_assert_str_eq(game_pgn(&g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... d6 4. d4) 4. Ba4 d6");
+    game_takeback(g); game_takeback(g); game_takeback(g);
+    play_san_moves(g, "d6", "d4", NULL);
+    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... d6 4. d4) 4. Ba4 d6");
 }
 END_TEST
 

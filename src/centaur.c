@@ -4,6 +4,7 @@
 #include "centaur.h"
 #include "graphics.h"
 #include "list.h"
+#include "model.h"
 #include "screen.h"
 
 #include <assert.h>
@@ -34,7 +35,7 @@ static void render_board(struct View *board_view, struct Context *context) {
     const int   square_size = 16;
 
     const struct Image    *pieces   = load_pieces();
-    const struct Position *position = game_current(&centaur.game);
+    const struct Position *position = game_current(centaur.game);
     if (!pieces || !position) {
         return;
     }
@@ -119,6 +120,12 @@ static void clear_actions(void) {
     assert(centaur.num_actions == 0);
 }
 
+static void game_changed(struct Game *game, void *data) {
+    (void)data;
+    (void)game;
+    centaur_render();
+}
+
 // Initialize both field array and screen
 int centaur_open(void) {
     if (board_open() != 0) {
@@ -129,8 +136,9 @@ int centaur_open(void) {
         return 1;
     }
 
-    game_from_fen(&centaur.game, NULL);
+    centaur.game = game_from_fen(NULL);
     centaur.screen_view = &board_view;
+    model_observe((struct Model*)centaur.game, (ModelChanged)game_changed, NULL);
 
     centaur.num_actions = MAX_ACTIONS;
     clear_actions();
@@ -299,14 +307,13 @@ centaur_read_move(
     int end   = centaur.num_actions;
     for (; begin != end; ++begin) {
         // Replay actions, ignoring transient errors
-        struct Game copy;
-        game_from_position(&copy, game_current(game));
+        struct Game *copy = game_from_position(game_current(game));
         bool step_valid = true;
         for (int i = begin; i != end;) {
             struct List *local_candidates = list_new();
             struct Move *local_takeback   = NULL;
             step_valid = history_read_move(
-                local_candidates, &local_takeback, &copy, boardstate, &i, end);
+                local_candidates, &local_takeback, copy, boardstate, &i, end);
             if (!step_valid) {
                 // This is going nowhere
                 break;
@@ -320,10 +327,10 @@ centaur_read_move(
             // Simulate move
             int err = 0;
             if (local_takeback) {
-                err = game_apply_takeback(&copy, local_takeback);
+                err = game_apply_takeback(copy, local_takeback);
             }
             if (!err && !list_empty(local_candidates)) {
-                err = game_apply_move(&copy, list_first(local_candidates));
+                err = game_apply_move(copy, list_first(local_candidates));
             }
             if (err) {
                 step_valid = false;
@@ -331,7 +338,7 @@ centaur_read_move(
             }
         }
 
-        if (step_valid && game_current(&copy)->bitmap == boardstate) {
+        if (step_valid && game_current(copy)->bitmap == boardstate) {
             // OK, reconstruction makes some kind of sense
             break;
         }
@@ -380,26 +387,18 @@ void centaur_main(void) {
         struct Move *takeback   = NULL;
 
         const bool maybe_valid =
-            centaur_read_move(candidates, &takeback, &centaur.game);
+            centaur_read_move(candidates, &takeback, centaur.game);
         if (maybe_valid) {
-            bool should_render = false;
             if (takeback) {
                 printf("Takeback: %s\n", move_name_static(takeback));
-                game_apply_takeback(&centaur.game, takeback);
-                should_render = true;
+                game_apply_takeback(centaur.game, takeback);
             }
 
             // TODO promotions menu
             if (!list_empty(candidates)) {
                 struct Move *move = list_first(candidates);
                 printf("Move: %s\n", move_name_static(move));
-                game_apply_move(&centaur.game, move);
-                should_render = true;
-            }
-
-            if (should_render) {
-                centaur_render();
-                continue;
+                game_apply_move(centaur.game, move);
             }
         }
 

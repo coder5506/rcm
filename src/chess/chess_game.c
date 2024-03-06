@@ -4,10 +4,19 @@
 #include "chess_game.h"
 #include "chess.h"
 #include "../list.h"
+#include "../model.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <gc/gc.h>
+
+// Game is graph of positions joined by moves
+struct Game {
+    struct Model model;
+    struct List *history; // Path from start to current position
+};
 
 bool game_valid(const struct Game *game) {
     return game && !list_empty(game->history) &&
@@ -33,17 +42,20 @@ struct Position *game_previous(struct Game *game) {
     return game_position(game, -2);
 }
 
-void game_from_position(struct Game *game, const struct Position *start) {
+struct Game *game_from_position(const struct Position *start) {
     assert(position_valid(start));
+    struct Game *game = GC_MALLOC(sizeof *game);
+    model_init(&game->model);
     game->history = list_new();
     // We share a lot, but don't share positions between games!
     list_push(game->history, position_dup(start));
     assert(game_valid(game));
+    return game;
 }
 
-void game_from_fen(struct Game *game, const char *fen) {
+struct Game *game_from_fen(const char *fen) {
     struct Position *start = position_from_fen(fen);
-    game_from_position(game, start);
+    return game_from_position(start);
 }
 
 struct List *game_legal_moves(const struct Game *game) {
@@ -73,6 +85,7 @@ int game_apply_move(struct Game *game, const struct Move *move) {
     list_push(game->history, (struct Position*)candidate->after);
     assert(position_valid(candidate->after));
     assert(game_valid(game));
+    model_changed(&game->model);
     return 0;
 }
 
@@ -93,6 +106,7 @@ int game_takeback(struct Game *game) {
 
     list_pop(game->history);
     assert(game_valid(game));
+    model_changed(&game->model);
     return 0;
 }
 
@@ -117,6 +131,7 @@ int game_apply_takeback(struct Game *game, const struct Move *takeback) {
     assert(matching->after == current);
     list_pop(game->history);
     assert(game_valid(game));
+    model_changed(&game->model);
     return 0;
 }
 
