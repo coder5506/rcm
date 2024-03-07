@@ -59,8 +59,24 @@ int board_charging(void) {
     return (charging >> 5 & 7) == 1;
 }
 
-void board_leds_off(void) {
-    boardserial_leds_off();
+int board_leds_off(void) {
+    return boardserial_leds_off();
+}
+
+int board_led_flash(void) {
+    return boardserial_led_flash();
+}
+
+int board_led(int square) {
+    return boardserial_led(square);
+}
+
+int board_led_array(const int *squares, int num_squares) {
+    return boardserial_led_array(squares, num_squares);
+}
+
+int board_led_from_to(int from, int to) {
+    return boardserial_led_from_to(from, to);
 }
 
 int board_read_actions(struct Action *actions, int max_actions) {

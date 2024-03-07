@@ -32,6 +32,27 @@ int boardserial_leds_off(void) {
     return 0; // Success
 }
 
+int boardserial_led_flash(void) {
+    return 0;
+}
+
+int boardserial_led(int square) {
+    (void)square;
+    return 0;
+}
+
+int boardserial_led_array(const int *squares, int num_squares) {
+    (void)squares;
+    (void)num_squares;
+    return 0;
+}
+
+int boardserial_led_from_to(int from, int to) {
+    (void)from;
+    (void)to;
+    return 0;
+}
+
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //
 // RCM is free software: you can redistribute it and/or modify

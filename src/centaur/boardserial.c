@@ -327,6 +327,38 @@ int boardserial_leds_off(void) {
     return write_board(request, 3, sizeof request);
 }
 
+int boardserial_led_flash(void) {
+    uint8_t request[10] = {176, 0, 10, 0, 0, 5, 10, 0, 1, 0};
+    return write_board(request, 3, sizeof request);
+}
+
+int boardserial_led(int square) {
+    const int intensity = 5;
+    uint8_t request[11] = {176, 0, 11, 0, 0, 5, 10, 1, intensity, square, 0};
+    return write_board(request, 3, sizeof request);
+}
+
+int boardserial_led_array(const int *squares, int num_squares) {
+    assert(squares && num_squares >= 0);
+
+    const int speed     = 3;
+    const int intensity = 5;
+    uint8_t request[128] = {[0] = 176, [5] = 5, [6] = speed, [8] = intensity};
+
+    int len = 9;
+    for (int i = 0; i != num_squares; ++i) {
+        request[len++] = squares[i];
+    }
+    request[len++] = 0;
+    request[2] = len;
+    return write_board(request, 3, len);
+}
+
+int boardserial_led_from_to(int from, int to) {
+    const int squares[2] = {from, to};
+    return boardserial_led_array(squares, 2);
+}
+
 // Initialize serial connection to board
 int boardserial_open(void) {
     boardserial.fd = open_serial("/dev/serial0");

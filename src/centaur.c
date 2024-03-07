@@ -29,8 +29,6 @@ static struct Image *load_pieces() {
 }
 
 static void render_board(struct View *board_view, struct Context *context) {
-    (void)board_view;
-
     const char *sprites     = " PRNBQKprnbqk?! ";
     const int   square_size = 16;
 
@@ -40,11 +38,13 @@ static void render_board(struct View *board_view, struct Context *context) {
         return;
     }
 
+    const int left = board_view->bounds.left;
+    const int top  = board_view->bounds.top;
     for (int r = 0; r != 8; ++r) {
-        const int y_dst = r * square_size;
+        const int y_dst = top + r * square_size;
 
         for (int c = 0; c != 8; ++c) {
-            const int x_dst = c * square_size;
+            const int x_dst = left + c * square_size;
             const int y_src = (r + c) % 2 ? square_size : 0; // Square color
 
             const enum Piece piece = position->mailbox.cells[mailbox_index[8*r + c]];
@@ -58,6 +58,53 @@ static void render_board(struct View *board_view, struct Context *context) {
 
 static struct View board_view = {
     .render = render_board,
+    .bounds = {.left = 0, .top = 0, .right = 128, .bottom = 128},
+};
+
+//
+// PGN view
+//
+
+static void render_pgn(struct View *pgn_view, struct Context *context) {
+    const int line_height = context->font->Height;
+    const int num_lines = (pgn_view->bounds.bottom - pgn_view->bounds.top) / line_height;
+
+    struct List *pgn_list = game_pgn_list(centaur.game);
+
+    // Keep only the last N lines
+    int num_items = list_length(pgn_list);
+    while (num_items > num_lines) {
+        list_shift(pgn_list);
+        --num_items;
+    }
+
+    int left = pgn_view->bounds.left;
+    int top  = pgn_view->bounds.top;
+    struct List *each = list_begin(pgn_list);
+    for (; each != list_end(pgn_list); each = each->next) {
+        graphics_drawstring(context, left, top, each->data);
+        top += line_height;
+    }
+}
+
+static struct View pgn_view = {
+    .render = render_pgn,
+    .bounds = {.left = 0, .top = 128, .right = 128, .bottom = 296},
+};
+
+//
+// Centaur view
+//
+
+static void render_centaur(struct View *centaur_view, struct Context *context) {
+    (void)centaur_view;
+    board_view.render(&board_view, context);
+    pgn_view.render(&pgn_view, context);
+}
+
+static struct View centaur_view = {
+    .render = render_centaur,
+    .bounds = {.left = 0, .top = 0, .right = 128, .bottom = 296},
 };
 
 //
@@ -137,7 +184,7 @@ int centaur_open(void) {
     }
 
     centaur.game = game_from_fen(NULL);
-    centaur.screen_view = &board_view;
+    centaur.screen_view = &centaur_view;
     MODEL_OBSERVE(centaur.game, game_changed, NULL);
 
     centaur.num_actions = MAX_ACTIONS;
@@ -173,9 +220,9 @@ static void update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     // Ensure space in buffer, preserving newest actions
-    if (centaur.num_actions > 12) {
-        consume_actions(centaur.num_actions - 12);
-        assert(centaur.num_actions == 12);
+    if (centaur.num_actions > 24) {
+        consume_actions(centaur.num_actions - 24);
+        assert(centaur.num_actions == 24);
     }
 
     // Read newest actions
@@ -193,16 +240,19 @@ static void clear_feedback(void) {
 }
 
 static void show_feedback(uint64_t diff) {
-    // enum Square square1 = INVALID_SQUARE;
-    // enum Square square2 = INVALID_SQUARE;
+    enum Square square1 = INVALID_SQUARE;
+    enum Square square2 = INVALID_SQUARE;
 
     switch (__builtin_popcountll(diff)) {
     case 1:
-        // square1 = __builtin_ctzll(diff);
+        square1 = __builtin_ctzll(diff);
+        board_led(square1);
+        board_led_flash();
         break;
     case 2:
-        // square1 = __builtin_ctzll(diff);
-        // square2 = __builtin_ctzll(diff & ~(1ull << square1));
+        square1 = __builtin_ctzll(diff);
+        square2 = __builtin_ctzll(diff & ~(1ull << square1));
+        board_led_from_to(square1, square2);
         break;
     case 0:  // No change
     default: // Too many changes

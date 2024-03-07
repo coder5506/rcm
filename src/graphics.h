@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
+#include "fonts/fonts.h"
 #include "image.h"
 
 enum DotStyle {
@@ -40,12 +41,20 @@ struct Context {
     const struct sFONT *font;
 };
 
+struct Rect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+};
+
 struct View;
 
 typedef void (*ViewRender)(struct View *view, struct Context *context);
 
 struct View {
-    ViewRender render;
+    ViewRender  render;
+    struct Rect bounds;
 };
 
 void context_free(struct Context *context);

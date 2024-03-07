@@ -26,7 +26,11 @@ uint64_t board_getstate(void);
 int board_batterylevel(void);
 int board_charging(void);
 
-void board_leds_off(void);
+int board_leds_off(void);
+int board_led_flash(void);
+int board_led(int square);
+int board_led_array(const int *squares, int num_squares);
+int board_led_from_to(int from, int to);
 
 // Return number of actions read
 int board_read_actions(struct Action *actions, int max_actions);

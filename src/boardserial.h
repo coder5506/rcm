@@ -26,6 +26,10 @@ uint64_t boardserial_boardstate(void);
 int boardserial_chargingstate(void);
 
 int boardserial_leds_off(void);
+int boardserial_led_flash(void);
+int boardserial_led(int square);
+int boardserial_led_array(const int *squares, int num_squares);
+int boardserial_led_from_to(int from, int to);
 
 #endif
 
