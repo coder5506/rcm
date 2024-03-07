@@ -13,7 +13,7 @@ export const PgnPanel = () => {
   const go = (move: number) => dispatch(history.go(move))
 
   return (
-    <div className="h-full min-w-48 overflow-y-auto">
+    <div className="h-full overflow-y-auto">
       {pgnList.map(({ move, wsan, bsan }) => (
         <div key={move}>
           <span className={move === Math.floor(index / 2) ? 'current' : ''}>

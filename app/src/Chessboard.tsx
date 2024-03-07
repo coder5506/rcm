@@ -15,7 +15,7 @@ import * as display from './store/displaySlice'
 import * as history from './store/historySlice'
 import { watch } from 'fs'
 
-export const Chessboard = () => {
+export const Chessboard = ({ style }) => {
   const activeBoard = useAppSelector(display.selectSetting('activeBoard'))
   const board = useRef<HTMLDivElement | null>(null)
   const boardSize = useAppSelector(chessboardStore.selectBoardSize)
@@ -102,7 +102,7 @@ export const Chessboard = () => {
   }, [currentFEN])
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative" style={style}>
       <div ref={board} className="absolute left-0 top-0 w-full h-full" />
       <ChessboardArrows
         canvasSize={boardSize}

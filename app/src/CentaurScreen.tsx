@@ -27,7 +27,7 @@ export const CentaurScreen = () => {
   }, [])
 
   return (
-    <div className="align-items-center flex flex-col">
+    <div className="flex flex-col align-items-center">
       <img className="rotate-180" src={imageUrl} width="128" height="296" />
       <div className="grid grid-cols-3">
         <ChevronUpIcon
