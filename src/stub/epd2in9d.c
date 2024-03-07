@@ -1,14 +1,11 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// This file stubs out communication with the e-Paper display on a
-// DGT Centaur board.  It is used for development and testing on Linux
-// systems where the board is not available.
+// This file stubs out communication with the e-Paper display on a DGT Centaur
+// board.  It is used for development and testing on Linux systems where the
+// board is not available.
 
 #include "../epd2in9d.h"
-
-const int SCREEN_WIDTH  = 128;
-const int SCREEN_HEIGHT = 296;
 
 void epd2in9d_close(void) {
 }
@@ -26,11 +23,11 @@ void epd2in9d_wake(void) {
 void epd2in9d_clear(void) {
 }
 
-void epd2in9d_update(const unsigned char *data) {
+void epd2in9d_update(const uint8_t *data) {
     (void)data;
 }
 
-void epd2in9d_display(const unsigned char *data) {
+void epd2in9d_display(const uint8_t *data) {
     (void)data;
 }
 

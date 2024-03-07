@@ -14,16 +14,11 @@
 #include "../epd2in9d.h"
 
 #include <stdbool.h>
-
 #include <pigpio.h>
 
-const int SCREEN_WIDTH  = 128;
-const int SCREEN_HEIGHT = 296;
-
-
-// ====
+//
 // GPIO
-// ====
+//
 
 enum Pin {
     PIN_RESET         = 12,
@@ -69,9 +64,9 @@ static void gpio_reset(void) {
 }
 
 
-// ===
+//
 // SPI
-// ===
+//
 
 static int SPI_Handle = -1;
 
@@ -107,9 +102,9 @@ static void spi_send_array(const uint8_t *buf, size_t len) {
 }
 
 
-// ======
+//
 // Screen
-// ======
+//
 
 static bool lut_ready = false;
 
@@ -145,8 +140,10 @@ enum Command {
     COMMAND_POF   = 0x02,  // Power OFF
     COMMAND_PON   = 0x04,  // Power ON
     COMMAND_BTST  = 0x06,  // Booster Soft-Start
-    COMMAND_DEEP_SLEEP = 0x07,
+    COMMAND_DSLP  = 0x07,  // Deep Sleep
+    COMMAND_DTM1  = 0x10,  // Data Start Transmission 1
     COMMAND_DRF   = 0x12,  // Display Refresh
+    COMMAND_DTM2  = 0x13,  // Data Start Transmission 2 (hypothetical)
     COMMAND_LUTC  = 0x20,  // VCOM LUT
     COMMAND_LUTWW = 0x21,  // W2W LUT
     COMMAND_LUTBW = 0x22,  // B2W LUT
@@ -177,7 +174,7 @@ void epd2in9d_sleep(void) {
     spi_send_data(0xf7);
     send_command(COMMAND_POF);
     read_busy();
-    send_command(COMMAND_DEEP_SLEEP);
+    send_command(COMMAND_DSLP);
     spi_send_data(0xA5);
 
     // Reinit after sleep/wake
@@ -319,35 +316,59 @@ static void EPD_2IN9D_SetPartReg(void) {
 
 static void refresh_screen(void) {
     send_command(COMMAND_DRF);
-    delay_ms(2);  // Must be at least 200us
+    delay_ms(10);  // Must be at least 200us
     read_busy();
 }
 
+// Voodoo follows:
+//
+// The reference manual for the 2.9" display defines the command 0x10 for "Data
+// Start Transmission 1" and does not define any command 0x13.  However, the
+// Waveshare examples always transmit in two passes: first a "zero" pass with
+// 0x10 followed by a data pass with 0x13.
+//
+// Experimentally, using 0x10 on its own does not seem to do anything, while
+// using 0x13 on its own is not entirely reliable.
+//
+// There is a note in the reference manual: 'In B/W mode, this command writes
+// "OLD" data to SRAM.'  My best guess is that the undocumented 0x13 is in-fact
+// a "Data Start Transmission 2" to write the "NEW" data.
+//
+// It is at least consistent in that the 0x10 "OLD" data does not seem to be
+// required for a partial update, only the (undocumented) 0x13 "NEW" data.
+
+#define PIXEL_BLACK  0
+#define PIXEL_WHITE -1
+
+#define SCREEN_BYTES ((SCREEN_WIDTH + 7) / 8) * SCREEN_HEIGHT
+static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK}
+
 // Clear display
 void epd2in9d_clear(void) {
-    const int PIXEL_WHITE = -1;
+    send_command(COMMAND_DTM1);
+    spi_send_array(black_buffer, SCREEN_BYTES);
 
-    send_command(0x13);
-    for (int j = 0; j != SCREEN_HEIGHT; ++j) {
-        for (int i = 0; i != SCREEN_WIDTH / 8; ++i) {
-            spi_send_data(PIXEL_WHITE);
-        }
-    }
-    delay_ms(10);
+    uint8_t *white_buffer = alloca(SCREEN_BYTES);
+    memset(white_buffer, PIXEL_WHITE, SCREEN_BYTES);
+    send_command(COMMAND_DTM2);
+    spi_send_array(white_buffer, SCREEN_BYTES);
+
     refresh_screen();
 }
 
 // Fully refresh display
-void epd2in9d_display(const unsigned char *data) {
-    const int width_bytes = (SCREEN_WIDTH + 7) / 8;
-    const int size_bytes  = width_bytes * SCREEN_HEIGHT;
-    send_command(0x13);
-    spi_send_array(data, size_bytes);
+void epd2in9d_display(const uint8_t *data) {
+    send_command(COMMAND_DTM1);
+    spi_send_array(black_buffer, SCREEN_BYTES);
+
+    send_command(COMMAND_DTM2);
+    spi_send_array(data, SCREEN_BYTES);
+
     refresh_screen();
 }
 
 // Partially update display
-void epd2in9d_update(const unsigned char *data) {
+void epd2in9d_update(const uint8_t *data) {
     EPD_2IN9D_SetPartReg();
     send_command(COMMAND_PTIN);
     send_command(COMMAND_PTL);
@@ -359,10 +380,8 @@ void epd2in9d_update(const unsigned char *data) {
     spi_send_data(SCREEN_HEIGHT / 256);      // VRED: Vertical End
     spi_send_data(SCREEN_HEIGHT % 256 - 1);
 
-    const int width_bytes = (SCREEN_WIDTH + 7) / 8;
-    const int size_bytes  = width_bytes * SCREEN_HEIGHT;
-    send_command(0x13);
-    spi_send_array(data, size_bytes);
+    send_command(COMMAND_DTM2);
+    spi_send_array(data, SCREEN_BYTES);
     refresh_screen();
 }
 
