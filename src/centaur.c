@@ -6,6 +6,7 @@
 #include "graphics.h"
 #include "list.h"
 #include "model.h"
+#include "mods/mods.h"
 #include "screen.h"
 
 #include <assert.h>
@@ -225,6 +226,8 @@ int centaur_open(void) {
 
     centaur.num_actions = MAX_ACTIONS;
     clear_actions();
+
+    centaur.mod = mod_1v1_new();
     return 0;
 }
 
@@ -477,8 +480,11 @@ void centaur_main(void) {
             goto next;
         }
 
-        const bool maybe_valid =
+        bool maybe_valid =
             centaur_read_move(candidates, &takeback, centaur.game, boardstate);
+        if (maybe_valid) {
+            maybe_valid = mod_read_move(centaur.mod, candidates, &takeback);
+        }
         if (!maybe_valid) {
             goto next;
         }
