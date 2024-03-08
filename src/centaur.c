@@ -2,6 +2,7 @@
 // See license at end of file
 
 #include "centaur.h"
+#include "cfg.h"
 #include "graphics.h"
 #include "list.h"
 #include "model.h"
@@ -11,8 +12,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <time.h>
 
 struct Centaur centaur = {0};
 
@@ -38,6 +37,8 @@ static void render_board(struct View *board_view, struct Context *context) {
         return;
     }
 
+    const enum Color player_color = centaur_player_color();
+
     const int left = board_view->bounds.left;
     const int top  = board_view->bounds.top;
     for (int r = 0; r != 8; ++r) {
@@ -47,7 +48,12 @@ static void render_board(struct View *board_view, struct Context *context) {
             const int x_dst = left + c * square_size;
             const int y_src = (r + c) % 2 ? square_size : 0; // Square color
 
-            const enum Piece piece = position->mailbox.cells[mailbox_index[8*r + c]];
+            enum Square square = 8 * r + c;
+            if (player_color == BLACK) {
+                square = rotate_square(square);
+            }
+
+            const enum Piece piece = position->mailbox.cells[mailbox_index[square]];
             const char *sprite = strchr(sprites, piece);
             const int   x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
@@ -140,6 +146,14 @@ void centaur_close(void) {
     board_close();
 }
 
+enum Color centaur_player_color(void) {
+    return board_player_color();
+}
+
+void centaur_set_player_color(enum Color color) {
+    board_set_player_color(color);
+}
+
 static void remove_actions(int begin, int end) {
     assert(0 <= begin && begin <= end && end <= centaur.num_actions);
 
@@ -169,8 +183,30 @@ static void clear_actions(void) {
 
 static void game_changed(struct Game *game, void *data) {
     (void)data;
-    (void)game;
+
     centaur_render();
+    if (!game->started) {
+        return;
+    }
+
+    char *pgn = NULL;
+    asprintf(&pgn, "%s/%li.pgn", cfg_pgn_dir(), game->started);
+    game_save_pgn(game, pgn);
+    free(pgn);
+
+    char *latest = NULL;
+    asprintf(&latest, "%s/latest", cfg_data_dir());
+    FILE *fp = fopen(latest, "w");
+    free(latest);
+    if (fp) {
+        fprintf(fp, "%li\n", game->started);
+        fclose(fp);
+    }
+
+    char *fen = NULL;
+    asprintf(&fen, "%s/fen", cfg_data_dir());
+    game_save_fen(game, fen);
+    free(fen);
 }
 
 // Initialize both field array and screen
@@ -417,16 +453,8 @@ centaur_read_move(
     return NULL;
 }
 
-// Wait for pieces to be put in starting position
-void centaur_sync(void) {
-    while (centaur_getstate() != STARTING_POSITION) {
-        sleep_ms(2000);
-    }
-    centaur_render();
-}
-
-// How about a nice game of chess?
 void centaur_main(void) {
+    // Declared outside loop to avoid redundant allocations
     struct List *candidates = list_new();
     struct Move *takeback   = NULL;
 
@@ -435,34 +463,37 @@ void centaur_main(void) {
         takeback = NULL;
 
         // Update history before reading boardstate.  We don't want actions
-        // that are newer than the boardstate, but we can handle possibly not
-        // having the very latest action.
+        // that are newer than the boardstate, and we can always get the latest
+        // on the next iteration.
         update_actions();
         const uint64_t boardstate = centaur_getstate();
 
+        // Put pieces in starting position for a new game.
         if (boardstate == STARTING_POSITION) {
             clear_actions();
             if (game_started(centaur.game)) {
                 game_set_start(centaur.game, NULL);
             }
+            goto next;
         }
 
         const bool maybe_valid =
             centaur_read_move(candidates, &takeback, centaur.game, boardstate);
-        if (maybe_valid) {
-            if (takeback) {
-                printf("Takeback: %s\n", move_name_static(takeback));
-                game_apply_takeback(centaur.game, takeback);
-            }
-
-            // TODO promotions menu
-            if (!list_empty(candidates)) {
-                struct Move *move = list_first(candidates);
-                printf("Move: %s\n", move_name_static(move));
-                game_apply_move(centaur.game, move);
-            }
+        if (!maybe_valid) {
+            goto next;
         }
 
+        // TODO promotions menu
+        struct Move *move = list_first(candidates);
+        if (takeback && move) {
+            game_complete_move(centaur.game, takeback, move);
+        } else  if (takeback) {
+            game_apply_takeback(centaur.game, takeback);
+        } else if (move) {
+            game_apply_move(centaur.game, move);
+        }
+
+    next:
         sleep_ms(500);
     }
 }

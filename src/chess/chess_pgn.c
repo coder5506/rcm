@@ -12,6 +12,21 @@
 
 #include <gc/gc.h>
 
+static void pgn_write_tags(FILE *out, const struct Game *game)
+{
+    assert(out);
+    assert(game_valid(game));
+
+    fprintf(out, "[Event \"%s\"]\n", game->event);
+    fprintf(out, "[Site \"%s\"]\n", game->site);
+    fprintf(out, "[Date \"%s\"]\n", game->date);
+    fprintf(out, "[Round \"%s\"]\n", game->round);
+    fprintf(out, "[White \"%s\"]\n", game->white);
+    fprintf(out, "[Black \"%s\"]\n", game->black);
+    fprintf(out, "[Result \"%s\"]\n", game->result);
+    fprintf(out, "\n");
+}
+
 static void pgn_write_move(
     FILE *out,
     const struct Position *before,
@@ -98,6 +113,17 @@ char *game_pgn(const struct Game *game) {
     strncpy(result, buf, len + 1);
     free(buf);
     return result;
+}
+
+void game_save_pgn(const struct Game *game, const char *filename) {
+    assert(game_valid(game));
+
+    FILE *out = fopen(filename, "w");
+    if (out) {
+        pgn_write_tags(out, game);
+        pgn_write(out, game);
+        fclose(out);
+    }
 }
 
 static void pgn_write_list(FILE *out, const struct Game *game)

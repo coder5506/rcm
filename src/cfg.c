@@ -42,7 +42,7 @@ static const char *xdg_data_home(void) {
     return data_home;
 }
 
-const char *cfg_data_home(void) {
+const char *cfg_data_dir(void) {
     static char *data_home = NULL;
     if (!data_home) {
         asprintf(&data_home, "%s/raccoons-centaur-mods", xdg_data_home());
@@ -61,7 +61,7 @@ const char *cfg_data_home(void) {
 const char *cfg_pgn_dir(void) {
     static char *pgn_dir = NULL;
     if (!pgn_dir) {
-        asprintf(&pgn_dir, "%s/pgn", cfg_data_home());
+        asprintf(&pgn_dir, "%s/pgn", cfg_data_dir());
         int err = mkdir(pgn_dir, 0700);
         if (err && errno != EEXIST) {
             free(pgn_dir);

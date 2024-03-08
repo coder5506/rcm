@@ -4,7 +4,7 @@
 #ifndef CFG_H
 #define CFG_H
 
-const char *cfg_data_home(void);
+const char *cfg_data_dir(void);
 const char *cfg_pgn_dir(void);
 
 #endif

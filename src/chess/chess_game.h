@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <time.h>
+
 struct Action;
 struct Move;
 struct Position;
@@ -16,7 +18,17 @@ struct Position;
 // Game is graph of positions joined by moves
 struct Game {
     struct Model model;
-    struct List *history; // Path from start to current position
+    struct List *history;  // Path from start to current position
+    time_t       started;  // Timestamp, serves as ID
+
+    // Seven Tag Roster (STR)
+    const char  *event;    // "?"
+    const char  *site;     // "?"
+    const char  *date;     // "YYYY.MM.DD"
+    const char  *round;    // "-"
+    const char  *white;    // "?"
+    const char  *black;    // "?"
+    const char  *result;   // "*"
 };
 
 bool game_valid(const struct Game *game);
@@ -44,6 +56,12 @@ int game_apply_takeback(struct Game *game, const struct Move *takeback);
 
 int game_apply_move_name(struct Game *game, const char *name);
 int game_move_san(struct Game *game, const char *san);
+
+int
+game_complete_move(
+    struct Game       *game,
+    const struct Move *takeback,
+    const struct Move *move);
 
 bool game_read_move(
     struct List   *candidates,

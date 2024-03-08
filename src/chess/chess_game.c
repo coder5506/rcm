@@ -35,6 +35,7 @@ struct Position *game_previous(struct Game *game) {
     return game_position(game, -2);
 }
 
+// Starts when first move is played
 bool game_started(const struct Game *game) {
     assert(game_valid(game));
     return list_length(game->history) > 1;
@@ -52,7 +53,34 @@ void game_set_start(struct Game *game, const struct Position *start) {
         list_push(game->history, position_from_fen(NULL));
     }
     assert(game_valid(game));
+
+    // Reset default metadata
+    game->started = 0;
+    game->event   = "?";
+    game->site    = "?";
+    game->date    = "????.??.??";
+    game->round   = "-";
+    game->white   = "?";
+    game->black   = "?";
+    game->result  = "*";
+
     model_changed(&game->model);
+}
+
+// Hook to handle bookkeeping
+static void game_changed(struct Game *game, void *data) {
+    (void)data;
+
+    if (game->started || !game_started(game)) {
+        // Either bookkeeping is done, or game hasn't started
+        return;
+    }
+
+    game->started = time(NULL);
+    game->date = GC_MALLOC_ATOMIC(11);
+    struct tm timestamp;
+    localtime_r(&game->started, &timestamp);
+    strftime((char*)game->date, 11, "%Y.%m.%d", &timestamp);
 }
 
 struct Game *game_from_position(const struct Position *start) {
@@ -63,6 +91,7 @@ struct Game *game_from_position(const struct Position *start) {
     game->history = list_new();
     game_set_start(game, start);
 
+    MODEL_OBSERVE(game, game_changed, NULL);
     return game;
 }
 
@@ -103,6 +132,7 @@ int game_apply_move(struct Game *game, const struct Move *move) {
     list_push(game->history, (struct Position*)candidate->after);
     assert(position_valid(candidate->after));
     assert(game_valid(game));
+
     model_changed(&game->model);
     return 0;
 }
@@ -151,6 +181,21 @@ int game_apply_takeback(struct Game *game, const struct Move *takeback) {
     assert(game_valid(game));
     model_changed(&game->model);
     return 0;
+}
+
+int
+game_complete_move(
+    struct Game       *game,
+    const struct Move *takeback,
+    const struct Move *move)
+{
+    (void)takeback;
+
+    // Unlike takeback, prior move was not a variation, just a transitional
+    // arrangement of pieces.  So we erase it completely.
+    list_pop(game->history);
+    list_pop(game_current(game)->moves_played);
+    return game_apply_move(game, move);
 }
 
 // Here we try to interpret the move at a higher-level than the position,

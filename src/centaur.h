@@ -33,6 +33,9 @@ void centaur_sleep(void);
 // Wake display from sleep
 void centaur_wake(void);
 
+enum Color centaur_player_color(void);
+void centaur_set_player_color(enum Color color);
+
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t centaur_getstate(void);

@@ -10,14 +10,14 @@
 
 #include <gc/gc.h>
 
-static void shut_it_down(void) {
+static void cleanup(void) {
     httpd_stop();
     centaur_close();
 }
 
 static void handle_sigint(int signal) {
     (void)signal;
-    shut_it_down();
+    cleanup();
     exit(EXIT_SUCCESS);
 }
 
@@ -44,13 +44,8 @@ int main(void) {
     // centaur_render();
     // sleep_ms(2000);
 
-    // Wait for starting position
-    centaur_sync();
-
-    // Global thermonuclear war
     centaur_main();
-
-    shut_it_down();
+    cleanup();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

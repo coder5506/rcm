@@ -12,6 +12,7 @@ struct Position;
 
 char *position_fen(const struct Position *position);
 char *game_fen(const struct Game *game);
+void game_save_fen(const struct Game *game, const char *filename);
 
 int position_read_fen(struct Position *position, const char *fen);
 

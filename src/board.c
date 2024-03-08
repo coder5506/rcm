@@ -12,6 +12,8 @@
 
 const uint64_t STARTING_POSITION = 0xffff00000000ffff;
 
+static enum Color player_color = WHITE;
+
 // Shutdown connection to board
 void board_close(void) {
     boardserial_close();
@@ -22,23 +24,30 @@ int board_open(void) {
     return boardserial_open();
 }
 
-// Display boardstate
-void board_printstate(uint64_t boardstate) {
-    uint64_t mask = 1;
-    for (int r = 0; r != 8; ++r) {
-        printf("+---+---+---+---+---+---+---+---+\n");
-        for (int c = 0; c != 8; ++c) {
-            printf("| %d ", (boardstate & mask) != 0);
-        }
-        printf("|\n");
-        mask <<= 1;
+enum Color board_player_color(void) {
+    return player_color;
+}
+
+void board_set_player_color(enum Color color) {
+    player_color = color;
+}
+
+static uint64_t reverse_bits(uint64_t value) {
+    uint64_t reversed = 0;
+    for (int i = 0; i < 64; ++i) {
+        reversed = (reversed << 1) | (value & 1);
+        value >>= 1;
     }
-    printf("+---+---+---+---+---+---+---+---+\n");
+    return reversed;
 }
 
 // Read current state of board fields
 uint64_t board_getstate(void) {
-    return boardserial_boardstate();
+    const uint64_t boardstate = boardserial_boardstate();
+    if (player_color == BLACK) {
+        return reverse_bits(boardstate);
+    }
+    return boardstate;
 }
 
 // Return battery status
@@ -67,15 +76,29 @@ int board_led_flash(void) {
     return boardserial_led_flash();
 }
 
-int board_led(int square) {
+int board_led(enum Square square) {
+    if (player_color == BLACK) {
+        square = rotate_square(square);
+    }
     return boardserial_led(square);
 }
 
-int board_led_array(const int *squares, int num_squares) {
-    return boardserial_led_array(squares, num_squares);
+int board_led_array(const enum Square *squares, int num_squares) {
+    int rotated_squares[num_squares];
+    for (int i = 0; i != num_squares; ++i) {
+        rotated_squares[i] = squares[i];
+        if (player_color == BLACK) {
+            rotated_squares[i] = rotate_square(rotated_squares[i]);
+        }
+    }
+    return boardserial_led_array(rotated_squares, num_squares);
 }
 
 int board_led_from_to(int from, int to) {
+    if (player_color == BLACK) {
+        from = rotate_square(from);
+        to   = rotate_square(to);
+    }
     return boardserial_led_from_to(from, to);
 }
 
@@ -108,8 +131,11 @@ int board_read_actions(struct Action *actions, int max_actions) {
         switch (buf[i++]) {
         case 64:
             if (square_valid(buf[i])) {
-                actions[n].lift  = buf[i++];
                 actions[n].place = INVALID_SQUARE;
+                actions[n].lift  = buf[i++];
+                if (player_color == BLACK) {
+                    actions[n].lift = rotate_square(actions[n].lift);
+                }
                 ++n;
             }
             break;
@@ -117,6 +143,9 @@ int board_read_actions(struct Action *actions, int max_actions) {
             if (square_valid(buf[i])) {
                 actions[n].lift  = INVALID_SQUARE;
                 actions[n].place = buf[i++];
+                if (player_color == BLACK) {
+                    actions[n].place = rotate_square(actions[n].place);
+                }
                 ++n;
             }
             break;
