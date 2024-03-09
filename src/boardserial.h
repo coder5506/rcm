@@ -8,6 +8,27 @@
 
 #include <stdint.h>
 
+enum Button {
+    BUTTON_NONE = 0,
+    BUTTON_BACK = 1 << 0,
+    BUTTON_DOWN = 1 << 1,
+    BUTTON_PLAY = 1 << 2,
+    BUTTON_UP   = 1 << 3,
+    BUTTON_TICK = 1 << 4,
+    BUTTON_HELP = 1 << 6, // no, I don't know where 5 went
+    BUTTON_MASK = 0x5F,
+};
+
+enum Sound {
+    SOUND_NONE       = 0,
+    SOUND_GENERAL    = 1,
+    SOUND_FACTORY    = 2,
+    SOUND_POWER_OFF  = 3,
+    SOUND_POWER_ON   = 4,
+    SOUND_WRONG      = 5,
+    SOUND_WRONG_MOVE = 6,
+};
+
 // Shutdown serial connection to board
 void boardserial_close(void);
 
@@ -30,6 +51,9 @@ int boardserial_led_flash(void);
 int boardserial_led(int square);
 int boardserial_led_array(const int *squares, int num_squares);
 int boardserial_led_from_to(int from, int to);
+
+enum Button boardserial_read_buttons(void);
+void boardserial_play_sound(enum Sound sound);
 
 #endif
 

@@ -188,7 +188,7 @@ static int read_packet(int fd, uint8_t *data, int length) {
     assert(fd >= 0);
     assert(data != NULL && length >= 256);
 
-    // Read packet header = {id, 0|1, len}
+    // Read packet header {id, 0|1, len}
     const int HEADER_LEN = 3;
 
     uint8_t *receiving  = data;
@@ -426,6 +426,66 @@ int boardserial_chargingstate(void) {
     }
 
     return buf[5];
+}
+
+enum Button boardserial_read_buttons(void) {
+    uint8_t request[4] = {148};
+    write_board(request, 1, sizeof request);
+
+    uint8_t buf[256];
+    const time_t timeout = time(NULL) + 2;
+    while (time(NULL) < timeout) {
+        if (recv_packet(boardserial.fd, 177, buf, sizeof buf) >= 6) {
+            break;
+        }
+    }
+
+    if (buf[0] != 177 || buf[2] < 16) {
+        return BUTTON_NONE;
+    }
+
+    assert(buf[5] ==  0);
+    assert(buf[6] == 20);
+    assert(buf[7] == 10);
+    assert(buf[8] ==  5);
+    //  9 is press
+    // 10 is release
+    // 13 is duration
+
+    return buf[9] & BUTTON_MASK;
+}
+
+void boardserial_play_sound(enum Sound sound) {
+    // pitch, duration
+    uint8_t req1[ 8] = {177, 0,  8, 0, 0, 76,  8};
+    uint8_t req2[ 8] = {177, 0,  8, 0, 0, 76, 64};
+    uint8_t req3[10] = {177, 0, 10, 0, 0, 76,  8, 72, 8};
+    uint8_t req4[10] = {177, 0, 10, 0, 0, 72,  8, 76, 8};
+    uint8_t req5[10] = {177, 0, 10, 0, 0, 78, 12, 72, 16};
+    uint8_t req6[ 8] = {177, 0,  8, 0, 0, 72,  8};
+
+    switch (sound) {
+    case SOUND_GENERAL:
+        write_board(req1, 3, sizeof req1);
+        break;
+    case SOUND_FACTORY:
+        write_board(req2, 3, sizeof req2);
+        break;
+    case SOUND_POWER_OFF:
+        write_board(req3, 3, sizeof req3);
+        break;
+    case SOUND_POWER_ON:
+        write_board(req4, 3, sizeof req4);
+        break;
+    case SOUND_WRONG:
+        write_board(req5, 3, sizeof req5);
+        break;
+    case SOUND_WRONG_MOVE:
+        write_board(req6, 3, sizeof req6);
+        break;
+    default:
+        break;
+    }
 }
 
 #if 0

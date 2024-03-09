@@ -37,9 +37,9 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    centaur_wake();
-    centaur_clear();
-    sleep_ms(3500);
+    // centaur_wake();
+    // centaur_clear();
+    // sleep_ms(3500);
 
     centaur_set_player_color('b');
     centaur_main();

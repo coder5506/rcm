@@ -261,7 +261,7 @@ void centaur_render(void) {
     screen_render(centaur.screen_view);
 }
 
-static void update_actions(void) {
+static int update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     // Ensure space in buffer, preserving newest actions
@@ -278,6 +278,8 @@ static void update_actions(void) {
 
     centaur.num_actions += num_new;
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
+
+    return num_new;
 }
 
 static void clear_feedback(void) {
@@ -499,7 +501,9 @@ static void centaur_run(void) {
         // Update history before reading boardstate.  We don't want actions
         // that are newer than the boardstate, and we can always get the latest
         // on the next iteration.
-        update_actions();
+        if (update_actions() == 0) {
+            goto next;
+        }
         const uint64_t boardstate = centaur_getstate();
 
         // Put pieces in starting position for a new game.
@@ -534,7 +538,7 @@ static void centaur_run(void) {
         }
 
     next:
-        sleep_ms(350);
+        sleep_ms(500);
     }
 }
 

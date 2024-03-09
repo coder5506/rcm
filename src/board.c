@@ -69,17 +69,14 @@ int board_charging(void) {
 }
 
 int board_leds_off(void) {
-    printf("leds_off\n");
     return boardserial_leds_off();
 }
 
 int board_led_flash(void) {
-    printf("leds_flash\n");
     return boardserial_led_flash();
 }
 
 int board_led(enum Square square) {
-    printf("led %d\n", square);
     if (player_color == BLACK) {
         square = rotate_square(square);
     }
