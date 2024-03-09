@@ -95,7 +95,6 @@ int board_led_array(const enum Square *squares, int num_squares) {
 }
 
 int board_led_from_to(enum Square from, enum Square to) {
-    printf("led_from_to %d %d\n", from, to);
     if (player_color == BLACK) {
         from = rotate_square(from);
         to   = rotate_square(to);

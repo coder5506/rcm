@@ -15,6 +15,7 @@
 
 #include <alloca.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <pigpio.h>
@@ -97,11 +98,19 @@ static void spi_send_data(int data) {
     spi_send_byte(data, 1);
 }
 
-static void spi_send_array(const uint8_t *buf, size_t len) {
-    gpioWrite(PIN_COMMAND_DATA, 1);
-    gpioWrite(PIN_CLEAR_TO_SEND, 0);
-    spiWrite(SPI_Handle, (char*)buf, len);
-    gpioWrite(PIN_CLEAR_TO_SEND, 1);
+static int spi_send_array(const uint8_t *buf, size_t len) {
+    int err = gpioWrite(PIN_COMMAND_DATA, 1);
+    if (!err) {
+        err = gpioWrite(PIN_CLEAR_TO_SEND, 0);
+    }
+
+    int num_written = 0;
+    if (!err) {
+        num_written = spiWrite(SPI_Handle, (char*)buf, len);
+        gpioWrite(PIN_CLEAR_TO_SEND, 1);
+    }
+
+    return num_written;
 }
 
 
@@ -145,6 +154,7 @@ enum Command {
     COMMAND_BTST  = 0x06,  // Booster Soft-Start
     COMMAND_DSLP  = 0x07,  // Deep Sleep
     COMMAND_DTM1  = 0x10,  // Data Start Transmission 1
+    COMMAND_DSP   = 0x11,  // Data Stop
     COMMAND_DRF   = 0x12,  // Display Refresh
     COMMAND_DTM2  = 0x13,  // Data Start Transmission 2 (hypothetical)
     COMMAND_LUTC  = 0x20,  // VCOM LUT

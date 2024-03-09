@@ -538,7 +538,7 @@ static void centaur_run(void) {
         }
 
     next:
-        sleep_ms(500);
+        sleep_ms(350);
     }
 }
 
