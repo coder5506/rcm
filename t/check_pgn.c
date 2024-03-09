@@ -17,11 +17,16 @@ static void play_san_moves(struct Game *game, ...) {
     va_end(args);
 }
 
+static const char *short_pgn(const struct Game *game) {
+    char *pgn =game_pgn(game);
+    return strstr(pgn, "\n\n") + 2;
+}
+
 START_TEST(test_fools_mate)
 {
     struct Game *g = game_from_fen(NULL);
     play_san_moves(g, "f3", "e6", "g4", "Qh4", NULL);
-    ck_assert_str_eq(game_pgn(g), "1. f3 e6 2. g4 Qh4#");
+    ck_assert_str_eq(short_pgn(g), "1. f3 e6 2. g4 Qh4#");
 }
 END_TEST
 
@@ -41,11 +46,11 @@ START_TEST(test_semi_steinitz)
 {
     struct Game *g = game_from_fen(NULL);
     play_san_moves(g, "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "d6", NULL);
-    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 d6");
+    ck_assert_str_eq(short_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 d6");
 
     game_takeback(g); game_takeback(g); game_takeback(g);
     play_san_moves(g, "d6", "d4", NULL);
-    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... d6 4. d4) 4. Ba4 d6");
+    ck_assert_str_eq(short_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... d6 4. d4) 4. Ba4 d6");
 }
 END_TEST
 
@@ -72,7 +77,7 @@ START_TEST(test_steinitz)
 {
     struct Game *g = game_from_fen(NULL);
     play_san_moves(g, "e4", "e5", "Nf3", "Nc6", "Bb5", "d6", "d4", NULL);
-    ck_assert_str_eq(game_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 d6 4. d4");
+    ck_assert_str_eq(short_pgn(g), "1. e4 e5 2. Nf3 Nc6 3. Bb5 d6 4. d4");
 }
 END_TEST
 

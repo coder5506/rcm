@@ -28,6 +28,7 @@ static inline bool
 list_valid(const struct List *list) { return list && list->data == list; }
 
 struct List *list_new();
+struct List *list_copy(const struct List *list);
 
 void list_link(struct List *node, struct List *before);
 void list_unlink(struct List *node);

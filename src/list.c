@@ -22,6 +22,14 @@ struct List *list_new() {
     return list;
 }
 
+struct List *list_copy(const struct List *list) {
+    struct List *copy = list_new();
+    for (struct List *it = list->next; it != list; it = it->next) {
+        list_push(copy, it->data);
+    }
+    return copy;
+}
+
 void list_link(struct List *node, struct List *before) {
     assert(node && !node->next && !node->prev);
     assert(before && before != node);

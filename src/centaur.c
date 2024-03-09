@@ -456,7 +456,16 @@ centaur_read_move(
     return NULL;
 }
 
-void centaur_main(void) {
+static void centaur_start(void) {
+    // TODO
+    // - load latest game
+    // - wait for:
+    //   - board to match game state
+    //   - board to match starting position
+    //   - keypress for menu
+}
+
+static void centaur_run(void) {
     // Declared outside loop to avoid redundant allocations
     struct List *candidates = list_new();
     struct Move *takeback   = NULL;
@@ -502,6 +511,11 @@ void centaur_main(void) {
     next:
         sleep_ms(500);
     }
+}
+
+void centaur_main(void) {
+    centaur_start();
+    centaur_run();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

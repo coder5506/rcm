@@ -56,13 +56,13 @@ void game_set_start(struct Game *game, const struct Position *start) {
 
     // Reset default metadata
     game->started = 0;
-    game->event   = "?";
-    game->site    = "?";
-    game->date    = "????.??.??";
-    game->round   = "-";
-    game->white   = "?";
-    game->black   = "?";
-    game->result  = "*";
+    game->roster.event  = "?";
+    game->roster.site   = "?";
+    game->roster.date   = "????.??.??";
+    game->roster.round  = "-";
+    game->roster.white  = "?";
+    game->roster.black  = "?";
+    game->roster.result = "*";
 
     model_changed(&game->model);
 }
@@ -77,10 +77,10 @@ static void game_changed(struct Game *game, void *data) {
     }
 
     game->started = time(NULL);
-    game->date = GC_MALLOC_ATOMIC(11);
+    game->roster.date = GC_MALLOC_ATOMIC(11);
     struct tm timestamp;
     localtime_r(&game->started, &timestamp);
-    strftime((char*)game->date, 11, "%Y.%m.%d", &timestamp);
+    strftime((char*)game->roster.date, 11, "%Y.%m.%d", &timestamp);
 }
 
 struct Game *game_from_position(const struct Position *start) {

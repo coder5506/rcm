@@ -15,20 +15,23 @@ struct Action;
 struct Move;
 struct Position;
 
+// Seven Tag Roster (STR)
+struct Roster {
+    const char *event;   // "?"
+    const char *site;    // "?"
+    const char *date;    // "YYYY.MM.DD"
+    const char *round;   // "-"
+    const char *white;   // "?"
+    const char *black;   // "?"
+    const char *result;  // "*"
+};
+
 // Game is graph of positions joined by moves
 struct Game {
-    struct Model model;
-    struct List *history;  // Path from start to current position
-    time_t       started;  // Timestamp, serves as ID
-
-    // Seven Tag Roster (STR)
-    const char  *event;    // "?"
-    const char  *site;     // "?"
-    const char  *date;     // "YYYY.MM.DD"
-    const char  *round;    // "-"
-    const char  *white;    // "?"
-    const char  *black;    // "?"
-    const char  *result;   // "*"
+    struct Model  model;
+    struct Roster roster;
+    struct List  *history;  // Path from start to current position
+    time_t        started;  // Timestamp, serves as ID
 };
 
 bool game_valid(const struct Game *game);

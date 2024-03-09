@@ -6,6 +6,7 @@
 #include "../list.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,18 +18,18 @@ static void pgn_write_tags(FILE *out, const struct Game *game)
     assert(out);
     assert(game_valid(game));
 
-    fprintf(out, "[Event \"%s\"]\n", game->event);
-    fprintf(out, "[Site \"%s\"]\n", game->site);
-    fprintf(out, "[Date \"%s\"]\n", game->date);
-    fprintf(out, "[Round \"%s\"]\n", game->round);
-    fprintf(out, "[White \"%s\"]\n", game->white);
-    fprintf(out, "[Black \"%s\"]\n", game->black);
-    fprintf(out, "[Result \"%s\"]\n", game->result);
+    fprintf(out, "[Event \"%s\"]\n", game->roster.event);
+    fprintf(out, "[Site \"%s\"]\n", game->roster.site);
+    fprintf(out, "[Date \"%s\"]\n", game->roster.date);
+    fprintf(out, "[Round \"%s\"]\n", game->roster.round);
+    fprintf(out, "[White \"%s\"]\n", game->roster.white);
+    fprintf(out, "[Black \"%s\"]\n", game->roster.black);
+    fprintf(out, "[Result \"%s\"]\n", game->roster.result);
     fprintf(out, "\n");
 }
 
 static void pgn_write_move(
-    FILE *out,
+    FILE                  *out,
     const struct Position *before,
     const struct Move     *move,
     bool                   show_move_number)
@@ -89,6 +90,7 @@ static void pgn_write_movetext(FILE *out, const struct Game *game)
 }
 
 static void pgn_write(FILE *out, const struct Game *game) {
+    pgn_write_tags(out, game);
     pgn_write_movetext(out, game);
 }
 
@@ -120,7 +122,6 @@ void game_save_pgn(const struct Game *game, const char *filename) {
 
     FILE *out = fopen(filename, "w");
     if (out) {
-        pgn_write_tags(out, game);
         pgn_write(out, game);
         fclose(out);
     }
@@ -200,6 +201,178 @@ struct List *game_pgn_list(const struct Game *game) {
         }
     }
     return list;
+}
+
+static void skip_whitespace(char **pgn) {
+    while (isspace(**pgn)) {
+        ++*pgn;
+    }
+}
+
+static char *read_string(char **pgn) {
+    skip_whitespace(pgn);
+    if (**pgn != '"') {
+        return NULL;
+    }
+    ++*pgn;
+
+    char *begin = *pgn;
+    char *end   = begin;
+    while (**pgn && **pgn != '"') {
+        if (**pgn == '\\') {
+            ++*pgn;
+        }
+        *end++ = **pgn;
+        ++*pgn;
+    }
+
+    if (**pgn != '"') {
+        return NULL;
+    }
+
+    *end = '\0';
+    ++*pgn;
+    return begin;
+}
+
+static char *read_symbol(char **pgn) {
+    skip_whitespace(pgn);
+
+    char *begin = *pgn;
+    if (!isalnum(**pgn)) {
+        return NULL;
+    }
+
+    while (**pgn && (isalnum(**pgn) || strchr("_+#=:-", **pgn))) {
+        ++*pgn;
+    }
+
+    **pgn = '\0';
+    ++*pgn;
+    return begin;
+}
+
+static char *read_tag(char **value, char **pgn) {
+    skip_whitespace(pgn);
+    if (**pgn != '[') {
+        return NULL;
+    }
+    ++*pgn;
+
+    char *name = read_symbol(pgn);
+    if (!name) {
+        return NULL;
+    }
+
+    *value = read_string(pgn);
+    if (!*value) {
+        return NULL;
+    }
+
+    skip_whitespace(pgn);
+    if (**pgn != ']') {
+        return NULL;
+    }
+    ++*pgn;
+
+    return name;
+}
+
+static int read_tags(struct Roster *roster, char **pgn) {
+    char *value = NULL;
+    char *name  = read_tag(&value, pgn);
+    while (name) {
+        if (strcmp(name, "Event") == 0) {
+            roster->event = value;
+        } else if (strcmp(name, "Site") == 0) {
+            roster->site = value;
+        } else if (strcmp(name, "Date") == 0) {
+            roster->date = value;
+        } else if (strcmp(name, "Round") == 0) {
+            roster->round = value;
+        } else if (strcmp(name, "White") == 0) {
+            roster->white = value;
+        } else if (strcmp(name, "Black") == 0) {
+            roster->black = value;
+        } else if (strcmp(name, "Result") == 0) {
+            roster->result = value;
+        }
+        value = NULL;
+        name  = read_tag(&value, pgn);
+    }
+    return 0;
+}
+
+static int read_move_number(char **pgn) {
+    skip_whitespace(pgn);
+
+    int n = 0;
+    while (isdigit(**pgn)) {
+        n = n * 10 + (**pgn - '0');
+        ++*pgn;
+    }
+
+    skip_whitespace(pgn);
+    while (**pgn == '.') {
+        ++*pgn;
+    }
+
+    return n;
+}
+
+static int read_movetext(struct Game *game, char **pgn) {
+    while (**pgn) {
+        skip_whitespace(pgn);
+        if (**pgn == ')') {
+            return 0;
+        }
+
+        if (**pgn == '(') {
+            struct List *history = list_copy(game->history);
+            game_takeback(game);
+            const int err = read_movetext(game, pgn);
+            if (err) {
+                return err;
+            }
+            if (**pgn != ')') {
+                return 1;
+            }
+            game->history = history;
+            continue;
+        }
+
+        (void)read_move_number(pgn);
+        char *san = read_symbol(pgn);
+        if (!san) {
+            return 1;
+        }
+
+        const int err = game_move_san(game, san);
+        if (err) {
+            return err;
+        }
+    }
+    return 0;
+}
+
+int game_read_pgn(struct Game *game, char *pgn) {
+    assert(game_valid(game));
+    assert(pgn);
+
+    int err = read_tags(&game->roster, &pgn);
+    if (!err) {
+        err = read_movetext(game, &pgn);
+    }
+    return err;
+}
+
+struct Game *game_from_pgn(char *pgn) {
+    struct Game *game = game_from_fen(NULL);
+    const int err = game_read_pgn(game, pgn);
+    if (err) {
+        return NULL;
+    }
+    return game;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
