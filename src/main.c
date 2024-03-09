@@ -4,6 +4,7 @@
 #include "centaur.h"
 #include "httpd.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <signal.h>
@@ -11,6 +12,7 @@
 #include <gc/gc.h>
 
 static void cleanup(void) {
+    printf("shutting down...\n");
     httpd_stop();
     centaur_close();
 }
@@ -35,16 +37,13 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Reset display and wait for full refresh
     centaur_wake();
     centaur_clear();
-    sleep_ms(3000);
+    sleep_ms(3500);
 
-    // Display something so we know it's alive
-    // centaur_render();
-    // sleep_ms(2000);
-
+    centaur_set_player_color('b');
     centaur_main();
+
     cleanup();
 }
 

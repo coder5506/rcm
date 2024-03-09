@@ -3,8 +3,6 @@
 
 // Inspired by Tripplehappy Chess library, MIT-licensed:
 // - https://github.com/billforsternz/thc-chess-library
-//
-// (Personal bias, not a fan of C++, THC is otherwise excellent.)
 
 #ifndef CHESS_H
 #define CHESS_H

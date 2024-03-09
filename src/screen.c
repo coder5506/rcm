@@ -5,6 +5,8 @@
 #include "epd2in9d.h"
 #include "graphics.h"
 
+#include <stdio.h>
+
 struct Screen screen = {0};
 
 void screen_close(void) {
@@ -72,6 +74,8 @@ void screen_clear(void) {
 }
 
 void screen_render(struct View *view) {
+    static int num_updates = 0;
+
     struct Image *image = screen.image[1];
     screen.image[1] = screen.image[0];
     screen.image[0] = image;
@@ -83,7 +87,12 @@ void screen_render(struct View *view) {
     }
 
     if (!image_equal(screen.image[0], screen.image[1])) {
-        epd2in9d_update(screen.image[0]->data);
+        if (num_updates == 0) {
+            epd2in9d_display(screen.image[0]->data);
+        } else {
+            epd2in9d_update(screen.image[0]->data);
+        }
+        num_updates = (num_updates + 1) % 5;
         model_changed(&screen.model);
     }
 }

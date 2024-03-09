@@ -13,7 +13,10 @@
 
 #include "../epd2in9d.h"
 
+#include <alloca.h>
 #include <stdbool.h>
+#include <string.h>
+
 #include <pigpio.h>
 
 //
@@ -341,7 +344,7 @@ static void refresh_screen(void) {
 #define PIXEL_WHITE -1
 
 #define SCREEN_BYTES ((SCREEN_WIDTH + 7) / 8) * SCREEN_HEIGHT
-static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK}
+static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
 
 // Clear display
 void epd2in9d_clear(void) {

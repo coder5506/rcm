@@ -30,7 +30,7 @@ int board_leds_off(void);
 int board_led_flash(void);
 int board_led(enum Square square);
 int board_led_array(const enum Square *squares, int num_squares);
-int board_led_from_to(int from, int to);
+int board_led_from_to(enum Square from, enum Square to);
 
 // Return number of actions read
 int board_read_actions(struct Action *actions, int max_actions);

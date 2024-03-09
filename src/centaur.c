@@ -55,11 +55,13 @@ static void render_board(struct View *board_view, struct Context *context) {
             }
 
             const enum Piece piece = position->mailbox.cells[mailbox_index[square]];
+            printf(" %c", piece);
             const char *sprite = strchr(sprites, piece);
             const int   x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
                 context, x_dst, y_dst, pieces, x_src, y_src, square_size, square_size);
         }
+        printf("\n");
     }
 }
 
@@ -77,6 +79,9 @@ static void render_pgn(struct View *pgn_view, struct Context *context) {
     const int num_lines = (pgn_view->bounds.bottom - pgn_view->bounds.top) / line_height;
 
     struct List *pgn_list = game_pgn_list(centaur.game);
+    if (!pgn_list) {
+        return;
+    }
 
     // Keep only the last N lines
     int num_items = list_length(pgn_list);
@@ -105,8 +110,9 @@ static struct View pgn_view = {
 
 static void render_centaur(struct View *centaur_view, struct Context *context) {
     (void)centaur_view;
+    (void)&pgn_view;
     board_view.render(&board_view, context);
-    pgn_view.render(&pgn_view, context);
+    // pgn_view.render(&pgn_view, context);
 }
 
 static struct View centaur_view = {
@@ -279,23 +285,37 @@ static void clear_feedback(void) {
 }
 
 static void show_feedback(uint64_t diff) {
+    static enum Square old_square1 = INVALID_SQUARE;
+    static enum Square old_square2 = INVALID_SQUARE;
+
     enum Square square1 = INVALID_SQUARE;
     enum Square square2 = INVALID_SQUARE;
 
     switch (__builtin_popcountll(diff)) {
     case 1:
         square1 = __builtin_ctzll(diff);
-        board_led(square1);
-        board_led_flash();
+        if (old_square1 == square1 && old_square2 == INVALID_SQUARE) {
+            board_led_flash();
+        } else {
+            old_square1 = square1;
+            old_square2 = INVALID_SQUARE;
+            board_led(square1);
+        }
         break;
     case 2:
         square1 = __builtin_ctzll(diff);
         square2 = __builtin_ctzll(diff & ~(1ull << square1));
-        board_led_from_to(square1, square2);
+        if (old_square1 != square1 || old_square2 != square2) {
+            old_square1 = square1;
+            old_square2 = square2;
+            board_led_from_to(square1, square2);
+        }
         break;
     case 0:  // No change
     default: // Too many changes
-        clear_feedback();
+        old_square1 = INVALID_SQUARE;
+        old_square2 = INVALID_SQUARE;
+        board_leds_off();
         break;
     }
 }
@@ -457,6 +477,8 @@ centaur_read_move(
 }
 
 static void centaur_start(void) {
+    centaur_render();
+
     // TODO
     // - load latest game
     // - wait for:
@@ -502,14 +524,17 @@ static void centaur_run(void) {
         struct Move *move = list_first(candidates);
         if (takeback && move) {
             game_complete_move(centaur.game, takeback, move);
+            board_led(move->to);
         } else  if (takeback) {
             game_apply_takeback(centaur.game, takeback);
+            board_led(takeback->from);
         } else if (move) {
             game_apply_move(centaur.game, move);
+            board_led(move->to);
         }
 
     next:
-        sleep_ms(500);
+        sleep_ms(350);
     }
 }
 
