@@ -20,13 +20,13 @@ enum Button {
 };
 
 enum Sound {
-    SOUND_NONE       = 0,
-    SOUND_GENERAL    = 1,
-    SOUND_FACTORY    = 2,
-    SOUND_POWER_OFF  = 3,
-    SOUND_POWER_ON   = 4,
-    SOUND_WRONG      = 5,
-    SOUND_WRONG_MOVE = 6,
+    SOUND_GENERAL    = 0,
+    SOUND_FACTORY    = 1,
+    SOUND_POWER_OFF  = 2,
+    SOUND_POWER_ON   = 3,
+    SOUND_WRONG      = 4,
+    SOUND_WRONG_MOVE = 5,
+    SOUND_NONE       = 6,
 };
 
 // Shutdown serial connection to board
@@ -35,16 +35,19 @@ void boardserial_close(void);
 // Initialize serial connection to board
 int boardserial_open(void);
 
-// Read field events from board
-int boardserial_readdata(uint8_t *buf, int len);
+// Return battery and charging status
+int boardserial_chargingstate(void);
 
 // Read current state of board fields.  Returns bitmap where set bit
 // indicates presence of piece.
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t boardserial_boardstate(void);
 
-// Return battery and charging status
-int boardserial_chargingstate(void);
+// Read field events from board
+int boardserial_readdata(uint8_t *buf, int len);
+
+// Read button events from board
+void boardserial_buttons(enum Button *press, enum Button *release);
 
 int boardserial_leds_off(void);
 int boardserial_led_flash(void);
@@ -52,8 +55,7 @@ int boardserial_led(int square);
 int boardserial_led_array(const int *squares, int num_squares);
 int boardserial_led_from_to(int from, int to);
 
-enum Button boardserial_read_buttons(void);
-void boardserial_play_sound(enum Sound sound);
+int boardserial_play_sound(enum Sound sound);
 
 #endif
 

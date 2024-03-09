@@ -1,8 +1,7 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// This file provides serial communication with the field array on a
-// DGT Centaur board.
+// Provides serial communication with the field array on a DGT Centaur board.
 //
 // This implementation is based on the reverse engineering efforts of
 // [EdNekebno](https://github.com/EdNekebno) and
@@ -83,6 +82,50 @@ error:
     return -1;
 }
 
+static int read_serial(int fd, uint8_t *buf, int len) {
+    assert(fd >= 0);
+    assert(buf != NULL && len >= 0);
+
+    uint8_t *receiving = buf;
+    int      remaining = len;
+
+    int total_read = 0;
+    int num_read   = 0;
+    while (num_read < remaining) {
+        num_read = read(fd, receiving, remaining);
+        if (num_read == 0) {
+            break;
+        }
+        if (num_read < 0) {
+            if (errno != EAGAIN) {
+                perror("read");
+                goto error;
+            }
+            num_read = 0;
+        }
+        total_read += num_read;
+        receiving  += num_read;
+        remaining  -= num_read;
+        assert(remaining >= 0);
+    }
+
+    return total_read;
+
+error:
+    printf("read_serial error: flushing\n");
+    if (tcflush(fd, TCIFLUSH) != 0) {
+        perror("tcflush");
+    }
+    return 0;
+}
+
+static void clear_serial(void) {
+    uint8_t buf[256];
+    while (read_serial(boardserial.fd, buf, sizeof buf) > 0) {
+        // loop
+    }
+}
+
 static int checksum(const uint8_t *buf, int len) {
     assert(buf && len >= 0);
     unsigned int sum = 0;
@@ -94,6 +137,55 @@ static int checksum(const uint8_t *buf, int len) {
 
 static bool valid_checksum(const uint8_t *buf, int len) {
     return buf[len - 1] == checksum(buf, len - 1);
+}
+
+// Read packet with defined length
+static int read_packet(int fd, uint8_t *data, int length) {
+    assert(fd >= 0);
+    assert(data != NULL && length >= 256);
+
+    // Read packet header {id, 0|1, len}
+    const int HEADER_LEN = 3;
+
+    uint8_t *receiving  = data;
+    int  packet_len = HEADER_LEN;
+    int  total_read = 0;
+    int  num_read   = 0;
+    const time_t timeout = time(NULL) + 2;
+    while (total_read < packet_len && time(NULL) < timeout) {
+        num_read = read_serial(fd, receiving, length);
+        total_read += num_read;
+        receiving  += num_read;
+        length     -= num_read;
+        if (total_read >= HEADER_LEN) {
+            packet_len = data[HEADER_LEN - 1];
+        }
+    }
+
+    if (total_read != packet_len || !valid_checksum(data, total_read)) {
+        printf("bad packet\n");
+        return 0;
+    }
+
+    printf("READ[%d]:", total_read);
+    for (int i = 0; i != total_read; ++i) {
+        printf(" %d", data[i]);
+    }
+    printf("\n");
+
+    return total_read;
+}
+
+// Receive packet with specific ID
+static int recv_packet(int fd, int id, uint8_t *data, int length) {
+    const time_t timeout = time(NULL) + 2;
+    while (time(NULL) < timeout) {
+        const int num_read = read_packet(fd, data, length);
+        if (num_read > 0 && data[0] == id) {
+            return num_read;
+        }
+    }
+    return 0;
 }
 
 static int write_serial(int fd, const uint8_t *buf, int len) {
@@ -146,92 +238,6 @@ error:
     return 0;
 }
 
-static int read_serial(int fd, uint8_t *buf, int len) {
-    assert(fd >= 0);
-    assert(buf != NULL && len >= 0);
-
-    uint8_t *receiving = buf;
-    int      remaining = len;
-
-    int  total_read = 0;
-    int  num_read   = 0;
-    while (num_read < remaining) {
-        num_read = read(fd, receiving, remaining);
-        if (num_read == 0) {
-            break;
-        }
-        if (num_read < 0) {
-            if (errno != EAGAIN) {
-                perror("read");
-                goto error;
-            }
-            num_read = 0;
-        }
-        total_read += num_read;
-        receiving  += num_read;
-        remaining  -= num_read;
-        assert(remaining >= 0);
-    }
-
-    return total_read;
-
-error:
-    printf("read_serial error: flushing\n");
-    if (tcflush(fd, TCIFLUSH) != 0) {
-        perror("tcflush");
-    }
-    return 0;
-}
-
-// Read packet with defined length
-static int read_packet(int fd, uint8_t *data, int length) {
-    assert(fd >= 0);
-    assert(data != NULL && length >= 256);
-
-    // Read packet header {id, 0|1, len}
-    const int HEADER_LEN = 3;
-
-    uint8_t *receiving  = data;
-    int  packet_len = HEADER_LEN;
-    int  total_read = 0;
-    int  num_read   = 0;
-    const time_t timeout = time(NULL) + 2;
-    while (total_read < packet_len && time(NULL) < timeout) {
-        num_read = read_serial(fd, receiving, length);
-        total_read += num_read;
-        receiving  += num_read;
-        length     -= num_read;
-        if (total_read >= HEADER_LEN) {
-            packet_len = data[HEADER_LEN - 1];
-        }
-    }
-
-    if (total_read != packet_len || !valid_checksum(data, total_read)) {
-        printf("bad packet\n");
-        return 0;
-    }
-
-    printf("READ[%d]:", total_read);
-    for (int i = 0; i != total_read; ++i) {
-        printf(" %d", data[i]);
-    }
-    printf("\n");
-
-    return total_read;
-}
-
-// Receive packet with specific ID
-static int recv_packet(int fd, int id, uint8_t *data, int length) {
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        const int num_read = read_packet(fd, data, length);
-        if (num_read > 0 && data[0] == id) {
-            return num_read;
-        }
-    }
-    return 0;
-}
-
 static int read_address(void) {
     assert(boardserial.fd >= 0);
 
@@ -256,6 +262,25 @@ static int read_address(void) {
 
     printf("No response from serial\n");
     printf("Board communication has been disabled\n");
+    return 1;
+}
+
+// Initialize serial connection to board
+int boardserial_open(void) {
+    boardserial.fd = open_serial("/dev/serial0");
+    if (boardserial.fd < 0) {
+        goto error;
+    }
+
+    clear_serial();
+    if (read_address() != 0) {
+        goto error;
+    }
+
+    return 0;
+
+error:
+    boardserial_close();
     return 1;
 }
 
@@ -287,6 +312,48 @@ static int write_board(uint8_t *buf, int addr_pos, int len) {
     return num_written == len ? 0 : 1;
 }
 
+// Read battery and charging status
+int boardserial_chargingstate(void) {
+    uint8_t request[4] = {152};
+    write_board(request, 1, sizeof request);
+
+    uint8_t buf[256];
+    const time_t timeout = time(NULL) + 2;
+    while (time(NULL) < timeout) {
+        if (recv_packet(boardserial.fd, 181, buf, sizeof buf) == 7) {
+            break;
+        }
+    }
+
+    return buf[5];
+}
+
+// Read current state of board fields
+uint64_t boardserial_boardstate(void) {
+    uint8_t request[7] = {240, 0, 7, 0, 0, 127, 0};
+    write_board(request, 3, sizeof request);
+
+    uint8_t buf[256];
+    size_t num_read = 0;
+    while (num_read < 128 + 7) {
+        num_read = read_serial(boardserial.fd, buf, sizeof buf);
+    }
+
+    uint64_t boardstate = 0;
+    uint64_t mask = 1;
+
+    const uint8_t *resp = &buf[6];
+    for (int i = 0; i != 64; ++i) {
+        const int value = 256 * resp[2*i] + resp[2*i + 1];
+        if (300 <= value && value <= 32000) {
+            boardstate |= mask;
+        }
+        mask <<= 1;
+    }
+
+    return boardstate;
+}
+
 // Read field events from board
 int boardserial_readdata(uint8_t *buf, int len) {
     assert(boardserial.fd >= 0);
@@ -306,20 +373,42 @@ int boardserial_readdata(uint8_t *buf, int len) {
     return 0;
 }
 
-// Read field events until idle
-static int clear_data(void) {
-    assert(boardserial.fd >= 0);
+void boardserial_buttons(enum Button *press, enum Button *release) {
+    uint8_t request[4] = {148};
+    write_board(request, 1, sizeof request);
 
     uint8_t buf[256];
-    const time_t timeout = time(NULL) + 3;
+    const time_t timeout = time(NULL) + 2;
     while (time(NULL) < timeout) {
-        if (boardserial_readdata(buf, sizeof buf) == 6 && buf[0] == 133) {
-            return 0;
+        if (recv_packet(boardserial.fd, 177, buf, sizeof buf) >= 6) {
+            break;
         }
     }
 
-    printf("Failed to clear board data\n");
-    return 1;
+    if (buf[0] != 177 || buf[2] < 16) {
+        if (press) {
+            *press = BUTTON_NONE;
+        }
+        if (release) {
+            *release = BUTTON_NONE;
+        }
+        return;
+    }
+
+    assert(buf[ 5] ==  0);
+    assert(buf[ 6] == 20);
+    assert(buf[ 7] == 10);
+    assert(buf[ 8] ==  5);
+    assert(buf[ 9] == (buf[ 9] & BUTTON_MASK));
+    assert(buf[10] == (buf[10] & BUTTON_MASK));
+    // buf[13] looks like duration, maybe deciseconds
+
+    if (press) {
+        *press = buf[9];
+    }
+    if (release) {
+        *release = buf[10];
+    }
 }
 
 int boardserial_leds_off(void) {
@@ -359,164 +448,41 @@ int boardserial_led_from_to(int from, int to) {
     return boardserial_led_array(squares, 2);
 }
 
-// Initialize serial connection to board
-int boardserial_open(void) {
-    boardserial.fd = open_serial("/dev/serial0");
-    if (boardserial.fd < 0) {
-        goto error;
+// pitch, duration pairs
+static const uint8_t sound_data[] = {
+    76,  8,          // SOUND_GENERAL
+    76, 64,          // SOUND_FACTORY
+    76,  8, 72,  8,  // SOUND_POWER_OFF
+    72,  8, 76,  8,  // SOUND_POWER_ON
+    78, 12, 72, 16,  // SOUND_WRONG
+    72,  8,          // SOUND_WRONG_MOVE
+};
+
+// Index into sound_data
+static const int sounds[] = {
+     0,  // SOUND_GENERAL
+     2,  // SOUND_FACTORY
+     4,  // SOUND_POWER_OFF
+     8,  // SOUND_POWER_ON
+    12,  // SOUND_WRONG
+    16,  // SOUND_WRONG_MOVE
+    18,  // SOUND_NONE
+};
+
+int boardserial_play_sound(enum Sound sound) {
+    if (sound < SOUND_GENERAL || SOUND_NONE <= sound) {
+        return 0;
     }
 
-    if (read_address() != 0) {
-        goto error;
+    uint8_t request[10] = {177};
+    int len = 5;
+    for (int i = sounds[sound]; i != sounds[sound + 1]; ++i) {
+        request[len++] = sound_data[i];
     }
-
-    // Drain events
-    if (clear_data() != 0) {
-        goto error;
-    }
-
-    if (boardserial_leds_off() != 0) {
-        goto error;
-    }
-
-    return 0;
-
-error:
-    boardserial_close();
-    return 1;
+    request[len++] = 0;
+    request[2] = len;
+    return write_board(request, 3, len);
 }
-
-// Read current state of board fields
-uint64_t boardserial_boardstate(void) {
-    uint8_t request[] = {240, 0, 7, 0, 0, 127, 0};
-    write_board(request, 3, sizeof request);
-
-    uint8_t buf[256];
-    size_t num_read = 0;
-    while (num_read < 128 + 7) {
-        num_read = read_serial(boardserial.fd, buf, sizeof buf);
-    }
-
-    uint64_t boardstate = 0;
-    uint64_t mask = 1;
-
-    const uint8_t *resp = &buf[6];
-    for (int i = 0; i != 64; ++i) {
-        const int value = 256 * resp[2*i] + resp[2*i + 1];
-        if (300 <= value && value <= 32000) {
-            boardstate |= mask;
-        }
-        mask <<= 1;
-    }
-
-    return boardstate;
-}
-
-// Read battery and charging status
-int boardserial_chargingstate(void) {
-    uint8_t request[4] = {152};
-    write_board(request, 1, sizeof request);
-
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        if (recv_packet(boardserial.fd, 181, buf, sizeof buf) == 7) {
-            break;
-        }
-    }
-
-    return buf[5];
-}
-
-enum Button boardserial_read_buttons(void) {
-    uint8_t request[4] = {148};
-    write_board(request, 1, sizeof request);
-
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        if (recv_packet(boardserial.fd, 177, buf, sizeof buf) >= 6) {
-            break;
-        }
-    }
-
-    if (buf[0] != 177 || buf[2] < 16) {
-        return BUTTON_NONE;
-    }
-
-    assert(buf[5] ==  0);
-    assert(buf[6] == 20);
-    assert(buf[7] == 10);
-    assert(buf[8] ==  5);
-    //  9 is press
-    // 10 is release
-    // 13 is duration
-
-    return buf[9] & BUTTON_MASK;
-}
-
-void boardserial_play_sound(enum Sound sound) {
-    // pitch, duration
-    uint8_t req1[ 8] = {177, 0,  8, 0, 0, 76,  8};
-    uint8_t req2[ 8] = {177, 0,  8, 0, 0, 76, 64};
-    uint8_t req3[10] = {177, 0, 10, 0, 0, 76,  8, 72, 8};
-    uint8_t req4[10] = {177, 0, 10, 0, 0, 72,  8, 76, 8};
-    uint8_t req5[10] = {177, 0, 10, 0, 0, 78, 12, 72, 16};
-    uint8_t req6[ 8] = {177, 0,  8, 0, 0, 72,  8};
-
-    switch (sound) {
-    case SOUND_GENERAL:
-        write_board(req1, 3, sizeof req1);
-        break;
-    case SOUND_FACTORY:
-        write_board(req2, 3, sizeof req2);
-        break;
-    case SOUND_POWER_OFF:
-        write_board(req3, 3, sizeof req3);
-        break;
-    case SOUND_POWER_ON:
-        write_board(req4, 3, sizeof req4);
-        break;
-    case SOUND_WRONG:
-        write_board(req5, 3, sizeof req5);
-        break;
-    case SOUND_WRONG_MOVE:
-        write_board(req6, 3, sizeof req6);
-        break;
-    default:
-        break;
-    }
-}
-
-#if 0
-static int clear_serial(const struct BoardSerial *board) {
-    assert(board != NULL && board->fd >= 0);
-
-    uint8_t request[4] = {148};
-    write_board(board, request, 1, sizeof request);
-
-    uint8_t expected[6] = {177, 0, 6};
-    build_packet(board, expected, 3, sizeof expected);
-
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 3;
-    while (time(NULL) < timeout) {
-        if (recv_packet(board->fd, 177, buf, sizeof buf) == 6) {
-            return 0;
-        }
-    }
-
-    printf("Failed to clear serial\n");
-    return 1;
-}
-#endif
-
-#if 0
-static int sleep_board(const struct BoardSerial *board) {
-    uint8_t data[7] = {178, 0, 7, 0, 0, 10, 0};
-    return write_board(board, data, 3, sizeof data);
-}
-#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

@@ -126,10 +126,10 @@ int board_read_actions(struct Action *actions, int max_actions) {
             --n;
             actions[n] = EMPTY_ACTION;
         }
-        assert(0 <= n && n < max_actions);
 
         switch (buf[i++]) {
         case 64:
+            assert(0 <= n && n < max_actions);
             if (square_valid(buf[i])) {
                 actions[n].place = INVALID_SQUARE;
                 actions[n].lift  = buf[i++];
@@ -140,6 +140,7 @@ int board_read_actions(struct Action *actions, int max_actions) {
             }
             break;
         case 65:
+            assert(0 <= n && n < max_actions);
             if (square_valid(buf[i])) {
                 actions[n].lift  = INVALID_SQUARE;
                 actions[n].place = buf[i++];
