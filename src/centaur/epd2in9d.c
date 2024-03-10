@@ -20,6 +20,9 @@
 
 #include <pigpio.h>
 
+// Utility
+void sleep_ms(int milliseconds);
+
 //
 // GPIO
 //
@@ -30,10 +33,6 @@ enum Pin {
     PIN_CLEAR_TO_SEND = 18,
     PIN_BUSY          = 13,
 };
-
-static void delay_ms(uint32_t ms) {
-    gpioDelay(1000 * ms /* micros */);
-}
 
 static void gpio_close(void) {
     gpioWrite(PIN_RESET, 0);
@@ -59,14 +58,13 @@ static int gpio_open(void) {
 static void gpio_reset(void) {
     for (int i = 0; i != 2; ++i) {
         gpioWrite(PIN_RESET, 1);
-        delay_ms(20);
+        sleep_ms(20);
         gpioWrite(PIN_RESET, 0);
-        delay_ms(5);
+        sleep_ms(5);
     }
     gpioWrite(PIN_RESET, 1);
-    delay_ms(20);
+    sleep_ms(20);
 }
-
 
 //
 // SPI
@@ -112,7 +110,6 @@ static int spi_send_array(const uint8_t *buf, size_t len) {
 
     return num_written;
 }
-
 
 //
 // Screen
@@ -194,7 +191,7 @@ void epd2in9d_sleep(void) {
     lut_ready = false;
 
     // Wait at least 2s before doing anything else
-    delay_ms(2000);
+    sleep_ms(2000);
 }
 
 // Wake display from sleep
@@ -329,7 +326,7 @@ static void EPD_2IN9D_SetPartReg(void) {
 
 static void refresh_screen(void) {
     send_command(COMMAND_DRF);
-    delay_ms(10);  // Must be at least 200us
+    sleep_ms(10);  // Must be at least 200us
     read_busy();
 }
 
@@ -367,6 +364,9 @@ void epd2in9d_clear(void) {
     spi_send_array(white_buffer, SCREEN_BYTES);
 
     refresh_screen();
+
+    // Unable to update for 3s after clearing
+    sleep_ms(3500);
 }
 
 // Fully refresh display
@@ -378,6 +378,7 @@ void epd2in9d_display(const uint8_t *data) {
     spi_send_array(data, SCREEN_BYTES);
 
     refresh_screen();
+    sleep_ms(100);
 }
 
 // Partially update display

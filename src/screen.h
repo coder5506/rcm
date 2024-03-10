@@ -6,8 +6,11 @@
 
 #include "model.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include <pthread.h>
 
 struct Context;
 struct View;
@@ -16,6 +19,10 @@ struct Screen {
     struct Model    model;
     struct Image   *image[2];
     struct Context *context;
+    pthread_cond_t  cond;
+    pthread_mutex_t mutex;
+    pthread_t       thread;
+    bool            shutdown;
 };
 
 extern struct Screen screen;
@@ -26,21 +33,10 @@ void screen_close(void);
 // Initialize display
 int screen_open(void);
 
-// Put display to sleep
-void screen_sleep(void);
-
-// Wake display from sleep
-void screen_wake(void);
-
-// Return screen's current graphics context
-struct Context *screen_context(void);
-
-// Clear display
-void screen_clear(void);
-
 // Render UI to display
 void screen_render(struct View *view);
 
+// Get PNG image of display
 int screen_png(uint8_t **png, size_t *size);
 
 #endif

@@ -19,12 +19,13 @@ static void cleanup(void) {
 
 static void handle_sigint(int signal) {
     (void)signal;
-    cleanup();
     exit(EXIT_SUCCESS);
 }
 
 int main(void) {
     GC_INIT();
+
+    atexit(cleanup);
 
     struct sigaction action = {.sa_handler = handle_sigint};
     sigaction(SIGINT, &action, NULL);
@@ -37,14 +38,8 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    centaur_wake();
-    // centaur_clear();
-    // sleep_ms(3500);
-
     centaur_set_player_color('b');
     centaur_main();
-
-    cleanup();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

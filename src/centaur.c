@@ -137,16 +137,6 @@ void sleep_ms(int milliseconds) {
 // Centaur
 //
 
-// Put display to sleep
-void centaur_sleep(void) {
-    screen_sleep();
-}
-
-// Wake display from sleep
-void centaur_wake(void) {
-    screen_wake();
-}
-
 // Shutdown both field array and screen
 void centaur_close(void) {
     screen_close();
@@ -249,11 +239,6 @@ int centaur_batterylevel(void) {
 
 int centaur_charging(void) {
     return board_charging();
-}
-
-// Clear display
-void centaur_clear(void) {
-    screen_clear();
 }
 
 // Render UI to display

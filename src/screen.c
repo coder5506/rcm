@@ -5,24 +5,96 @@
 #include "epd2in9d.h"
 #include "graphics.h"
 
+#include <alloca.h>
 #include <stdio.h>
+#include <string.h>
 
 struct Screen screen = {0};
 
-void screen_close(void) {
-    if (screen.context) {
-        context_free(screen.context);
-        screen.context = NULL;
-    }
-    for (int i = 0; i != 2; ++i) {
-        if (screen.image[i]) {
-            image_free(screen.image[i]);
-            screen.image[i] = NULL;
+// E-Paper updates can be slow, and we don't want to block, so we offload
+// them to a separate thread.
+static void *update_epd2in9d(void *data) {
+    (void)data;
+
+    const int width_bytes = (SCREEN_WIDTH + 7) / 8;
+    const int size_bytes  = width_bytes * SCREEN_HEIGHT;
+
+    uint8_t *const new_image = alloca(size_bytes);
+    uint8_t *const old_image = alloca(size_bytes);
+    memset(old_image, -1, size_bytes);
+    memset(new_image, -1, size_bytes);
+
+    epd2in9d_wake();
+    epd2in9d_clear();
+
+    struct timespec last_render;
+    clock_gettime(CLOCK_REALTIME, &last_render);
+
+    int num_renders = 0;
+    while (!screen.shutdown) {
+        struct timespec timeout;
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec += 100;
+
+        pthread_mutex_lock(&screen.mutex);
+        const int err = pthread_cond_timedwait(&screen.cond, &screen.mutex, &timeout);
+        if (!err && !screen.shutdown) {
+            memcpy(new_image, screen.image[0]->data, size_bytes);
         }
+        pthread_mutex_unlock(&screen.mutex);
+        if (err || screen.shutdown) {
+            continue;
+        }
+
+        const bool dirty = memcmp(new_image, old_image, size_bytes) != 0;
+        if (!dirty) {
+            continue;
+        }
+
+        memcpy(old_image, new_image, size_bytes);
+        if (num_renders == 0) {
+            epd2in9d_display(old_image);
+        } else {
+            epd2in9d_update(old_image);
+        }
+        num_renders = (num_renders + 1) % 5;
+
+        // Eventually we'll want to sleep if nothing is happening.
+        clock_gettime(CLOCK_REALTIME, &last_render);
     }
 
-    screen_sleep();
+    // Try to ensure no one is holding lock while we cleanup.
+    pthread_mutex_lock(&screen.mutex);
+    pthread_mutex_unlock(&screen.mutex);
+
+    pthread_mutex_destroy(&screen.mutex);
+    pthread_cond_destroy(&screen.cond);
+    return NULL;
+}
+
+static void signal_thread(void) {
+    pthread_mutex_lock(&screen.mutex);
+    pthread_cond_signal(&screen.cond);
+    pthread_mutex_unlock(&screen.mutex);
+}
+
+static void shutdown_thread(void) {
+    screen.shutdown = true;
+    signal_thread();
+    pthread_join(screen.thread, NULL);
+}
+
+void screen_close(void) {
+    shutdown_thread();
+    epd2in9d_sleep();
     epd2in9d_close();
+}
+
+static void start_thread(void) {
+    screen.shutdown = false;
+    pthread_cond_init(&screen.cond, NULL);
+    pthread_mutex_init(&screen.mutex, NULL);
+    pthread_create(&screen.thread, NULL, update_epd2in9d, NULL);
 }
 
 int screen_open(void) {
@@ -30,51 +102,19 @@ int screen_open(void) {
         return 1;
     }
 
-    screen.image[0] = NULL;
-    screen.image[1] = NULL;
-    screen.context  = NULL;
-
     for (int i = 0; i != 2; ++i) {
         screen.image[i] = image_alloc(SCREEN_WIDTH, SCREEN_HEIGHT);
-        if (!screen.image[i]) {
-            goto error;
-        }
     }
-
     screen.context = context_alloc();
-    if (!screen.context) {
-        goto error;
-    }
     screen.context->rotate = ROTATE_180;
 
     model_init(&screen.model);
-
+    start_thread();
     return 0;
-
-error:
-    screen_close();
-    return 1;
-}
-
-struct Context *screen_context(void) {
-    return screen.context;
-}
-
-void screen_sleep(void) {
-    // Includes necessary delay
-    epd2in9d_sleep();
-}
-
-void screen_wake(void) {
-    epd2in9d_wake();
-}
-
-void screen_clear(void) {
-    epd2in9d_clear();
 }
 
 void screen_render(struct View *view) {
-    static int num_updates = 0;
+    pthread_mutex_lock(&screen.mutex);
 
     struct Image *image = screen.image[1];
     screen.image[1] = screen.image[0];
@@ -86,19 +126,19 @@ void screen_render(struct View *view) {
         view->render(view, screen.context);
     }
 
+    pthread_mutex_unlock(&screen.mutex);
+
     if (!image_equal(screen.image[0], screen.image[1])) {
-        if (num_updates == 0) {
-            epd2in9d_display(screen.image[0]->data);
-        } else {
-            epd2in9d_update(screen.image[0]->data);
-        }
-        num_updates = (num_updates + 1) % 5;
+        signal_thread();
         model_changed(&screen.model);
     }
 }
 
 int screen_png(uint8_t **png, size_t *size) {
-    return image_png(screen.image[0], png, size);
+    pthread_mutex_lock(&screen.mutex);
+    const int err = image_png(screen.image[0], png, size);
+    pthread_mutex_unlock(&screen.mutex);
+    return err;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

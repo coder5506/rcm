@@ -30,6 +30,9 @@ static struct {
     .addr = {0, 0},
 };
 
+// Utility
+void sleep_ms(int milliseconds);
+
 // Shutdown serial connection to board
 void boardserial_close(void) {
     if (boardserial.fd >= 0) {
@@ -120,9 +123,13 @@ error:
 }
 
 static void clear_serial(void) {
+    tcdrain(boardserial.fd);
+    sleep_ms(100);
+
     uint8_t buf[256];
     while (read_serial(boardserial.fd, buf, sizeof buf) > 0) {
-        // loop
+        tcflush(boardserial.fd, TCIFLUSH);
+        sleep_ms(100);
     }
 }
 

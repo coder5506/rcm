@@ -10,7 +10,7 @@ struct CentaurMod;
 struct Context;
 struct View;
 
-#define MAX_ACTIONS 32
+#define MAX_ACTIONS 16
 
 struct Centaur {
     struct Game  *game;
@@ -31,12 +31,6 @@ void centaur_close(void);
 // Initialize both field array and screen
 int centaur_open(void);
 
-// Put display to sleep
-void centaur_sleep(void);
-
-// Wake display from sleep
-void centaur_wake(void);
-
 enum Color centaur_player_color(void);
 void centaur_set_player_color(enum Color color);
 
@@ -47,9 +41,6 @@ uint64_t centaur_getstate(void);
 // Return battery and charging status
 int centaur_batterylevel(void);
 int centaur_charging(void);
-
-// Clear display
-void centaur_clear(void);
 
 // Render UI to display
 void centaur_render(void);

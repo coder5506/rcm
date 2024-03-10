@@ -14,18 +14,27 @@ int boardserial_open(void) {
     return 0; // Success
 }
 
-int boardserial_readdata(uint8_t *buf, int len) {
-    (void)buf;
-    (void)len;
-    return 6; // Idle
+int boardserial_chargingstate(void) {
+    return 20; // Fully charged, not charging
 }
 
 uint64_t boardserial_boardstate(void) {
     return 0; // No pieces on board
 }
 
-int boardserial_chargingstate(void) {
-    return 20; // Fully charged, not charging
+int boardserial_readdata(uint8_t *buf, int len) {
+    (void)buf;
+    (void)len;
+    return 6; // Idle
+}
+
+void boardserial_buttons(enum Button *press, enum Button *release) {
+    if (press) {
+        *press = BUTTON_NONE;
+    }
+    if (release) {
+        *release = BUTTON_NONE;
+    }
 }
 
 int boardserial_leds_off(void) {
@@ -50,6 +59,11 @@ int boardserial_led_array(const int *squares, int num_squares) {
 int boardserial_led_from_to(int from, int to) {
     (void)from;
     (void)to;
+    return 0;
+}
+
+int boardserial_play_sound(enum Sound sound) {
+    (void)sound;
     return 0;
 }
 

@@ -7,6 +7,9 @@
 
 #include "../epd2in9d.h"
 
+// Utility
+void sleep_ms(int milliseconds);
+
 void epd2in9d_close(void) {
 }
 
@@ -15,16 +18,19 @@ int epd2in9d_open(void) {
 }
 
 void epd2in9d_sleep(void) {
+    sleep_ms(2000);
 }
 
 void epd2in9d_wake(void) {
 }
 
 void epd2in9d_clear(void) {
+    sleep_ms(3500);
 }
 
 void epd2in9d_update(const uint8_t *data) {
     (void)data;
+    sleep_ms(100);
 }
 
 void epd2in9d_display(const uint8_t *data) {
