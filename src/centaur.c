@@ -250,7 +250,7 @@ static int update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     // Ensure space in buffer, preserving newest actions
-    const int high_water = MAX_ACTIONS * 3 / 2;
+    const int high_water = MAX_ACTIONS - MAX_ACTIONS / 4;
     if (centaur.num_actions > high_water) {
         consume_actions(centaur.num_actions - high_water);
         assert(centaur.num_actions == high_water);

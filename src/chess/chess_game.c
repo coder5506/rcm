@@ -246,10 +246,10 @@ bool game_read_move(
         }
 
         // Find takeback move
-        struct List *it = previous->moves_played->next;
-        for (; it != previous->moves_played; it = it->next) {
+        struct List *it = list_begin(previous->moves_played);
+        for (; it != list_end(previous->moves_played); it = it->next) {
             struct Move *move = it->data;
-            if (position_equal(move->after, after)) {
+            if (position_equal(move->after, current)) {
                 *takeback = move;
                 break;
             }
