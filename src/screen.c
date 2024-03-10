@@ -24,13 +24,17 @@ static void *update_epd2in9d(void *data) {
     memset(old_image, -1, size_bytes);
     memset(new_image, -1, size_bytes);
 
-    epd2in9d_wake();
-    epd2in9d_clear();
+    epd2in9d_init();
+
+    pthread_mutex_lock(&screen.mutex);
+    memcpy(new_image, screen.image[0]->data, size_bytes);
+    pthread_mutex_unlock(&screen.mutex);
+    memcpy(old_image, new_image, size_bytes);
+    epd2in9d_display(old_image);
 
     struct timespec last_render;
     clock_gettime(CLOCK_REALTIME, &last_render);
 
-    int num_renders = 0;
     while (!screen.shutdown) {
         struct timespec timeout;
         clock_gettime(CLOCK_REALTIME, &timeout);
@@ -52,12 +56,7 @@ static void *update_epd2in9d(void *data) {
         }
 
         memcpy(old_image, new_image, size_bytes);
-        if (num_renders == 0) {
-            epd2in9d_display(old_image);
-        } else {
-            epd2in9d_update(old_image);
-        }
-        num_renders = (num_renders + 1) % 5;
+        epd2in9d_update(old_image);
 
         // Eventually we'll want to sleep if nothing is happening.
         clock_gettime(CLOCK_REALTIME, &last_render);

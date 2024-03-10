@@ -22,9 +22,7 @@ void epd2in9d_sleep(void);
 
 // Wake display from sleep
 void epd2in9d_wake(void);
-
-// Clear display
-void epd2in9d_clear(void);
+void epd2in9d_init(void);
 
 // Partially update display.  That is, instruct the e-Paper to make the minimal
 // changes necessary to display the new image.

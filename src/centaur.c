@@ -55,13 +55,13 @@ static void render_board(struct View *board_view, struct Context *context) {
             }
 
             const enum Piece piece = position->mailbox.cells[mailbox_index[square]];
-            printf(" %c", piece);
+            // printf(" %c", piece);
             const char *sprite = strchr(sprites, piece);
             const int   x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
                 context, x_dst, y_dst, pieces, x_src, y_src, square_size, square_size);
         }
-        printf("\n");
+        // printf("\n");
     }
 }
 
@@ -250,9 +250,10 @@ static int update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     // Ensure space in buffer, preserving newest actions
-    if (centaur.num_actions > 24) {
-        consume_actions(centaur.num_actions - 24);
-        assert(centaur.num_actions == 24);
+    const int high_water = MAX_ACTIONS * 3 / 2;
+    if (centaur.num_actions > high_water) {
+        consume_actions(centaur.num_actions - high_water);
+        assert(centaur.num_actions == high_water);
     }
 
     // Read newest actions
@@ -475,6 +476,9 @@ static void centaur_start(void) {
 }
 
 static void centaur_run(void) {
+    const struct timespec timeout = {.tv_nsec = 350 * 1000000 };
+    fd_set readfds;
+
     // Declared outside loop to avoid redundant allocations
     struct List *candidates = list_new();
     struct Move *takeback   = NULL;
@@ -523,7 +527,11 @@ static void centaur_run(void) {
         }
 
     next:
-        sleep_ms(350);
+        FD_ZERO(&readfds);
+        FD_SET(0, &readfds);
+        if (pselect(1, &readfds, NULL, NULL, &timeout, NULL) > 0) {
+            break;
+        }
     }
 }
 

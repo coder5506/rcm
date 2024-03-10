@@ -174,11 +174,11 @@ static int read_packet(int fd, uint8_t *data, int length) {
         return 0;
     }
 
-    printf("READ[%d]:", total_read);
-    for (int i = 0; i != total_read; ++i) {
-        printf(" %d", data[i]);
-    }
-    printf("\n");
+    // printf("READ[%d]:", total_read);
+    // for (int i = 0; i != total_read; ++i) {
+    //     printf(" %d", data[i]);
+    // }
+    // printf("\n");
 
     return total_read;
 }
@@ -229,11 +229,11 @@ static int write_serial(int fd, const uint8_t *buf, int len) {
         goto error;
     }
 
-    printf("WRITE[%d]:", total_written);
-    for (int i = 0; i != total_written; ++i) {
-        printf(" %d", buf[i]);
-    }
-    printf("\n");
+    // printf("WRITE[%d]:", total_written);
+    // for (int i = 0; i != total_written; ++i) {
+    //     printf(" %d", buf[i]);
+    // }
+    // printf("\n");
 
     return total_written;
 

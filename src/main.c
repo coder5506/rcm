@@ -11,24 +11,8 @@
 
 #include <gc/gc.h>
 
-static void cleanup(void) {
-    printf("shutting down...\n");
-    httpd_stop();
-    centaur_close();
-}
-
-static void handle_sigint(int signal) {
-    (void)signal;
-    exit(EXIT_SUCCESS);
-}
-
 int main(void) {
     GC_INIT();
-
-    atexit(cleanup);
-
-    struct sigaction action = {.sa_handler = handle_sigint};
-    sigaction(SIGINT, &action, NULL);
 
     if (centaur_open() != 0) {
         return EXIT_FAILURE;
@@ -40,6 +24,9 @@ int main(void) {
 
     centaur_set_player_color('b');
     centaur_main();
+
+    httpd_stop();
+    centaur_close();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

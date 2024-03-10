@@ -20,9 +20,6 @@
 
 #include <pigpio.h>
 
-// Utility
-void sleep_ms(int milliseconds);
-
 //
 // GPIO
 //
@@ -33,6 +30,10 @@ enum Pin {
     PIN_CLEAR_TO_SEND = 18,
     PIN_BUSY          = 13,
 };
+
+static void delay_ms(uint32_t ms) {
+    gpioDelay(1000 * ms /* micros */);
+}
 
 static void gpio_close(void) {
     gpioWrite(PIN_RESET, 0);
@@ -55,15 +56,16 @@ static int gpio_open(void) {
     return 0;
 }
 
+// Software reset
 static void gpio_reset(void) {
-    for (int i = 0; i != 2; ++i) {
+    for (int i = 0; i != 3; ++i) {
         gpioWrite(PIN_RESET, 1);
-        sleep_ms(20);
+        delay_ms(20);
         gpioWrite(PIN_RESET, 0);
-        sleep_ms(5);
+        delay_ms(2);
     }
     gpioWrite(PIN_RESET, 1);
-    sleep_ms(20);
+    delay_ms(20);
 }
 
 //
@@ -126,7 +128,7 @@ void epd2in9d_close(void) {
     lut_ready = false;
 }
 
-// Initialize display
+// Connect to display
 int epd2in9d_open(void) {
     if (gpio_open() < 0) {
         return 1;
@@ -176,6 +178,7 @@ static void read_busy(void) {
     do {
         send_command(COMMAND_FLG);
     } while ((gpioRead(PIN_BUSY) & 1) == 0);
+    delay_ms(20);
 }
 
 // Put display to sleep
@@ -191,11 +194,11 @@ void epd2in9d_sleep(void) {
     lut_ready = false;
 
     // Wait at least 2s before doing anything else
-    sleep_ms(2000);
+    delay_ms(2000);
 }
 
-// Wake display from sleep
-void epd2in9d_wake(void) {
+// Initialize display
+void epd2in9d_init(void) {
     gpio_reset();
 
 	send_command(COMMAND_PON);
@@ -218,12 +221,11 @@ void epd2in9d_wake(void) {
     lut_ready = false;
 }
 
-static void init_lut(void) {
-    if (lut_ready) {
-        return;
-    }
-    lut_ready = true;
+void epd2in9d_wake(void) {
+    epd2in9d_init();
+}
 
+static void lut_tables(void) {
     const uint8_t EPD_2IN9D_lut_vcom1[] = {
         0x00, 0x19, 0x01, 0x00, 0x00, 0x01,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -286,7 +288,12 @@ static void init_lut(void) {
     spi_send_array(EPD_2IN9D_lut_bb1, sizeof EPD_2IN9D_lut_bb1);
 }
 
-static void EPD_2IN9D_SetPartReg(void) {
+static void init_lut(void) {
+    if (lut_ready) {
+        return;
+    }
+    lut_ready = true;
+
     send_command(COMMAND_PWR);
     spi_send_data(0x03);
     spi_send_data(0x00);
@@ -321,12 +328,12 @@ static void EPD_2IN9D_SetPartReg(void) {
     send_command(COMMAND_CDI);
     spi_send_data(0x97);
 
-    init_lut();
+    lut_tables();
 }
 
 static void refresh_screen(void) {
     send_command(COMMAND_DRF);
-    sleep_ms(10);  // Must be at least 200us
+    delay_ms(10);  // Must be at least 200us
     read_busy();
 }
 
@@ -350,24 +357,9 @@ static void refresh_screen(void) {
 #define PIXEL_BLACK  0
 #define PIXEL_WHITE -1
 
-#define SCREEN_BYTES ((SCREEN_WIDTH + 7) / 8) * SCREEN_HEIGHT
+#define WIDTH_BYTES  ((SCREEN_WIDTH + 7) / 8)
+#define SCREEN_BYTES (WIDTH_BYTES * SCREEN_HEIGHT)
 static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
-
-// Clear display
-void epd2in9d_clear(void) {
-    send_command(COMMAND_DTM1);
-    spi_send_array(black_buffer, SCREEN_BYTES);
-
-    uint8_t *white_buffer = alloca(SCREEN_BYTES);
-    memset(white_buffer, PIXEL_WHITE, SCREEN_BYTES);
-    send_command(COMMAND_DTM2);
-    spi_send_array(white_buffer, SCREEN_BYTES);
-
-    refresh_screen();
-
-    // Unable to update for 3s after clearing
-    sleep_ms(3500);
-}
 
 // Fully refresh display
 void epd2in9d_display(const uint8_t *data) {
@@ -378,12 +370,11 @@ void epd2in9d_display(const uint8_t *data) {
     spi_send_array(data, SCREEN_BYTES);
 
     refresh_screen();
-    sleep_ms(100);
 }
 
 // Partially update display
 void epd2in9d_update(const uint8_t *data) {
-    EPD_2IN9D_SetPartReg();
+    init_lut();
     send_command(COMMAND_PTIN);
     send_command(COMMAND_PTL);
     spi_send_data(0);                        // HRST: Horizontal Start
