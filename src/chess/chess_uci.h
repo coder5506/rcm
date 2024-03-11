@@ -1,41 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// This file stubs out communication with the e-Paper display on a DGT Centaur
-// board.  It is used for development and testing on Linux systems where the
-// board is not available.
+#ifndef CHESS_UCI_H
+#define CHESS_UCI_H
 
-#include "../epd2in9d.h"
+struct UCIEngine;
 
-// Utility
-void sleep_ms(int milliseconds);
+int uci_printf(struct UCIEngine *engine, const char *format, ...);
+struct UCIEngine *uci_execvp(const char *file, char *const argv[]);
 
-void epd2in9d_close(void) {
-}
-
-int epd2in9d_open(void) {
-    return 0;
-}
-
-void epd2in9d_sleep(void) {
-    sleep_ms(2000);
-}
-
-void epd2in9d_init(void) {
-}
-
-void epd2in9d_clear(void) {
-    sleep_ms(3500);
-}
-
-void epd2in9d_update(const uint8_t *data) {
-    (void)data;
-    sleep_ms(100);
-}
-
-void epd2in9d_display(const uint8_t *data) {
-    (void)data;
-}
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //
