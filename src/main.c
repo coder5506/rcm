@@ -1,13 +1,12 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
+#include "board.h"
 #include "centaur.h"
 #include "httpd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <signal.h>
 
 #include <gc/gc.h>
 
@@ -22,7 +21,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    centaur_set_player_color('b');
+    board_reversed = true;
     centaur_main();
 
     httpd_stop();

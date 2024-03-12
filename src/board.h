@@ -9,14 +9,13 @@
 // 0xffff00000000ffff
 extern const uint64_t STARTING_POSITION;
 
+extern bool board_reversed;
+
 // Shutdown connection to board
 void board_close(void);
 
 // Initialize connection to board
 int board_open(void);
-
-enum Color board_player_color(void);
-void board_set_player_color(enum Color color);
 
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0

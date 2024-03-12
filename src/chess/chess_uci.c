@@ -2,9 +2,10 @@
 // See license at end of file
 
 #include "chess_uci.h"
+#include "../list.h"
 
+#include <assert.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,87 +18,145 @@
 #include <pthread.h>
 
 struct UCIEngine {
-    pthread_t thread;
-    bool shutdown;
-    int  read_fd;
-    int  write_fd;
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
+    pthread_t       thread;
+    struct List    *request_queue;
+    struct List    *response_queue;
+    int             read_fd;
+    int             write_fd;
+    FILE           *in;
+    FILE           *out;
 };
 
-int uci_printf(struct UCIEngine *engine, const char *format, ...)
-{
+struct UCIMessage *uci_receive(struct UCIEngine *engine) {
+    assert(engine);
+
+    pthread_mutex_lock(&engine->mutex);
+    struct UCIMessage *response = list_shift(engine->response_queue);
+    pthread_mutex_unlock(&engine->mutex);
+    return response;
+}
+
+void uci_send(struct UCIEngine *engine, struct UCIMessage *request) {
+    assert(engine);
+    assert(request);
+
+    pthread_mutex_lock(&engine->mutex);
+    list_push(engine->request_queue, request);
+    pthread_cond_signal(&engine->cond);
+    pthread_mutex_unlock(&engine->mutex);
+}
+
+static char *uci_getline(struct UCIEngine *engine) {
+    const struct timespec timeout = {.tv_sec = 1};
+    fd_set read_fds;
+
+    FD_ZERO(&read_fds);
+    FD_SET(engine->read_fd, &read_fds);
+    if (pselect(engine->read_fd + 1, &read_fds, NULL, NULL, &timeout, NULL) == 0) {
+        return NULL;
+    }
+
+    char  *line = NULL;
+    size_t size = 0;
+    const ssize_t n_read = getline(&line, &size, engine->in);
+
+    char *result = NULL;
+    if (n_read > 0) {
+        result = GC_MALLOC_ATOMIC(n_read + 1);
+        memcpy(result, line, n_read);
+        result[n_read] = '\0';
+    }
+
+    if (line) {
+        free(line);
+    }
+
+    return result;
+}
+
+static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
     va_list args;
     va_start(args, format);
-    const int n = vdprintf(engine->write_fd, format, args);
+    const int n = vfprintf(engine->out, format, args);
     va_end(args);
     return n;
 }
 
-static void *engine_thread(void *arg)
-{
-    struct UCIEngine *engine = arg;
-    FILE *in = fdopen(engine->read_fd, "r");
+static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
+    (void)request;
 
-    time_t start = time(NULL);
-    bool   uciok = false;
     uci_printf(engine, "uci\n");
+    const time_t timeout = time(NULL) + 5;
+    while (time(NULL) < timeout) {
+        const char *line = uci_getline(engine);
+        if (line && strcmp(line, "uciok\n") == 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
 
-    const struct timespec timeout = {.tv_sec = 1};
-    fd_set read_fds;
+static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) {
+    switch (request->type) {
+    case UCI_REQUEST_UCI:
+        return handle_uci(engine, request);
+    case UCI_REQUEST_QUIT:
+    default:
+        return 1;
+    }
+}
 
-    while (!engine->shutdown) {
-        if (!uciok && time(NULL) > start + 5) {
+static void *engine_thread(void *arg) {
+    struct UCIEngine *const engine = arg;
+
+    while (1) {
+        pthread_mutex_lock(&engine->mutex);
+        struct UCIMessage *request = list_shift(engine->request_queue);
+        while (!request) {
+            pthread_cond_wait(&engine->cond, &engine->mutex);
+            request = list_shift(engine->request_queue);
+        }
+        pthread_mutex_unlock(&engine->mutex);
+
+        if (handle_request(engine, request) != 0) {
             break;
-        }
-
-        FD_ZERO(&read_fds);
-        FD_SET(engine->read_fd, &read_fds);
-        if (pselect(engine->read_fd + 1, &read_fds, NULL, NULL, &timeout, NULL) == 0) {
-            continue;
-        }
-
-        char  *line = NULL;
-        size_t size = 0;
-        const ssize_t n_read = getline(&line, &size, in);
-        if (n_read < 0) {
-            goto next;
-        }
-
-        uciok = uciok || strncmp(line, "uciok", 5) == 0;
-
-    next:
-        if (line) {
-            free(line);
         }
     }
 
-    fclose(in);
+    fclose(engine->in);
     engine->read_fd = -1;
 
     uci_printf(engine, "quit\n");
-    close(engine->write_fd);
+    fclose(engine->out);
     engine->write_fd = -1;
 
     return NULL;
 }
 
-// static void stop_thread(struct UCIEngine *engine)
-// {
-//     engine->shutdown = true;
-//     pthread_join(engine->thread, NULL);
-// }
-
-static struct UCIEngine *uci_new(int read_fd, int write_fd)
-{
+static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     struct UCIEngine *engine = GC_MALLOC(sizeof *engine);
-    engine->shutdown = false;
+
+    engine->request_queue  = list_new();
+    engine->response_queue = list_new();
     engine->read_fd  = read_fd;
     engine->write_fd = write_fd;
+    engine->in  = fdopen(engine->read_fd, "r");
+    engine->out = fdopen(engine->write_fd, "w");
+
+    pthread_mutex_init(&engine->mutex, NULL);
+    pthread_cond_init(&engine->cond, NULL);
     pthread_create(&engine->thread, NULL, engine_thread, engine);
+
+    struct UCIMessage *uci = GC_MALLOC_ATOMIC(sizeof *uci);
+    uci->type = UCI_REQUEST_UCI;
+    uci_send(engine, uci);
+
     return engine;
 }
 
-struct UCIEngine *uci_execvp(const char *file, char *const argv[])
-{
+struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
     int  pipe_fds[] = {-1, -1, -1, -1};
     int *read_pipe  = pipe_fds + 0;
     int *write_pipe = pipe_fds + 2;
@@ -123,7 +182,7 @@ struct UCIEngine *uci_execvp(const char *file, char *const argv[])
     }
 
     execvp(file, argv);
-    _exit(1);
+    _exit(EXIT_FAILURE);
 
 error:
     for (int i = 0; i != 4; ++i) {
@@ -132,6 +191,15 @@ error:
         }
     }
     return NULL;
+}
+
+void uci_quit(struct UCIEngine *engine) {
+    struct UCIMessage quit = {.type = UCI_REQUEST_QUIT};
+    uci_send(engine, &quit);
+
+    pthread_join(engine->thread, NULL);
+    pthread_mutex_destroy(&engine->mutex);
+    pthread_cond_destroy(&engine->cond);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

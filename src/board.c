@@ -12,7 +12,7 @@
 
 const uint64_t STARTING_POSITION = 0xffff00000000ffff;
 
-static enum Color player_color = WHITE;
+bool board_reversed = false;
 
 // Shutdown connection to board
 void board_close(void) {
@@ -22,14 +22,6 @@ void board_close(void) {
 // Initialize connection to board
 int board_open(void) {
     return boardserial_open();
-}
-
-enum Color board_player_color(void) {
-    return player_color;
-}
-
-void board_set_player_color(enum Color color) {
-    player_color = color;
 }
 
 static uint64_t reverse_bits(uint64_t value) {
@@ -44,7 +36,7 @@ static uint64_t reverse_bits(uint64_t value) {
 // Read current state of board fields
 uint64_t board_getstate(void) {
     const uint64_t boardstate = boardserial_boardstate();
-    if (player_color == BLACK) {
+    if (board_reversed) {
         return reverse_bits(boardstate);
     }
     return boardstate;
@@ -77,7 +69,7 @@ int board_led_flash(void) {
 }
 
 int board_led(enum Square square) {
-    if (player_color == BLACK) {
+    if (board_reversed) {
         square = rotate_square(square);
     }
     return boardserial_led(square);
@@ -87,7 +79,7 @@ int board_led_array(const enum Square *squares, int num_squares) {
     int rotated_squares[num_squares];
     for (int i = 0; i != num_squares; ++i) {
         rotated_squares[i] = squares[i];
-        if (player_color == BLACK) {
+        if (board_reversed) {
             rotated_squares[i] = rotate_square(rotated_squares[i]);
         }
     }
@@ -95,7 +87,7 @@ int board_led_array(const enum Square *squares, int num_squares) {
 }
 
 int board_led_from_to(enum Square from, enum Square to) {
-    if (player_color == BLACK) {
+    if (board_reversed) {
         from = rotate_square(from);
         to   = rotate_square(to);
     }
@@ -133,7 +125,7 @@ int board_read_actions(struct Action *actions, int max_actions) {
             if (square_valid(buf[i])) {
                 actions[n].place = INVALID_SQUARE;
                 actions[n].lift  = buf[i++];
-                if (player_color == BLACK) {
+                if (board_reversed) {
                     actions[n].lift = rotate_square(actions[n].lift);
                 }
                 ++n;
@@ -144,7 +136,7 @@ int board_read_actions(struct Action *actions, int max_actions) {
             if (square_valid(buf[i])) {
                 actions[n].lift  = INVALID_SQUARE;
                 actions[n].place = buf[i++];
-                if (player_color == BLACK) {
+                if (board_reversed) {
                     actions[n].place = rotate_square(actions[n].place);
                 }
                 ++n;

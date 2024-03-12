@@ -37,8 +37,6 @@ static void render_board(struct View *board_view, struct Context *context) {
         return;
     }
 
-    const enum Color player_color = centaur_player_color();
-
     const int left = board_view->bounds.left;
     const int top  = board_view->bounds.top;
     for (int r = 0; r != 8; ++r) {
@@ -49,7 +47,7 @@ static void render_board(struct View *board_view, struct Context *context) {
             const int y_src = (r + c) % 2 ? square_size : 0; // Square color
 
             enum Square square = 8 * r + c;
-            if (player_color == BLACK) {
+            if (board_reversed) {
                 square = rotate_square(square);
             }
 
@@ -140,14 +138,6 @@ void sleep_ms(int milliseconds) {
 void centaur_close(void) {
     screen_close();
     board_close();
-}
-
-enum Color centaur_player_color(void) {
-    return board_player_color();
-}
-
-void centaur_set_player_color(enum Color color) {
-    board_set_player_color(color);
 }
 
 static void remove_actions(int begin, int end) {

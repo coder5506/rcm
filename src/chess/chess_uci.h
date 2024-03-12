@@ -6,8 +6,20 @@
 
 struct UCIEngine;
 
-int uci_printf(struct UCIEngine *engine, const char *format, ...);
 struct UCIEngine *uci_execvp(const char *file, char *const argv[]);
+void uci_quit(struct UCIEngine *engine);
+
+enum UCIRequest {
+    UCI_REQUEST_QUIT,
+    UCI_REQUEST_UCI,
+};
+
+struct UCIMessage {
+    enum UCIRequest type;
+};
+
+struct UCIMessage *uci_receive(struct UCIEngine *engine);
+void uci_send(struct UCIEngine *engine, struct UCIMessage *message);
 
 #endif
 
