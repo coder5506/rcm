@@ -6,7 +6,6 @@
 
 #include "board.h"
 
-struct CentaurMod;
 struct Context;
 struct View;
 
@@ -17,9 +16,6 @@ struct Centaur {
     struct View  *screen_view;
     struct Action actions[MAX_ACTIONS];
     int           num_actions;
-
-    // Current gameplay module
-    struct CentaurMod *mod;
 };
 
 // There can be only one
