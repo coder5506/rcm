@@ -1,30 +1,12 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-#include "centaur.h"
-#include "httpd.h"
-#include "standard.h"
+#ifndef STANDARD_H
+#define STANDARD_H
 
-#include <stdlib.h>
+void standard_main(void);
 
-#include <gc/gc.h>
-
-int main(void) {
-    GC_INIT();
-
-    if (centaur_open() != 0) {
-        return EXIT_FAILURE;
-    }
-    if (httpd_start() != 0) {
-        centaur_close();
-        return EXIT_FAILURE;
-    }
-
-    standard_main();
-
-    httpd_stop();
-    centaur_close();
-}
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

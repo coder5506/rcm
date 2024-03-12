@@ -27,6 +27,11 @@ void centaur_close(void);
 // Initialize both field array and screen
 int centaur_open(void);
 
+void centaur_clear_actions(void);
+int centaur_update_actions(void);
+
+void centaur_led(enum Square square);
+
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t centaur_getstate(void);
@@ -38,11 +43,12 @@ int centaur_charging(void);
 // Render UI to display
 void centaur_render(void);
 
-// Wait for pieces to be put in starting position
-void centaur_sync(void);
-
-// Play a game!
-void centaur_main(void);
+bool
+centaur_read_move(
+    struct List  *candidates,
+    struct Move **takeback,
+    struct Game  *game,
+    uint64_t      boardstate);
 
 // Utility
 void sleep_ms(int milliseconds);

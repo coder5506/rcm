@@ -162,7 +162,7 @@ static void consume_actions(int num_consume) {
     assert(centaur.num_actions == num_actions - num_consume);
 }
 
-static void clear_actions(void) {
+void centaur_clear_actions(void) {
     consume_actions(centaur.num_actions);
     assert(centaur.num_actions == 0);
 }
@@ -210,7 +210,7 @@ int centaur_open(void) {
     MODEL_OBSERVE(centaur.game, game_changed, NULL);
 
     centaur.num_actions = MAX_ACTIONS;
-    clear_actions();
+    centaur_clear_actions();
 
     return 0;
 }
@@ -234,7 +234,7 @@ void centaur_render(void) {
     screen_render(centaur.screen_view);
 }
 
-static int update_actions(void) {
+int centaur_update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     // Ensure space in buffer, preserving newest actions
@@ -258,6 +258,10 @@ static int update_actions(void) {
 
 static void clear_feedback(void) {
     board_leds_off();
+}
+
+void centaur_led(enum Square square) {
+    board_led(square);
 }
 
 static void show_feedback(uint64_t diff) {
@@ -347,7 +351,7 @@ history_read_move(
     return false;
 }
 
-static bool
+bool
 centaur_read_move(
     struct List  *candidates,
     struct Move **takeback,
@@ -369,7 +373,7 @@ centaur_read_move(
 
     if (list_length(candidates) > 0) {
         // 5x5, we won't need to review actions history
-        clear_actions();
+        centaur_clear_actions();
         clear_feedback();
         return true;
     } else if (maybe_valid) {
@@ -450,79 +454,6 @@ centaur_read_move(
     // we can provide some feedback.
     show_feedback(game_current(game)->bitmap ^ boardstate);
     return NULL;
-}
-
-static void centaur_start(void) {
-    centaur_render();
-
-    // TODO
-    // - load latest game
-    // - wait for:
-    //   - board to match game state
-    //   - board to match starting position
-    //   - keypress for menu
-}
-
-static void centaur_run(void) {
-    const struct timespec timeout = {.tv_nsec = 350 * 1000000 };
-    fd_set readfds;
-
-    // Declared outside loop to avoid redundant allocations
-    struct List *candidates = list_new();
-    struct Move *takeback   = NULL;
-
-    while (true) {
-        list_clear(candidates);
-        takeback = NULL;
-
-        // Update history before reading boardstate.  We don't want actions
-        // that are newer than the boardstate, and we can always get the latest
-        // on the next iteration.
-        if (update_actions() == 0) {
-            goto next;
-        }
-        const uint64_t boardstate = centaur_getstate();
-
-        // Put pieces in starting position for a new game.
-        if (boardstate == STARTING_POSITION) {
-            clear_actions();
-            if (game_started(centaur.game)) {
-                game_set_start(centaur.game, NULL);
-            }
-            goto next;
-        }
-
-        bool maybe_valid =
-            centaur_read_move(candidates, &takeback, centaur.game, boardstate);
-        if (!maybe_valid) {
-            goto next;
-        }
-
-        // TODO promotions menu
-        struct Move *move = list_first(candidates);
-        if (takeback && move) {
-            game_complete_move(centaur.game, takeback, move);
-            board_led(move->to);
-        } else  if (takeback) {
-            game_apply_takeback(centaur.game, takeback);
-            board_led(takeback->from);
-        } else if (move) {
-            game_apply_move(centaur.game, move);
-            board_led(move->to);
-        }
-
-    next:
-        FD_ZERO(&readfds);
-        FD_SET(0, &readfds);
-        if (pselect(1, &readfds, NULL, NULL, &timeout, NULL) > 0) {
-            break;
-        }
-    }
-}
-
-void centaur_main(void) {
-    centaur_start();
-    centaur_run();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
