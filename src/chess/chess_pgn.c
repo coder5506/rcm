@@ -3,7 +3,8 @@
 
 #include "chess_pgn.h"
 #include "chess.h"
-#include "../list.h"
+#include "../utility/kv.h"
+#include "../utility/list.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -18,13 +19,14 @@ static void pgn_write_tags(FILE *out, const struct Game *game)
     assert(out);
     assert(game_valid(game));
 
-    fprintf(out, "[Event \"%s\"]\n", game->roster.event);
-    fprintf(out, "[Site \"%s\"]\n", game->roster.site);
-    fprintf(out, "[Date \"%s\"]\n", game->roster.date);
-    fprintf(out, "[Round \"%s\"]\n", game->roster.round);
-    fprintf(out, "[White \"%s\"]\n", game->roster.white);
-    fprintf(out, "[Black \"%s\"]\n", game->roster.black);
-    fprintf(out, "[Result \"%s\"]\n", game->roster.result);
+    if (!game->tags) {
+        return;
+    }
+
+    struct KeyValue *begin = kv_begin(game->tags);
+    for (; begin != kv_end(game->tags); begin = begin->next) {
+        fprintf(out, "[%s \"%s\"]\n", begin->key, (const char*)begin->value);
+    }
     fprintf(out, "\n");
 }
 
@@ -278,28 +280,30 @@ static char *read_tag(char **value, char **pgn) {
     return name;
 }
 
-static int read_tags(struct Roster *roster, char **pgn) {
+static int read_tags(struct KeyValue *tags, char **pgn) {
+    (void)tags;
     char *value = NULL;
     char *name  = read_tag(&value, pgn);
-    while (name) {
-        if (strcmp(name, "Event") == 0) {
-            roster->event = value;
-        } else if (strcmp(name, "Site") == 0) {
-            roster->site = value;
-        } else if (strcmp(name, "Date") == 0) {
-            roster->date = value;
-        } else if (strcmp(name, "Round") == 0) {
-            roster->round = value;
-        } else if (strcmp(name, "White") == 0) {
-            roster->white = value;
-        } else if (strcmp(name, "Black") == 0) {
-            roster->black = value;
-        } else if (strcmp(name, "Result") == 0) {
-            roster->result = value;
-        }
-        value = NULL;
-        name  = read_tag(&value, pgn);
-    }
+    (void)name;
+    // while (name) {
+    //     if (strcmp(name, "Event") == 0) {
+    //         roster->event = value;
+    //     } else if (strcmp(name, "Site") == 0) {
+    //         roster->site = value;
+    //     } else if (strcmp(name, "Date") == 0) {
+    //         roster->date = value;
+    //     } else if (strcmp(name, "Round") == 0) {
+    //         roster->round = value;
+    //     } else if (strcmp(name, "White") == 0) {
+    //         roster->white = value;
+    //     } else if (strcmp(name, "Black") == 0) {
+    //         roster->black = value;
+    //     } else if (strcmp(name, "Result") == 0) {
+    //         roster->result = value;
+    //     }
+    //     value = NULL;
+    //     name  = read_tag(&value, pgn);
+    // }
     return 0;
 }
 
@@ -359,7 +363,7 @@ int game_read_pgn(struct Game *game, char *pgn) {
     assert(game_valid(game));
     assert(pgn);
 
-    int err = read_tags(&game->roster, &pgn);
+    int err = read_tags(game->tags, &pgn);
     if (!err) {
         err = read_movetext(game, &pgn);
     }

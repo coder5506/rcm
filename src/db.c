@@ -1,22 +1,36 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
-#pragma once
 
-#ifndef CFG_H
-#define CFG_H
+#include "cfg.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stddef.h>
+#include <stdio.h>
 
-const char *cfg_data_dir(void);
-int cfg_port(void);
+#include <sqlite3.h>
 
-#ifdef __cplusplus
+static const char *SCHEMA =
+    "CREATE TABLE IF NOT EXISTS games ("
+    "  event TEXT, site  TEXT, date   TEXT, round TEXT,"
+    "  white TEXT, black TEXT, result TEXT, pgn   TEXT"
+    ");";
+
+static sqlite3 *db;
+
+void db_close() {
+    sqlite3_close(db);
 }
-#endif
 
-#endif
+int db_open(void) {
+    char *path = NULL;
+    asprintf(&path, "%s/rcm.db", cfg_data_dir());
+    int rc = sqlite3_open(path, &db);
+    if (rc != SQLITE_OK) {
+        db_close();
+        return 1;
+    }
+    sqlite3_exec(db, SCHEMA, NULL, NULL, NULL);
+    return 0;
+}
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

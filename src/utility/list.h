@@ -1,10 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 #ifndef LIST_H
 #define LIST_H
 
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct List {
     struct List *next;
@@ -44,6 +49,10 @@ void *list_first(const struct List *list);
 void *list_index(const struct List *list, int index);
 void *list_last(const struct List *list);
 int list_length(const struct List *list);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -4,7 +4,7 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
-#include "model.h"
+#include "utility/model.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -1,5 +1,6 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 #ifndef HTTPD_H
 #define HTTPD_H
@@ -9,6 +10,10 @@
 #include <stdint.h>
 
 #include <microhttpd.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //
 // Types
@@ -76,6 +81,10 @@ void httpd_response_free(struct HttpdResponse *response);
 
 void httpd_stop(void);
 int httpd_start(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

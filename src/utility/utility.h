@@ -1,20 +1,10 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
-#pragma once
 
-#ifndef CFG_H
-#define CFG_H
+#ifndef UTILITY_H
+#define UTILITY_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-const char *cfg_data_dir(void);
-int cfg_port(void);
-
-#ifdef __cplusplus
-}
-#endif
+void sleep_ms(int milliseconds);
 
 #endif
 

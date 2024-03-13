@@ -3,9 +3,11 @@
 
 #include "httpd.h"
 #include "centaur.h"
+#include "cfg.h"
 #include "chess/chess.h"
-#include "list.h"
 #include "screen.h"
+#include "utility/kv.h"
+#include "utility/list.h"
 
 #include <assert.h>
 #include <string.h>
@@ -19,12 +21,6 @@
 // Types
 //
 
-struct key_value {
-    struct key_value *next;
-    const char       *key;
-    const char       *value;
-};
-
 struct HttpdRequest {
     struct MHD_Connection *mhd_connection;
     const char            *method;
@@ -33,7 +29,7 @@ struct HttpdRequest {
     uint8_t               *body;
     size_t                 body_allocated;
     size_t                 body_used;
-    struct key_value      *post_vars;
+    struct KeyValue       *post_vars;
     void                  *userdata;
 };
 
@@ -205,25 +201,22 @@ MHD_unescape_plus(char *arg)
 static void
 parse_post_vars(struct HttpdRequest *request)
 {
-    if (request->post_vars && is_urlencoded(request)) {
+    if (!request->post_vars && is_urlencoded(request)) {
         char *kvs = (char*)request->body;
 
-        struct key_value *tail = malloc(sizeof *tail);
-        request->post_vars = tail;
+        request->post_vars = kv_new();
 
         for (char *kv = strsep(&kvs, "&"); kv; kv = strsep(&kvs, "&")) {
-            tail->key = strsep(&kv, "=");
-            (void)MHD_http_unescape((char*)tail->key);
+            char *key = strsep(&kv, "=");
+            MHD_http_unescape((char*)key);
 
-            tail->value = kv;
-            if (tail->value != NULL) {
-                (void)MHD_unescape_plus((char*)tail->value);
-                (void)MHD_http_unescape((char*)tail->value);
+            char *value = kv;
+            if (value != NULL) {
+                MHD_unescape_plus((char*)value);
+                MHD_http_unescape((char*)value);
             }
 
-            tail->next = malloc(sizeof *tail);
-            *tail->next =(struct key_value){0};
-            tail = tail->next;
+            kv_push(request->post_vars, key, value);
         }
     }
 }
@@ -231,12 +224,8 @@ parse_post_vars(struct HttpdRequest *request)
 const char*
 httpd_request_post_var(const struct HttpdRequest *request, const char *name) {
     parse_post_vars((struct HttpdRequest*)request);
-
-    struct key_value *kvs = request->post_vars;
-    while (kvs && kvs->key && strcmp(kvs->key, name) != 0) {
-        kvs = kvs->next;
-    }
-    return kvs ? kvs->value : NULL;
+    struct KeyValue *var = kv_find(request->post_vars, name);
+    return var ? var->value : NULL;
 }
 
 //
@@ -692,8 +681,7 @@ void httpd_stop() {
 }
 
 int httpd_start() {
-    const char *s_port = getenv("PORT");
-    const int   port   = s_port ? atoi(s_port) : 80;
+    const int port = cfg_port();
     httpd_daemon = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
         port,

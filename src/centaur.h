@@ -50,9 +50,6 @@ centaur_read_move(
     struct Game  *game,
     uint64_t      boardstate);
 
-// Utility
-void sleep_ms(int milliseconds);
-
 #endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

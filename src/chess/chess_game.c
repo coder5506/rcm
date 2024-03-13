@@ -3,7 +3,7 @@
 
 #include "chess_game.h"
 #include "chess.h"
-#include "../list.h"
+#include "../utility/list.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -55,32 +55,33 @@ void game_set_start(struct Game *game, const struct Position *start) {
     assert(game_valid(game));
 
     // Reset default metadata
-    game->started = 0;
-    game->roster.event  = "?";
-    game->roster.site   = "?";
-    game->roster.date   = "????.??.??";
-    game->roster.round  = "-";
-    game->roster.white  = "?";
-    game->roster.black  = "?";
-    game->roster.result = "*";
+    // game->started = 0;
+    // game->roster.event  = "?";
+    // game->roster.site   = "?";
+    // game->roster.date   = "????.??.??";
+    // game->roster.round  = "-";
+    // game->roster.white  = "?";
+    // game->roster.black  = "?";
+    // game->roster.result = "*";
 
     model_changed(&game->model);
 }
 
 // Hook to handle bookkeeping
 static void game_changed(struct Game *game, void *data) {
+    (void)game;
     (void)data;
 
-    if (game->started || !game_started(game)) {
-        // Either bookkeeping is done, or game hasn't started
-        return;
-    }
+    // if (game->started || !game_started(game)) {
+    //     // Either bookkeeping is done, or game hasn't started
+    //     return;
+    // }
 
-    game->started = time(NULL);
-    game->roster.date = GC_MALLOC_ATOMIC(11);
-    struct tm timestamp;
-    localtime_r(&game->started, &timestamp);
-    strftime((char*)game->roster.date, 11, "%Y.%m.%d", &timestamp);
+    // game->started = time(NULL);
+    // game->roster.date = GC_MALLOC_ATOMIC(11);
+    // struct tm timestamp;
+    // localtime_r(&game->started, &timestamp);
+    // strftime((char*)game->roster.date, 11, "%Y.%m.%d", &timestamp);
 }
 
 struct Game *game_from_position(const struct Position *start) {

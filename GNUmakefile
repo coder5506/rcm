@@ -3,7 +3,7 @@
 centaur  = centaur
 build    = $(or $(centaur),stub)
 
-src_dirs = src src/chess src/fonts src/$(build)
+src_dirs = src src/chess src/fonts src/utility src/$(build)
 sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.c))
 
 obj_dirs = $(patsubst src%,obj%,$(src_dirs))
@@ -13,7 +13,7 @@ CPPFLAGS = -DGC_THREADS -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
 #CFLAGS  += -Wno-unused-parameter -Wno-unused-variable
-LDLIBS   = $(if $(centaur),-lpigpio,) -lgc -lmicrohttpd -lpcre2-8 -lpng -lrt -lm
+LDLIBS   = $(if $(centaur),-lpigpio,) -lgc -lmicrohttpd -lpcre2-8 -lpng -lrt -lsqlite3 -lm
 
 $(shell mkdir -p bin $(obj_dirs))
 all: bin/rcm
@@ -29,8 +29,8 @@ bin/rcm: $(objects)
 
 test_sources = \
 	$(wildcard src/chess/*.c) \
-	src/list.c \
-	src/model.c
+	src/utility/list.c \
+	src/utility/model.c
 bin/check: $(wildcard t/*.c) $(test_sources)
 	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
 

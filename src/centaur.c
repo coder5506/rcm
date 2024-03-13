@@ -4,9 +4,9 @@
 #include "centaur.h"
 #include "cfg.h"
 #include "graphics.h"
-#include "list.h"
-#include "model.h"
 #include "screen.h"
+#include "utility/list.h"
+#include "utility/model.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -118,19 +118,6 @@ static struct View centaur_view = {
 };
 
 //
-// Utility
-//
-
-void sleep_ms(int milliseconds) {
-    assert(milliseconds >= 0);
-    struct timespec request = {
-        .tv_sec  =  milliseconds / 1000,
-        .tv_nsec = (milliseconds % 1000) * 1000000,
-    };
-    nanosleep(&request, NULL);
-}
-
-//
 // Centaur
 //
 
@@ -171,23 +158,23 @@ static void game_changed(struct Game *game, void *data) {
     (void)data;
 
     centaur_render();
-    if (!game->started) {
+    if (!game->id) {
         return;
     }
 
-    char *pgn = NULL;
-    asprintf(&pgn, "%s/%li.pgn", cfg_pgn_dir(), game->started);
-    game_save_pgn(game, pgn);
-    free(pgn);
+    // char *pgn = NULL;
+    // asprintf(&pgn, "%s/%li.pgn", cfg_pgn_dir(), game->started);
+    // game_save_pgn(game, pgn);
+    // free(pgn);
 
-    char *latest = NULL;
-    asprintf(&latest, "%s/latest", cfg_data_dir());
-    FILE *fp = fopen(latest, "w");
-    free(latest);
-    if (fp) {
-        fprintf(fp, "%li\n", game->started);
-        fclose(fp);
-    }
+    // char *latest = NULL;
+    // asprintf(&latest, "%s/latest", cfg_data_dir());
+    // FILE *fp = fopen(latest, "w");
+    // free(latest);
+    // if (fp) {
+    //     fprintf(fp, "%li\n", game->started);
+    //     fclose(fp);
+    // }
 
     char *fen = NULL;
     asprintf(&fen, "%s/fen", cfg_data_dir());

@@ -30,9 +30,6 @@ static struct {
     .addr = {0, 0},
 };
 
-// Utility
-void sleep_ms(int milliseconds);
-
 // Shutdown serial connection to board
 void boardserial_close(void) {
     if (boardserial.fd >= 0) {

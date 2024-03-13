@@ -2,13 +2,43 @@
 // See license at end of file
 
 #include "standard.h"
+#include "board.h"
 #include "centaur.h"
 #include "chess/chess.h"
-#include "list.h"
+#include "utility/list.h"
 
 #include <sys/select.h>
 
+enum PlayerType {
+    COMPUTER,
+    HUMAN,
+};
+
+struct Player {
+    enum PlayerType type;
+    union {
+        struct {
+            const char *engine;
+            int         elo;
+        } computer;
+        struct {
+            int dummy;
+        } human;
+    };
+};
+
+struct StandardGame {
+    struct Player white;
+    struct Player black;
+};
+
+static struct StandardGame standard = {
+    .white = {.type = HUMAN},
+    .black = {.type = COMPUTER, .computer = {.engine = "stockfish", .elo = 1400}},
+};
+
 static void standard_start(void) {
+    board_reversed = standard.black.type == HUMAN && standard.white.type == COMPUTER;
     centaur_render();
     // TODO
     // - load latest game

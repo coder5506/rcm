@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -20,15 +21,20 @@ static const char *xdg_data_home(void) {
         return data_home;
     }
 
+    if (getuid() == 0) {
+        data_home = "/usr/local/share";
+        return data_home;
+    }
+
     const char *home = getenv("HOME");
     if (home) {
         asprintf(&data_home, "%s/.local", home);
-        int err = mkdir(data_home, 0700);
+        int err = mkdir(data_home, 0750);
         if (!err || errno == EEXIST) {
             free(data_home);
             data_home = NULL;
             asprintf(&data_home, "%s/.local/share", home);
-            err = mkdir(data_home, 0700);
+            err = mkdir(data_home, 0750);
         }
         if (err && errno != EEXIST) {
             free(data_home);
@@ -43,36 +49,26 @@ static const char *xdg_data_home(void) {
 }
 
 const char *cfg_data_dir(void) {
-    static char *data_home = NULL;
-    if (!data_home) {
-        asprintf(&data_home, "%s/raccoons-centaur-mods", xdg_data_home());
-        int err = mkdir(data_home, 0700);
+    static char *data_dir = NULL;
+    if (!data_dir) {
+        asprintf(&data_dir, "%s/rcm", xdg_data_home());
+        int err = mkdir(data_dir, 0755);
         if (err && errno != EEXIST) {
-            free(data_home);
-            data_home = NULL;
+            free(data_dir);
+            data_dir = NULL;
         }
     }
-    if (!data_home) {
-        data_home = "/usr/local/share/raccoons-centaur-mods";
+    if (!data_dir) {
+        data_dir = "/usr/local/share/rcm";
     }
-    return data_home;
+    return data_dir;
 }
 
-const char *cfg_pgn_dir(void) {
-    static char *pgn_dir = NULL;
-    if (!pgn_dir) {
-        asprintf(&pgn_dir, "%s/pgn", cfg_data_dir());
-        int err = mkdir(pgn_dir, 0700);
-        if (err && errno != EEXIST) {
-            free(pgn_dir);
-            pgn_dir = NULL;
-        }
-    }
-    if (!pgn_dir) {
-        pgn_dir = "/usr/local/share/raccoons-centaur-mods/pgn";
-    }
-    return pgn_dir;
+int cfg_port(void) {
+    const char *s_port = getenv("PORT");
+    return s_port ? atoi(s_port) : 80;
 }
+
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

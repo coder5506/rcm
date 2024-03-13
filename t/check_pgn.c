@@ -2,7 +2,7 @@
 // See license at end of file
 
 #include "../src/chess/chess.h"
-#include "../src/list.h"
+#include "../src/utility/list.h"
 
 #include <stdarg.h>
 #include <check.h>
@@ -18,8 +18,9 @@ static void play_san_moves(struct Game *game, ...) {
 }
 
 static const char *short_pgn(const struct Game *game) {
-    char *pgn =game_pgn(game);
-    return strstr(pgn, "\n\n") + 2;
+    char *pgn   = game_pgn(game);
+    char *begin = strstr(pgn, "\n\n");
+    return begin ? begin + 2 : pgn;
 }
 
 START_TEST(test_fools_mate)

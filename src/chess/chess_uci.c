@@ -2,7 +2,7 @@
 // See license at end of file
 
 #include "chess_uci.h"
-#include "../list.h"
+#include "../utility/list.h"
 
 #include <assert.h>
 #include <stdarg.h>

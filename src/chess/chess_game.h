@@ -1,37 +1,32 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 #ifndef CHESS_GAME_H
 #define CHESS_GAME_H
 
-#include "../model.h"
+#include "../utility/model.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
 #include <time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct Action;
+struct KeyValue;
 struct Move;
 struct Position;
 
-// Seven Tag Roster (STR)
-struct Roster {
-    const char *event;   // "?"
-    const char *site;    // "?"
-    const char *date;    // "YYYY.MM.DD"
-    const char *round;   // "-"
-    const char *white;   // "?"
-    const char *black;   // "?"
-    const char *result;  // "*"
-};
-
 // Game is graph of positions joined by moves
 struct Game {
-    struct Model  model;
-    struct Roster roster;
-    struct List  *history;  // Path from start to current position
-    time_t        started;  // Timestamp, serves as ID
+    struct Model     model;
+    int              id;
+    struct List     *history;  // Path from start to current position
+    struct KeyValue *tags;  // Game metadata
 };
 
 bool game_valid(const struct Game *game);
@@ -73,6 +68,10 @@ bool game_read_move(
     uint64_t       boardstate,
     struct Action *actions,
     int            num_actions);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

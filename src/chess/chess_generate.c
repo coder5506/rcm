@@ -3,7 +3,7 @@
 
 #include "chess_generate.h"
 #include "chess.h"
-#include "../list.h"
+#include "../utility/list.h"
 
 #include <assert.h>
 #include <stdio.h>

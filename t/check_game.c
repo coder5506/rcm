@@ -2,7 +2,7 @@
 // See license at end of file
 
 #include "../src/chess/chess.h"
-#include "../src/list.h"
+#include "../src/utility/list.h"
 
 #include <check.h>
 
