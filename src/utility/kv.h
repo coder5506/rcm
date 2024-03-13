@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef KV_H
-#define KV_H
+#ifndef RCM_KV_H
+#define RCM_KV_H
 
 #include "list.h"
 
@@ -14,8 +14,8 @@ extern "C" {
 struct KeyValue {
     struct KeyValue *next;
     struct KeyValue *prev;
+    void            *data;
     const char      *key;
-    void            *value;
 };
 
 static inline struct KeyValue *kv_begin(struct KeyValue *list) {
@@ -45,10 +45,10 @@ static inline void kv_link(struct KeyValue *node, struct KeyValue *before) {
 static inline void
 kv_unlink(struct KeyValue *node) { list_unlink((struct List*)node); }
 
-void kv_push(struct KeyValue *list, const char *key, void *value);
+void kv_push(struct KeyValue *list, const char *key, void *data);
 struct KeyValue *kv_pop(struct KeyValue *list);
 
-void kv_unshift(struct KeyValue *list, const char *key, void *value);
+void kv_unshift(struct KeyValue *list, const char *key, void *data);
 struct KeyValue *kv_shift(struct KeyValue *list);
 
 struct KeyValue *kv_find(const struct KeyValue *list, const char *key);

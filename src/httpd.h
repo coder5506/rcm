@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef HTTPD_H
-#define HTTPD_H
+#ifndef RCM_HTTPD_H
+#define RCM_HTTPD_H
 
 #include <stdbool.h>
 #include <stddef.h>

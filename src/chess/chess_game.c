@@ -3,6 +3,7 @@
 
 #include "chess_game.h"
 #include "chess.h"
+#include "../utility/kv.h"
 #include "../utility/list.h"
 
 #include <assert.h>
@@ -41,6 +42,30 @@ bool game_started(const struct Game *game) {
     return list_length(game->history) > 1;
 }
 
+const char *game_tag(struct Game *game, const char *key) {
+    assert(game_valid(game));
+    if (!game->tags) {
+        return NULL;
+    }
+
+    struct KeyValue *existing = kv_find(game->tags, key);
+    return existing ? existing->data : NULL;
+}
+
+void game_set_tag(struct Game *game, const char *key, void *data) {
+    assert(game_valid(game));
+    if (!game->tags) {
+        game->tags = kv_new();
+    }
+
+    struct KeyValue *existing = kv_find(game->tags, key);
+    if (existing) {
+        existing->data = data;
+    } else {
+        kv_push(game->tags, key, data);
+    }
+}
+
 void game_set_start(struct Game *game, const struct Position *start) {
     assert(game);
     assert(!start || position_valid(start));
@@ -55,14 +80,13 @@ void game_set_start(struct Game *game, const struct Position *start) {
     assert(game_valid(game));
 
     // Reset default metadata
-    // game->started = 0;
-    // game->roster.event  = "?";
-    // game->roster.site   = "?";
-    // game->roster.date   = "????.??.??";
-    // game->roster.round  = "-";
-    // game->roster.white  = "?";
-    // game->roster.black  = "?";
-    // game->roster.result = "*";
+    game_set_tag(game, "Event", "?");
+    game_set_tag(game, "Site", "?");
+    game_set_tag(game, "Date", "????.??.??");
+    game_set_tag(game, "Round", "-");
+    game_set_tag(game, "White", "?");
+    game_set_tag(game, "Black", "?");
+    game_set_tag(game, "Result", "*");
 
     model_changed(&game->model);
 }
@@ -72,16 +96,17 @@ static void game_changed(struct Game *game, void *data) {
     (void)game;
     (void)data;
 
-    // if (game->started || !game_started(game)) {
-    //     // Either bookkeeping is done, or game hasn't started
-    //     return;
-    // }
+    if (game->started || !game_started(game)) {
+        // Either bookkeeping is done, or game hasn't started
+        return;
+    }
 
-    // game->started = time(NULL);
-    // game->roster.date = GC_MALLOC_ATOMIC(11);
-    // struct tm timestamp;
-    // localtime_r(&game->started, &timestamp);
-    // strftime((char*)game->roster.date, 11, "%Y.%m.%d", &timestamp);
+    game->started = time(NULL);
+    struct tm timestamp;
+    localtime_r(&game->started, &timestamp);
+    char *date = GC_MALLOC_ATOMIC(11);
+    strftime(date, 11, "%Y.%m.%d", &timestamp);
+    game_set_tag(game, "Date", date);
 }
 
 struct Game *game_from_position(const struct Position *start) {

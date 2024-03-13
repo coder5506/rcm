@@ -1,10 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CENTAUR_H
-#define CENTAUR_H
+#ifndef RCM_CENTAUR_H
+#define RCM_CENTAUR_H
 
 #include "board.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct Context;
 struct View;
@@ -49,6 +54,10 @@ centaur_read_move(
     struct Move **takeback,
     struct Game  *game,
     uint64_t      boardstate);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -155,31 +155,9 @@ void centaur_clear_actions(void) {
 }
 
 static void game_changed(struct Game *game, void *data) {
+    (void)game;
     (void)data;
-
     centaur_render();
-    if (!game->id) {
-        return;
-    }
-
-    // char *pgn = NULL;
-    // asprintf(&pgn, "%s/%li.pgn", cfg_pgn_dir(), game->started);
-    // game_save_pgn(game, pgn);
-    // free(pgn);
-
-    // char *latest = NULL;
-    // asprintf(&latest, "%s/latest", cfg_data_dir());
-    // FILE *fp = fopen(latest, "w");
-    // free(latest);
-    // if (fp) {
-    //     fprintf(fp, "%li\n", game->started);
-    //     fclose(fp);
-    // }
-
-    char *fen = NULL;
-    asprintf(&fen, "%s/fen", cfg_data_dir());
-    game_save_fen(game, fen);
-    free(fen);
 }
 
 // Initialize both field array and screen

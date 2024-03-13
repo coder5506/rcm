@@ -29,6 +29,7 @@ bin/rcm: $(objects)
 
 test_sources = \
 	$(wildcard src/chess/*.c) \
+	src/utility/kv.c \
 	src/utility/list.c \
 	src/utility/model.c
 bin/check: $(wildcard t/*.c) $(test_sources)

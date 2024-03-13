@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef CHESS_GAME_H
-#define CHESS_GAME_H
+#ifndef RCM_CHESS_GAME_H
+#define RCM_CHESS_GAME_H
 
 #include "../utility/model.h"
 
@@ -24,9 +24,10 @@ struct Position;
 // Game is graph of positions joined by moves
 struct Game {
     struct Model     model;
-    int              id;
     struct List     *history;  // Path from start to current position
-    struct KeyValue *tags;  // Game metadata
+    struct KeyValue *tags;
+    time_t           started;
+    int              id;
 };
 
 bool game_valid(const struct Game *game);
@@ -38,6 +39,9 @@ struct Position *game_previous(struct Game *game);
 
 bool game_started(const struct Game *game);
 void game_set_start(struct Game *game, const struct Position *start);
+
+void game_set_tag(struct Game *game, const char *key, void *data);
+const char *game_tag(struct Game *game, const char *key);
 
 struct Game *game_from_position(const struct Position *start);
 struct Game *game_from_fen(const char *fen);

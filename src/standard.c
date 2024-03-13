@@ -5,6 +5,7 @@
 #include "board.h"
 #include "centaur.h"
 #include "chess/chess.h"
+#include "db.h"
 #include "utility/list.h"
 
 #include <sys/select.h>
@@ -21,9 +22,6 @@ struct Player {
             const char *engine;
             int         elo;
         } computer;
-        struct {
-            int dummy;
-        } human;
     };
 };
 
@@ -33,9 +31,20 @@ struct StandardGame {
 };
 
 static struct StandardGame standard = {
-    .white = {.type = HUMAN},
-    .black = {.type = COMPUTER, .computer = {.engine = "stockfish", .elo = 1400}},
+    .white = {.type = COMPUTER, .computer = {.engine = "stockfish", .elo = 1400}},
+    .black = {.type = HUMAN},
 };
+
+static void game_changed(struct Game *game, void *data) {
+    (void)data;
+    if (game->started) {
+        db_save_game(game);
+    }
+}
+
+static void standard_stop(void) {
+    MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+}
 
 static void standard_start(void) {
     board_reversed = standard.black.type == HUMAN && standard.white.type == COMPUTER;
@@ -46,6 +55,8 @@ static void standard_start(void) {
     //   - board to match game state
     //   - board to match starting position
     //   - keypress for menu
+
+    MODEL_OBSERVE(centaur.game, game_changed, NULL);
 }
 
 static int poll_for_keypress(int timeout_ms) {
@@ -116,6 +127,7 @@ static void standard_run(void) {
 void standard_main(void) {
     standard_start();
     standard_run();
+    standard_stop();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

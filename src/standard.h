@@ -1,10 +1,19 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef STANDARD_H
-#define STANDARD_H
+#ifndef RCM_STANDARD_H
+#define RCM_STANDARD_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void standard_main(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

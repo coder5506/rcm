@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef LIST_H
-#define LIST_H
+#ifndef RCM_LIST_H
+#define RCM_LIST_H
 
 #include <stdbool.h>
 

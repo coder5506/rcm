@@ -225,7 +225,7 @@ const char*
 httpd_request_post_var(const struct HttpdRequest *request, const char *name) {
     parse_post_vars((struct HttpdRequest*)request);
     struct KeyValue *var = kv_find(request->post_vars, name);
-    return var ? var->value : NULL;
+    return var ? var->data : NULL;
 }
 
 //

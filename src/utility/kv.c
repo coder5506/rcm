@@ -9,16 +9,16 @@
 
 #include <gc/gc.h>
 
-static struct KeyValue *node_new(const char *key, void *value) {
+static struct KeyValue *node_new(const char *key, void *data) {
     struct KeyValue *node = GC_MALLOC(sizeof *node);
-    *node = (struct KeyValue){.key = key, .value = value};
+    *node = (struct KeyValue){.data = data, .key = key};
     return node;
 }
 
 struct KeyValue *kv_new() {
     struct KeyValue *list = node_new(NULL, NULL);
     *list = (struct KeyValue){.next = list, .prev = list};
-    list->key = (const char*)list;
+    list->data = list;
     assert(kv_valid(list));
     return list;
 }
@@ -26,14 +26,14 @@ struct KeyValue *kv_new() {
 struct KeyValue *kv_copy(const struct KeyValue *list) {
     struct KeyValue *copy = kv_new();
     for (struct KeyValue *it = list->next; it != list; it = it->next) {
-        kv_push(copy, it->key, it->value);
+        kv_push(copy, it->key, it->data);
     }
     return copy;
 }
 
-void kv_push(struct KeyValue *list, const char *key, void *value) {
+void kv_push(struct KeyValue *list, const char *key, void *data) {
     assert(list);
-    kv_link(node_new(key, value), list);
+    kv_link(node_new(key, data), list);
 }
 
 struct KeyValue *kv_pop(struct KeyValue *list) {
@@ -45,9 +45,9 @@ struct KeyValue *kv_pop(struct KeyValue *list) {
     return node;
 }
 
-void kv_unshift(struct KeyValue *list, const char *key, void *value) {
+void kv_unshift(struct KeyValue *list, const char *key, void *data) {
     assert(list);
-    kv_link(node_new(key, value), list->next);
+    kv_link(node_new(key, data), list->next);
 }
 
 struct KeyValue *kv_shift(struct KeyValue *list) {

@@ -1,8 +1,13 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CHESS_PGN_H
-#define CHESS_PGN_H
+#ifndef RCM_CHESS_PGN_H
+#define RCM_CHESS_PGN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct Game;
 
@@ -14,6 +19,10 @@ struct List *game_pgn_list(const struct Game *game);
 
 int game_read_pgn(struct Game *game, char *pgn);
 struct Game *game_from_pgn(char *pgn);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

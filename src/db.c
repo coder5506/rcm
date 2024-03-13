@@ -1,7 +1,9 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
+#include "db.h"
 #include "cfg.h"
+#include "chess/chess.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -16,7 +18,7 @@ static const char *SCHEMA =
 
 static sqlite3 *db;
 
-void db_close() {
+void db_close(void) {
     sqlite3_close(db);
 }
 
@@ -30,6 +32,61 @@ int db_open(void) {
     }
     sqlite3_exec(db, SCHEMA, NULL, NULL, NULL);
     return 0;
+}
+
+static int insert_game(struct Game *game) {
+    const char *sql =
+        "INSERT INTO games (event, site, date, round, white, black, result, pgn)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        return 1;
+    }
+
+    sqlite3_bind_text(stmt, 1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, game_tag(game, "White"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 7, game_tag(game, "Result"), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 8, game_pgn(game),           -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    game->id = sqlite3_last_insert_rowid(db);
+    return rc != SQLITE_DONE;
+}
+
+static int update_game(struct Game *game) {
+    const char *sql =
+        "UPDATE games SET event = ?, site = ?, date = ?, round = ?,"
+        " white = ?, black = ?, result = ?, pgn = ? WHERE rowid = ?";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        return 1;
+    }
+
+    sqlite3_bind_text(stmt, 1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, game_tag(game, "White"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 7, game_tag(game, "Result"), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 8, game_pgn(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 9, game->id);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc != SQLITE_DONE;
+}
+
+int db_save_game(struct Game *game) {
+    return game->id ? update_game(game) : insert_game(game);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

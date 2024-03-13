@@ -1,33 +1,25 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#include "centaur.h"
-#include "db.h"
-#include "httpd.h"
-#include "standard.h"
+#ifndef RCM_DB_H
+#define RCM_DB_H
 
-#include <stdlib.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <gc/gc.h>
+struct Game;
 
-int main(void) {
-    GC_INIT();
+void db_close(void);
+int db_open(void);
+int db_save_game(struct Game *game);
 
-    if (db_open() != 0) {
-        return EXIT_FAILURE;
-    }
-    if (centaur_open() != 0) {
-        db_close();
-        return EXIT_FAILURE;
-    }
-    httpd_start();
-
-    standard_main();
-
-    httpd_stop();
-    centaur_close();
-    db_close();
+#ifdef __cplusplus
 }
+#endif
+
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

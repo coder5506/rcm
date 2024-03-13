@@ -25,7 +25,7 @@ static void pgn_write_tags(FILE *out, const struct Game *game)
 
     struct KeyValue *begin = kv_begin(game->tags);
     for (; begin != kv_end(game->tags); begin = begin->next) {
-        fprintf(out, "[%s \"%s\"]\n", begin->key, (const char*)begin->value);
+        fprintf(out, "[%s \"%s\"]\n", begin->key, (const char*)begin->data);
     }
     fprintf(out, "\n");
 }
