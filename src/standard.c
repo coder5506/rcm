@@ -175,7 +175,7 @@ static void game_changed(struct Game *game, void *data) {
         game_set_tag(game, "Black", "Human");
     }
 
-    game_set_settings(game, settings_to_json());
+    game->settings = settings_to_json();
     db_save_game(game);
 }
 

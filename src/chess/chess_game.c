@@ -12,9 +12,104 @@
 
 #include <gc/gc.h>
 
+const char *game_tag(struct Game *game, const char *key) {
+    assert(game && kv_valid(game->tags));
+    assert(key && *key);
+    const struct KeyValue *tag = kv_find(game->tags, key);
+    return tag ? tag->data : NULL;
+}
+
+void game_set_tag(struct Game *game, const char *key, void *data) {
+    assert(game && kv_valid(game->tags));
+    assert(key && *key);
+    assert(data);
+
+    struct KeyValue *tag = kv_find(game->tags, key);
+    if (tag) {
+        tag->data = data;
+    } else {
+        kv_push(game->tags, key, data);
+    }
+}
+
+static void game_reset(struct Game *game) {
+    assert(game);
+    assert(list_valid(game->history));
+    assert(kv_valid(game->tags));
+
+    list_clear(game->history);
+    kv_clear(game->tags);
+    game->started = 0;
+    game->id = 0;
+    game->settings = NULL;
+
+    // Reset default metadata
+    game_set_tag(game, "Event", "?");
+    game_set_tag(game, "Site", "?");
+    game_set_tag(game, "Date", "????.??.??");
+    game_set_tag(game, "Round", "-");
+    game_set_tag(game, "White", "?");
+    game_set_tag(game, "Black", "?");
+    game_set_tag(game, "Result", "*");
+}
+
+static void game_changed(struct Game *game, void *data) {
+    (void)data;
+
+    if (list_length(game->history) <= 1 || game->started > 0) {
+        // Either not started, or bookkeeping already done
+        return;
+    }
+
+    game->started = time(NULL);
+    struct tm timestamp;
+    localtime_r(&game->started, &timestamp);
+
+    char *date = GC_MALLOC_ATOMIC(11);
+    strftime(date, 11, "%Y.%m.%d", &timestamp);
+    game_set_tag(game, "Date", date);
+}
+
+static struct Game *game_alloc(void) {
+    struct Game *game = GC_MALLOC(sizeof *game);
+
+    MODEL_INIT(game);
+    game->history = list_new();
+    game->tags = kv_new();
+    game_reset(game);
+
+    MODEL_OBSERVE(game, game_changed, NULL);
+    return game;
+}
+
 bool game_valid(const struct Game *game) {
-    return game && !list_empty(game->history) &&
-           position_valid(game->history->prev->data);
+    return game &&
+        list_valid(game->history) && !list_empty(game->history) &&
+        kv_valid(game->tags) &&
+        game->id >= 0;
+}
+
+void game_set_start(struct Game *game, const struct Position *start) {
+    assert(game);
+    assert(position_valid(start));
+
+    game_reset(game);
+    list_push(game->history, position_dup(start));
+
+    assert(game_valid(game));
+    MODEL_CHANGED(game);
+}
+
+struct Game *game_from_position(const struct Position *start) {
+    assert(position_valid(start));
+    struct Game *game = game_alloc();
+    game_set_start(game, start);
+    return game;
+}
+
+struct Game *game_from_fen(const char *fen) {
+    struct Position *start = position_from_fen(fen);
+    return game_from_position(start);
 }
 
 struct Position *game_position(struct Game *game, int index) {
@@ -36,102 +131,9 @@ struct Position *game_previous(struct Game *game) {
     return game_position(game, -2);
 }
 
-void game_set_tag(struct Game *game, const char *key, void *data) {
-    assert(game_valid(game));
-    if (!game->tags) {
-        game->tags = kv_new();
-    }
-
-    struct KeyValue *existing = kv_find(game->tags, key);
-    if (existing) {
-        existing->data = data;
-    } else {
-        kv_push(game->tags, key, data);
-    }
-}
-
-const char *game_tag(struct Game *game, const char *key) {
-    assert(game_valid(game));
-    if (!game->tags) {
-        return NULL;
-    }
-
-    struct KeyValue *existing = kv_find(game->tags, key);
-    return existing ? existing->data : NULL;
-}
-
-const char *game_settings(const struct Game *game) {
-    return game->settings;
-}
-
-void game_set_settings(struct Game *game, const char *settings) {
-    assert(game_valid(game));
-    game->settings = settings;
-}
-
-void game_set_start(struct Game *game, const struct Position *start) {
-    assert(game);
-    assert(!start || position_valid(start));
-
-    list_clear(game->history);
-    if (start) {
-        // We share a lot, but don't share positions between games!
-        list_push(game->history, position_dup(start));
-    } else {
-        list_push(game->history, position_from_fen(NULL));
-    }
-    assert(game_valid(game));
-
-    // Reset default metadata
-    game_set_tag(game, "Event", "?");
-    game_set_tag(game, "Site", "?");
-    game_set_tag(game, "Date", "????.??.??");
-    game_set_tag(game, "Round", "-");
-    game_set_tag(game, "White", "?");
-    game_set_tag(game, "Black", "?");
-    game_set_tag(game, "Result", "*");
-
-    model_changed(&game->model);
-}
-
-// Hook to handle bookkeeping
-static void game_changed(struct Game *game, void *data) {
-    (void)game;
-    (void)data;
-
-    if (list_length(game->history) <= 1 || game->started > 0) {
-        // Either game hasn't started, or bookkeeping is already done
-        return;
-    }
-
-    game->started = time(NULL);
-    struct tm timestamp;
-    localtime_r(&game->started, &timestamp);
-    char *date = GC_MALLOC_ATOMIC(11);
-    strftime(date, 11, "%Y.%m.%d", &timestamp);
-    game_set_tag(game, "Date", date);
-}
-
-struct Game *game_from_position(const struct Position *start) {
-    assert(position_valid(start));
-
-    struct Game *game = GC_MALLOC(sizeof *game);
-    model_init(&game->model);
-    game->history = list_new();
-    game_set_start(game, start);
-
-    MODEL_OBSERVE(game, game_changed, NULL);
-    return game;
-}
-
 struct Game *game_fork(const struct Game *game) {
     assert(game_valid(game));
     return game_from_position(game_current((struct Game*)game));
-}
-
-struct Game *game_from_fen(const char *fen) {
-    struct Position *start = position_from_fen(fen);
-    return game_from_position(start);
 }
 
 struct List *game_legal_moves(const struct Game *game) {
@@ -139,19 +141,55 @@ struct List *game_legal_moves(const struct Game *game) {
     return position_legal_moves(game_current((struct Game*)game));
 }
 
-int game_apply_move(struct Game *game, const struct Move *move) {
+// Undo last move, whatever it was
+int game_takeback(struct Game *game) {
     assert(game_valid(game));
-
-    struct Position *current = game_current(game);
-    struct Move *existing = movelist_find_equal(current->moves_played, move);
-    if (existing) {
-        // Move already in graph
-        list_push(game->history, (struct Position*)existing->after);
-        return 0;
+    if (list_length(game->history) <= 1) {
+        // No takeback available
+        return 1;
     }
 
-    struct Move *candidate =
-        movelist_find_equal(position_legal_moves(current), move);
+    list_pop(game->history);
+    assert(game_valid(game));
+    MODEL_CHANGED(game);
+    return 0;
+}
+
+// Undo last move, only if it can be validated
+int game_apply_takeback(struct Game *game, const struct Move *takeback) {
+    assert(game_valid(game));
+    assert(move_valid(takeback));
+
+    struct Position *current  = game_current(game);
+    struct Position *previous = game_previous(game);
+    if (!previous) {
+        // No takeback available
+        return 1;
+    }
+
+    struct Move *matching = movelist_find_equal(previous->moves_played, takeback);
+    if (!matching) {
+        // Not a legal takeback
+        return 1;
+    }
+
+    assert(matching->after == current);
+    return game_takeback(game);
+}
+
+int game_apply_move(struct Game *game, const struct Move *move) {
+    assert(game_valid(game));
+    assert(move_valid(move));
+
+    struct Position *current = game_current(game);
+    struct Move *matching = movelist_find_equal(current->moves_played, move);
+    if (matching) {
+        // Move already in graph
+        list_push(game->history, (struct Position*)matching->after);
+        goto success;
+    }
+
+    struct Move *candidate = movelist_find_equal(position_legal_moves(current), move);
     if (!candidate) {
         // Not a legal move
         return 1;
@@ -162,7 +200,8 @@ int game_apply_move(struct Game *game, const struct Move *move) {
     assert(position_valid(candidate->after));
     assert(game_valid(game));
 
-    model_changed(&game->model);
+success:
+    MODEL_CHANGED(game);
     return 0;
 }
 
@@ -174,51 +213,15 @@ int game_move_san(struct Game *game, const char *san) {
     return game_apply_move(game, move_from_san(game_current(game), san));
 }
 
-int game_takeback(struct Game *game) {
-    assert(game_valid(game));
-    if (list_length(game->history) <= 1) {
-        // No takeback available
-        return 1;
-    }
-
-    list_pop(game->history);
-    assert(game_valid(game));
-    model_changed(&game->model);
-    return 0;
-}
-
-int game_apply_takeback(struct Game *game, const struct Move *takeback) {
-    assert(game_valid(game));
-    assert(takeback);
-
-    struct Position *current  = game_current(game);
-    struct Position *previous = game_previous(game);
-    if (!previous) {
-        // No takeback available
-        return 1;
-    }
-
-    struct Move *matching =
-        movelist_find_equal(previous->moves_played, takeback);
-    if (!matching) {
-        // Not a legal takeback
-        return 1;
-    }
-
-    assert(matching->after == current);
-    list_pop(game->history);
-    assert(game_valid(game));
-    model_changed(&game->model);
-    return 0;
-}
-
 int
 game_complete_move(
     struct Game       *game,
     const struct Move *takeback,
     const struct Move *move)
 {
-    (void)takeback;
+    assert(game_valid(game));
+    assert(move_valid(takeback));
+    assert(move_valid(move));
 
     // Unlike takeback, prior move was not a variation, just a transitional
     // arrangement of pieces.  So we erase it completely.

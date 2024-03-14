@@ -62,7 +62,7 @@ static int insert_game(struct Game *game) {
     sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game_settings(game),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game->settings,           -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -93,7 +93,7 @@ static int update_game(struct Game *game) {
     sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game_settings(game),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game->settings,           -1, SQLITE_STATIC);
     sqlite3_bind_int64(stmt, 11, game->id);
 
     rc = sqlite3_step(stmt);

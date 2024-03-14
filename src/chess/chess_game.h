@@ -31,24 +31,19 @@ struct Game {
     const char      *settings;  // Opaque
 };
 
+const char *game_tag(struct Game *game, const char *key);
+void game_set_tag(struct Game *game, const char *key, void *data);
+
 bool game_valid(const struct Game *game);
+
+void game_set_start(struct Game *game, const struct Position *start);
+struct Game *game_from_position(const struct Position *start);
+struct Game *game_from_fen(const char *fen);
 
 struct Position *game_position(struct Game *game, int index);
 const struct Position *game_start(const struct Game *game);
 struct Position *game_current(struct Game *game);
 struct Position *game_previous(struct Game *game);
-
-bool game_started(const struct Game *game);
-void game_set_start(struct Game *game, const struct Position *start);
-
-void game_set_tag(struct Game *game, const char *key, void *data);
-const char *game_tag(struct Game *game, const char *key);
-
-void game_set_settings(struct Game *game, const char *settings);
-const char *game_settings(const struct Game *game);
-
-struct Game *game_from_position(const struct Position *start);
-struct Game *game_from_fen(const char *fen);
 
 // Not a dup, does not share history
 struct Game *game_fork(const struct Game *game);
@@ -57,8 +52,8 @@ struct List *game_legal_moves(const struct Game *game);
 
 int game_takeback(struct Game *game);
 
-int game_apply_move(struct Game *game, const struct Move *move);
 int game_apply_takeback(struct Game *game, const struct Move *takeback);
+int game_apply_move(struct Game *game, const struct Move *move);
 
 int game_apply_move_name(struct Game *game, const char *name);
 int game_move_san(struct Game *game, const char *san);

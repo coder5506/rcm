@@ -35,6 +35,7 @@ struct Move *move_new(enum Square from, enum Square to, enum Piece promotion) {
         .from      = from,
         .to        = to,
         .promotion = promotion,
+        .movetime  = 0,
         .before    = NULL,
         .after     = NULL,
     };

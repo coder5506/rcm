@@ -1,10 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CHESS_MOVE_H
-#define CHESS_MOVE_H
+#ifndef RCM_CHESS_MOVE_H
+#define RCM_CHESS_MOVE_H
 
 #include "chess_board.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct List;
 struct Position;
@@ -14,6 +19,7 @@ struct Move {
     enum Square from;
     enum Square to;
     enum Piece  promotion;
+    int         movetime;   // Think time for move, in milliseconds
     const struct Position *before;
     const struct Position *after;
 };
@@ -29,6 +35,10 @@ struct Move *movelist_find_equal(const struct List *list, const struct Move *mov
 int move_name(char *buf, int len, const struct Move *move);
 const char *move_name_static(const struct Move *move);
 struct Move *move_from_name(const char *name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
