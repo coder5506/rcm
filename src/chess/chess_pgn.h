@@ -17,8 +17,8 @@ void game_save_pgn(const struct Game *game, const char *filename);
 
 struct List *game_pgn_list(const struct Game *game);
 
-int game_read_pgn(struct Game *game, char *pgn);
-struct Game *game_from_pgn(char *pgn);
+int game_read_pgn(struct Game *game, const char *pgn);
+struct Game *game_from_pgn(const char *pgn);
 
 #ifdef __cplusplus
 }

@@ -359,18 +359,20 @@ static int read_movetext(struct Game *game, char **pgn) {
     return 0;
 }
 
-int game_read_pgn(struct Game *game, char *pgn) {
+int game_read_pgn(struct Game *game, const char *pgn) {
     assert(game_valid(game));
     assert(pgn);
 
-    int err = read_tags(game->tags, &pgn);
+    char *working = strdup(pgn);
+    int err = read_tags(game->tags, &working);
     if (!err) {
-        err = read_movetext(game, &pgn);
+        err = read_movetext(game, &working);
     }
+    free(working);
     return err;
 }
 
-struct Game *game_from_pgn(char *pgn) {
+struct Game *game_from_pgn(const char *pgn) {
     struct Game *game = game_from_fen(NULL);
     const int err = game_read_pgn(game, pgn);
     if (err) {

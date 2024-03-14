@@ -7,7 +7,9 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
+#include <gc/gc.h>
 #include <sqlite3.h>
 
 static const char *SCHEMA =
@@ -47,7 +49,7 @@ static int insert_game(struct Game *game) {
         "INSERT INTO games"
         "  (event, site, date, round, white, black, result, pgn, fen, settings)"
         " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return 1;
@@ -78,7 +80,7 @@ static int update_game(struct Game *game) {
         "  white = ?, black = ?, result   = ?,"
         "  pgn   = ?, fen   = ?, settings = ?"
         " WHERE rowid = ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return 1;
@@ -103,6 +105,61 @@ static int update_game(struct Game *game) {
 
 int db_save_game(struct Game *game) {
     return game->id ? update_game(game) : insert_game(game);
+}
+
+struct Game *db_load_game(int64_t rowid) {
+    const char *sql = "SELECT pgn, fen, settings FROM games WHERE rowid = ?";
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        return NULL;
+    }
+
+    sqlite3_bind_int64(stmt, 1, rowid);
+    rc = sqlite3_step(stmt);
+
+    struct Game *game = NULL;
+    if (rc != SQLITE_ROW) {
+        goto done;
+    }
+
+    const char *pgn = (const char*)sqlite3_column_text(stmt, 0);
+    const char *fen = (const char*)sqlite3_column_text(stmt, 1);
+
+    game = game_from_pgn_and_fen(pgn, fen);
+    if (!game) {
+        goto done;
+    }
+
+    game->id = rowid;
+    game->settings = NULL;
+    if (sqlite3_column_bytes(stmt, 2) > 0) {
+        game->settings = GC_MALLOC_ATOMIC(sqlite3_column_bytes(stmt, 2) + 1);
+        strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
+    }
+
+done:
+    sqlite3_finalize(stmt);
+    return game;
+}
+
+struct Game *db_load_latest(void) {
+    const char *sql = "SELECT MAX(rowid) FROM games";
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        return NULL;
+    }
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
+
+    int64_t rowid = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+    return rowid > 0 ? db_load_game(rowid) : NULL;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

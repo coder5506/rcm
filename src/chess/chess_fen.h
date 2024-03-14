@@ -1,8 +1,9 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CHESS_FEN_H
-#define CHESS_FEN_H
+#ifndef RCM_CHESS_FEN_H
+#define RCM_CHESS_FEN_H
 
 // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 extern const char *STARTING_FEN;
@@ -12,7 +13,6 @@ struct Position;
 
 char *position_fen(const struct Position *position);
 char *game_fen(const struct Game *game);
-void game_save_fen(const struct Game *game, const char *filename);
 
 int position_read_fen(struct Position *position, const char *fen);
 

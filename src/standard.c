@@ -187,15 +187,22 @@ static void standard_start(void) {
     // Switch the pieces around if human is playing black against computer
     board_reversed = standard.black.type == HUMAN && standard.white.type == COMPUTER;
 
-    // TODO
-    // - load latest game
-    // - wait for:
-    //   - board to match game state
-    //   - board to match starting position
-    //   - keypress for menu
+    struct Game *game = db_load_latest();
+    if (game && game->settings) {
+        settings_from_json(game->settings);
+    }
+    if (!game) {
+        game = game_from_fen(NULL);
+    }
 
+    // TODO centaur_set_game(game);
     centaur_render();
     MODEL_OBSERVE(centaur.game, game_changed, NULL);
+
+    // wait for:
+    // - board to match game state
+    // - board to match starting position
+    // - keypress for menu
 }
 
 static int poll_for_keypress(int timeout_ms) {

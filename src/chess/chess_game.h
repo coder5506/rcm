@@ -39,6 +39,7 @@ bool game_valid(const struct Game *game);
 void game_set_start(struct Game *game, const struct Position *start);
 struct Game *game_from_position(const struct Position *start);
 struct Game *game_from_fen(const char *fen);
+struct Game *game_from_pgn_and_fen(const char *pgn, const char *fen);
 
 struct Position *game_position(struct Game *game, int index);
 const struct Position *game_start(const struct Game *game);

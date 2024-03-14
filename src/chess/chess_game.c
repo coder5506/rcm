@@ -136,6 +136,52 @@ struct Game *game_fork(const struct Game *game) {
     return game_from_position(game_current((struct Game*)game));
 }
 
+static int game_recover_history(struct Game *game, const struct Position *target) {
+    assert(game_valid(game));
+    assert(position_valid(target));
+
+    struct Position *current = game_current(game);
+    if (position_equal(current, target)) {
+        return 0;
+    }
+
+    struct List *begin = list_begin(current->moves_played);
+    for (; begin != list_end(current->moves_played); begin = begin->next) {
+        struct Move *move = begin->data;
+        list_push(game->history, (struct Position*)move->after);
+        if (game_recover_history(game, target) == 0) {
+            return 0;
+        }
+        list_pop(game->history);
+    }
+
+    return 1;
+}
+
+static int game_recover_position(struct Game *game, const struct Position *target) {
+    assert(game_valid(game));
+    assert(position_valid(target));
+
+    const struct Position *start = game_start(game);
+    list_clear(game->history);
+    list_push(game->history, (struct Position*)start);
+    assert(game_valid(game));
+
+    return game_recover_history(game, target);
+}
+
+struct Game *game_from_pgn_and_fen(const char *pgn, const char *fen) {
+    struct Game *game = game_from_pgn(pgn);
+    struct Position *target = position_from_fen(fen);
+    const int err = game_recover_position(game, target);
+    if (err) {
+        return NULL;
+    }
+
+    assert(game_valid(game));
+    return game;
+}
+
 struct List *game_legal_moves(const struct Game *game) {
     assert(game_valid(game));
     return position_legal_moves(game_current((struct Game*)game));

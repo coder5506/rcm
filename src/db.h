@@ -5,6 +5,8 @@
 #ifndef RCM_DB_H
 #define RCM_DB_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,7 +15,10 @@ struct Game;
 
 void db_close(void);
 int db_open(void);
+
 int db_save_game(struct Game *game);
+struct Game *db_load_game(int64_t rowid);
+struct Game *db_load_latest(void);
 
 #ifdef __cplusplus
 }

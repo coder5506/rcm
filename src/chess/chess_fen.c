@@ -105,16 +105,6 @@ char *game_fen(const struct Game *game) {
     return position_fen(game_current((struct Game*)game));
 }
 
-void game_save_fen(const struct Game *game, const char *filename) {
-    assert(game_valid(game));
-
-    FILE *out = fopen(filename, "w");
-    if (out) {
-        fprintf(out, "%s\n", game_fen(game));
-        fclose(out);
-    }
-}
-
 static int fen_read_board(struct Board *board, FILE *in) {
     assert(board && in);
 
