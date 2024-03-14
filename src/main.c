@@ -9,21 +9,28 @@
 #include <stdlib.h>
 
 #include <gc/gc.h>
+#include <jansson.h>
 
 int main(void) {
     GC_INIT();
+    json_set_alloc_funcs(GC_malloc, GC_free);
 
     if (db_open() != 0) {
+        // Required for centaur_open
         return EXIT_FAILURE;
     }
     if (centaur_open() != 0) {
         db_close();
         return EXIT_FAILURE;
     }
+
+    // Optional, we're happy to ignore failure here
     httpd_start();
 
+    // Run the standard gameplay module
     standard_main();
 
+    // Cleanup
     httpd_stop();
     centaur_close();
     db_close();

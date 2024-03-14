@@ -24,10 +24,11 @@ struct Position;
 // Game is graph of positions joined by moves
 struct Game {
     struct Model     model;
-    struct List     *history;  // Path from start to current position
+    struct List     *history;   // Path from start to current position
     struct KeyValue *tags;
-    time_t           started;
-    int              id;
+    time_t           started;   // Timestamp of first move played
+    int64_t          id;        // SQLite ROWID
+    const char      *settings;  // Opaque
 };
 
 bool game_valid(const struct Game *game);
@@ -42,6 +43,9 @@ void game_set_start(struct Game *game, const struct Position *start);
 
 void game_set_tag(struct Game *game, const char *key, void *data);
 const char *game_tag(struct Game *game, const char *key);
+
+void game_set_settings(struct Game *game, const char *settings);
+const char *game_settings(const struct Game *game);
 
 struct Game *game_from_position(const struct Position *start);
 struct Game *game_from_fen(const char *fen);

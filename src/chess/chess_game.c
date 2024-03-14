@@ -36,22 +36,6 @@ struct Position *game_previous(struct Game *game) {
     return game_position(game, -2);
 }
 
-// Starts when first move is played
-bool game_started(const struct Game *game) {
-    assert(game_valid(game));
-    return list_length(game->history) > 1;
-}
-
-const char *game_tag(struct Game *game, const char *key) {
-    assert(game_valid(game));
-    if (!game->tags) {
-        return NULL;
-    }
-
-    struct KeyValue *existing = kv_find(game->tags, key);
-    return existing ? existing->data : NULL;
-}
-
 void game_set_tag(struct Game *game, const char *key, void *data) {
     assert(game_valid(game));
     if (!game->tags) {
@@ -64,6 +48,25 @@ void game_set_tag(struct Game *game, const char *key, void *data) {
     } else {
         kv_push(game->tags, key, data);
     }
+}
+
+const char *game_tag(struct Game *game, const char *key) {
+    assert(game_valid(game));
+    if (!game->tags) {
+        return NULL;
+    }
+
+    struct KeyValue *existing = kv_find(game->tags, key);
+    return existing ? existing->data : NULL;
+}
+
+const char *game_settings(const struct Game *game) {
+    return game->settings;
+}
+
+void game_set_settings(struct Game *game, const char *settings) {
+    assert(game_valid(game));
+    game->settings = settings;
 }
 
 void game_set_start(struct Game *game, const struct Position *start) {
@@ -96,8 +99,8 @@ static void game_changed(struct Game *game, void *data) {
     (void)game;
     (void)data;
 
-    if (game->started || !game_started(game)) {
-        // Either bookkeeping is done, or game hasn't started
+    if (list_length(game->history) <= 1 || game->started > 0) {
+        // Either game hasn't started, or bookkeeping is already done
         return;
     }
 

@@ -1,11 +1,12 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 // Inspired by Tripplehappy Chess library, MIT-licensed:
 // - https://github.com/billforsternz/thc-chess-library
 
-#ifndef CHESS_H
-#define CHESS_H
+#ifndef RCM_CHESS_H
+#define RCM_CHESS_H
 
 #include "chess_board.h"
 #include "chess_fen.h"

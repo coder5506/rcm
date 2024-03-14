@@ -12,8 +12,16 @@
 
 static const char *SCHEMA =
     "CREATE TABLE IF NOT EXISTS games ("
-    "  event TEXT, site  TEXT, date   TEXT, round TEXT,"
-    "  white TEXT, black TEXT, result TEXT, pgn   TEXT"
+    "  event    TEXT,"  // Seven Tag Roster (STR)
+    "  site     TEXT,"  // For convenience.  Both the STR and all other tags are
+    "  date     TEXT,"  // included in the PGN.
+    "  round    TEXT,"
+    "  white    TEXT,"
+    "  black    TEXT,"
+    "  result   TEXT,"
+    "  pgn      TEXT,"  // Full game, including variations
+    "  fen      TEXT,"  // Identifies current position
+    "  settings TEXT"   // JSON string describing game settings
     ");";
 
 static sqlite3 *db;
@@ -36,22 +44,25 @@ int db_open(void) {
 
 static int insert_game(struct Game *game) {
     const char *sql =
-        "INSERT INTO games (event, site, date, round, white, black, result, pgn)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        "INSERT INTO games"
+        "  (event, site, date, round, white, black, result, pgn, fen, settings)"
+        " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt, 1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, game_tag(game, "White"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 7, game_tag(game, "Result"), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 8, game_pgn(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  5, game_tag(game, "White"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game_settings(game),      -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -62,23 +73,28 @@ static int insert_game(struct Game *game) {
 
 static int update_game(struct Game *game) {
     const char *sql =
-        "UPDATE games SET event = ?, site = ?, date = ?, round = ?,"
-        " white = ?, black = ?, result = ?, pgn = ? WHERE rowid = ?";
+        "UPDATE games SET"
+        "  event = ?, site  = ?, date     = ?, round = ?,"
+        "  white = ?, black = ?, result   = ?,"
+        "  pgn   = ?, fen   = ?, settings = ?"
+        " WHERE rowid = ?";
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt, 1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, game_tag(game, "White"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 7, game_tag(game, "Result"), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 8, game_pgn(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_int64(stmt, 9, game->id);
+    sqlite3_bind_text(stmt,  1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  5, game_tag(game, "White"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game_settings(game),      -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 11, game->id);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);

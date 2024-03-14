@@ -1,8 +1,13 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef MODEL_H
-#define MODEL_H
+#ifndef RCM_MODEL_H
+#define RCM_MODEL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct List;
 struct Model;
@@ -35,6 +40,10 @@ model_observe((struct Model*)model, (ModelChanged)model_changed, data)
 model_unobserve((struct Model*)model, (ModelChanged)model_changed, data)
 
 #define MODEL_CHANGED(model) model_changed((struct Model*)model)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

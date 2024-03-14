@@ -1,10 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef BOARD_H
-#define BOARD_H
+#ifndef RCM_BOARD_H
+#define RCM_BOARD_H
 
 #include "chess/chess.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // 0xffff00000000ffff
 extern const uint64_t STARTING_POSITION;
@@ -44,6 +49,10 @@ static inline enum Square rotate_square(enum Square square) {
     // et voila
     return 63 - square;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
