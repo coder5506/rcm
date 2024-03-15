@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Provides serial communication with the field array on a DGT Centaur board.
+// Serial communication with the field array on a DGT Centaur board
 //
 // This implementation is based on the reverse engineering efforts of
 // [EdNekebno](https://github.com/EdNekebno) and
@@ -119,12 +119,19 @@ error:
     return 0;
 }
 
+// Drop any data currently on the line
+// N.B., This does not query the board for any queued data (field events,
+// button presses), so that data remains queued.  We're only concerned with
+// getting communications up and running.
 static void clear_serial(void) {
+    // Wait for any pending writes to complete
     tcdrain(boardserial.fd);
     sleep_ms(100);
 
+    // Read anything there is to read
     uint8_t buf[256];
     while (read_serial(boardserial.fd, buf, sizeof buf) > 0) {
+        // Discard bufferred data
         tcflush(boardserial.fd, TCIFLUSH);
         sleep_ms(100);
     }
@@ -271,12 +278,16 @@ static int read_address(void) {
 
 // Initialize serial connection to board
 int boardserial_open(void) {
+    // Open device
     boardserial.fd = open_serial("/dev/serial0");
     if (boardserial.fd < 0) {
         goto error;
     }
 
+    // Flush traffic
     clear_serial();
+
+    // See if there's anything there
     if (read_address() != 0) {
         goto error;
     }

@@ -16,7 +16,7 @@ int main(void) {
     json_set_alloc_funcs(GC_malloc, GC_free);
 
     if (db_open() != 0) {
-        // Required for centaur_open
+        // Required
         return EXIT_FAILURE;
     }
     if (centaur_open() != 0) {
@@ -24,13 +24,11 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Optional, we're happy to ignore failure here
+    // Optional, ignore failure here
     httpd_start();
 
-    // Run the standard gameplay module
     standard_main();
 
-    // Cleanup
     httpd_stop();
     centaur_close();
     db_close();

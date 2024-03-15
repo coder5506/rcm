@@ -7,6 +7,7 @@
 #include "chess/chess.h"
 #include "db.h"
 #include "utility/list.h"
+#include "utility/utility.h"
 
 #include <string.h>
 
@@ -23,12 +24,12 @@ struct Player {
     enum PlayerType type;
     union {
         struct {
-            const char *engine_name;  // e.g. "stockfish"
-            int         engine_elo;   // 1400 .. 3000
+            const char *engine;  // e.g. "stockfish"
+            int         elo;     // 1400 .. 3000
         } computer;
         struct {
-            int coach_blundercheck;   // centipawns, zero to disable
-            int coach_imprecise;      // ditto
+            int blunder;    // centipawns, zero to disable
+            int imprecise;  // ditto
         } human;
     };
 };
@@ -42,15 +43,15 @@ static struct StandardGame standard = {
     .white = {
         .type = COMPUTER,
         .computer = {
-            .engine_name = "stockfish",
-            .engine_elo = 1600,
+            .engine = "stockfish",
+            .elo    = 1600,
         },
     },
     .black = {
         .type = HUMAN,
         .human = {
-            .coach_blundercheck = 0,
-            .coach_imprecise = 0,
+            .blunder   = 0,
+            .imprecise = 0,
         },
     },
 };
@@ -62,12 +63,12 @@ static json_t *player_to_json(const struct Player *player) {
 
     switch (player->type) {
     case COMPUTER:
-        json_object_set_new(data, "engine", json_string(player->computer.engine_name));
-        json_object_set_new(data, "elo", json_integer(player->computer.engine_elo));
+        json_object_set_new(data, "engine", json_string(player->computer.engine));
+        json_object_set_new(data, "elo", json_integer(player->computer.elo));
         break;
     case HUMAN:
-        json_object_set_new(data, "blundercheck", json_integer(player->human.coach_blundercheck));
-        json_object_set_new(data, "imprecise", json_integer(player->human.coach_imprecise));
+        json_object_set_new(data, "blunder", json_integer(player->human.blunder));
+        json_object_set_new(data, "imprecise", json_integer(player->human.imprecise));
         break;
     }
 
@@ -99,13 +100,13 @@ static int player_from_json(struct Player *player, json_t *data) {
         if (!engine) {
             engine = "stockfish";
         }
-        player->computer.engine_name = engine;
+        player->computer.engine = engine;
 
         int elo = json_integer_value(json_object_get(data, "elo"));
         if (elo < 1400 || 3000 < elo) {
-            elo = 1600;
+            elo = 2000;
         }
-        player->computer.engine_elo = elo;
+        player->computer.elo = elo;
 
         return 0;
     }
@@ -113,11 +114,11 @@ static int player_from_json(struct Player *player, json_t *data) {
     if (strcmp(type, "human") == 0) {
         player->type = HUMAN;
 
-        int blundercheck = json_integer_value(json_object_get(data, "blundercheck"));
-        player->human.coach_blundercheck = blundercheck < 0 ? 0 : blundercheck;
+        int blunder = json_integer_value(json_object_get(data, "blunder"));
+        player->human.blunder = blunder < 0 ? 0 : blunder;
 
         int imprecise = json_integer_value(json_object_get(data, "imprecise"));
-        player->human.coach_imprecise = imprecise < 0 ? 0 : imprecise;
+        player->human.imprecise = imprecise < 0 ? 0 : imprecise;
 
         return 0;
     }
@@ -164,13 +165,13 @@ static void game_changed(struct Game *game, void *data) {
     }
 
     if (standard.white.type == COMPUTER) {
-        game_set_tag(game, "White", (char*)standard.white.computer.engine_name);
+        game_set_tag(game, "White", (char*)standard.white.computer.engine);
     } else {
         game_set_tag(game, "White", "Human");
     }
 
     if (standard.black.type == COMPUTER) {
-        game_set_tag(game, "Black", (char*)standard.black.computer.engine_name);
+        game_set_tag(game, "Black", (char*)standard.black.computer.engine);
     } else {
         game_set_tag(game, "Black", "Human");
     }
@@ -180,13 +181,20 @@ static void game_changed(struct Game *game, void *data) {
 }
 
 static void standard_stop(void) {
-    MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+    if (centaur.game) {
+        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+    }
+}
+
+static void standard_set_game(struct Game *game) {
+    if (centaur.game) {
+        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+    }
+    centaur_set_game(game);
+    MODEL_OBSERVE(centaur.game, game_changed, NULL);
 }
 
 static void standard_start(void) {
-    // Switch the pieces around if human is playing black against computer
-    board_reversed = standard.black.type == HUMAN && standard.white.type == COMPUTER;
-
     struct Game *game = db_load_latest();
     if (game && game->settings) {
         settings_from_json(game->settings);
@@ -195,14 +203,31 @@ static void standard_start(void) {
         game = game_from_fen(NULL);
     }
 
-    // TODO centaur_set_game(game);
-    centaur_render();
-    MODEL_OBSERVE(centaur.game, game_changed, NULL);
+    // Switch pieces around if human is playing black against computer
+    board_reversed = standard.black.type == HUMAN && standard.white.type == COMPUTER;
 
-    // wait for:
-    // - board to match game state
-    // - board to match starting position
-    // - keypress for menu
+    standard_set_game(game);
+    centaur_render();
+
+    struct Position *current = game_current(centaur.game);
+    while (1) {
+        const uint64_t boardstate = centaur_getstate();
+        if (boardstate == current->bitmap) {
+            // Resume last game
+            centaur.game->started = time(NULL);
+            break;
+        }
+        if (boardstate == STARTING_POSITION) {
+            // Start new game
+            break;
+        }
+
+        // Discard actions generated during setup
+        (void)centaur_update_actions();
+        sleep_ms(500);
+    }
+
+    centaur_purge_actions();
 }
 
 static int poll_for_keypress(int timeout_ms) {
@@ -219,27 +244,24 @@ static int poll_for_keypress(int timeout_ms) {
 }
 
 static void standard_run(void) {
-    // Declared outside loop to avoid redundant allocations
     struct List *candidates = list_new();
     struct Move *takeback   = NULL;
 
-    while (true) {
+    while (1) {
         list_clear(candidates);
         takeback = NULL;
 
-        // Update history before reading boardstate.  We don't want actions
-        // that are newer than the boardstate, and we can always get the latest
-        // on the next iteration.
         if (centaur_update_actions() == 0) {
+            // No actions, nothing's changed, there's nothing to do
             goto next;
         }
         const uint64_t boardstate = centaur_getstate();
 
-        // Put pieces in starting position for a new game.
+        // Detect start of new game
         if (boardstate == STARTING_POSITION) {
             centaur_clear_actions();
             if (centaur.game->started) {
-                game_set_start(centaur.game, NULL);
+                standard_set_game(game_from_fen(NULL));
             }
             goto next;
         }
@@ -264,6 +286,7 @@ static void standard_run(void) {
         }
 
     next:
+        // Looping 4x/second seems sufficient for smooth play
         if (poll_for_keypress(250) > 0) {
             break;
         }

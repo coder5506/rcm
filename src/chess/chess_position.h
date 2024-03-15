@@ -1,12 +1,17 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CHESS_POSITION_H
-#define CHESS_POSITION_H
+#ifndef RCM_CHESS_POSITION_H
+#define RCM_CHESS_POSITION_H
 
 #include "chess_board.h"
 
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct List;
 struct Move;
@@ -65,6 +70,10 @@ bool position_read_move(
     uint64_t               boardstate,
     struct Action         *actions,
     int                    num_actions);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

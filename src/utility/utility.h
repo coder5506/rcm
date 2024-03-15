@@ -1,10 +1,19 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef UTILITY_H
-#define UTILITY_H
+#ifndef RCM_UTILITY_H
+#define RCM_UTILITY_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void sleep_ms(int milliseconds);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

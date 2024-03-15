@@ -9,8 +9,8 @@
 #include "utility/model.h"
 
 #include <assert.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 struct Centaur centaur = {0};
@@ -52,13 +52,11 @@ static void render_board(struct View *board_view, struct Context *context) {
             }
 
             const enum Piece piece = position->mailbox.cells[mailbox_index[square]];
-            // printf(" %c", piece);
             const char *sprite = strchr(sprites, piece);
             const int   x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
                 context, x_dst, y_dst, pieces, x_src, y_src, square_size, square_size);
         }
-        // printf("\n");
     }
 }
 
@@ -121,10 +119,27 @@ static struct View centaur_view = {
 // Centaur
 //
 
-// Shutdown both field array and screen
 void centaur_close(void) {
-    screen_close();
     board_close();
+    screen_close();
+}
+
+void centaur_render(void) {
+    screen_render(centaur.screen_view);
+}
+
+static void game_changed(struct Game *game, void *data) {
+    (void)game;
+    (void)data;
+    centaur_render();
+}
+
+void centaur_set_game(struct Game *game) {
+    if (centaur.game) {
+        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+    }
+    centaur.game = game;
+    MODEL_OBSERVE(centaur.game, game_changed, NULL);
 }
 
 static void remove_actions(int begin, int end) {
@@ -154,12 +169,6 @@ void centaur_clear_actions(void) {
     assert(centaur.num_actions == 0);
 }
 
-static void game_changed(struct Game *game, void *data) {
-    (void)game;
-    (void)data;
-    centaur_render();
-}
-
 // Initialize both field array and screen
 int centaur_open(void) {
     if (board_open() != 0) {
@@ -170,20 +179,13 @@ int centaur_open(void) {
         return 1;
     }
 
-    centaur.game = game_from_fen(NULL);
-    centaur.screen_view = &centaur_view;
-    MODEL_OBSERVE(centaur.game, game_changed, NULL);
-
     centaur.num_actions = MAX_ACTIONS;
     centaur_clear_actions();
 
-    return 0;
-}
+    centaur.screen_view = &centaur_view;
+    centaur_set_game(game_from_fen(NULL));
 
-// Read current state of board fields
-// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t centaur_getstate(void) {
-    return board_getstate();
+    return 0;
 }
 
 int centaur_batterylevel(void) {
@@ -194,9 +196,8 @@ int centaur_charging(void) {
     return board_charging();
 }
 
-// Render UI to display
-void centaur_render(void) {
-    screen_render(centaur.screen_view);
+uint64_t centaur_getstate(void) {
+    return board_getstate();
 }
 
 int centaur_update_actions(void) {
@@ -219,6 +220,13 @@ int centaur_update_actions(void) {
     assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
 
     return num_new;
+}
+
+void centaur_purge_actions(void) {
+    while (centaur_update_actions() > 0) {
+        // loop
+    }
+    centaur_clear_actions();
 }
 
 static void clear_feedback(void) {
