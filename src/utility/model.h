@@ -18,7 +18,6 @@ struct Model {
     struct List *observers;
 };
 
-void model_destroy(struct Model *model);
 void model_init(struct Model *model);
 
 void model_observe(struct Model *model, ModelChanged model_changed, void *data);
@@ -30,7 +29,6 @@ void model_changed(struct Model *model);
 // Convenience macros
 //
 
-#define MODEL_DESTROY(model) model_destroy((struct Model*)model)
 #define MODEL_INIT(model) model_init((struct Model*)model)
 
 #define MODEL_OBSERVE(model, model_changed, data) \

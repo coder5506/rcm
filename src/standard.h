@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+// Standard gameplay module:
+// - Standard chess
+// - Casual play
+// - Human vs. Computer or Human vs. Human
 void standard_main(void);
 
 #ifdef __cplusplus

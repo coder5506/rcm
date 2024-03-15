@@ -243,14 +243,25 @@ static int poll_for_keypress(int timeout_ms) {
     return pselect(1, &readfds, NULL, NULL, &timeout, NULL);
 }
 
+// Gameplay loop: read actions, update game state, repeat
 static void standard_run(void) {
-    struct List *candidates = list_new();
-    struct Move *takeback   = NULL;
+    struct List *candidates  = list_new();
+    struct Move *takeback    = NULL;
 
     while (1) {
-        list_clear(candidates);
-        takeback = NULL;
+        const struct Position *current = game_current(centaur.game);
+        const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
 
+        // See if computer has a move to play
+        struct Move *move = NULL;
+        if (player->type == COMPUTER) {
+            move = engine_move(centaur.game, player->computer.engine);
+        }
+        if (move) {
+            centaur_led_from_to(move->from, move->to);
+        }
+
+        // See if there are player actions to process
         if (centaur_update_actions() == 0) {
             // No actions, nothing's changed, there's nothing to do
             goto next;
@@ -266,23 +277,39 @@ static void standard_run(void) {
             goto next;
         }
 
-        bool maybe_valid =
+        // Interpret player actions
+        list_clear(candidates);
+        takeback = NULL;
+        const bool maybe_valid =
             centaur_read_move(candidates, &takeback, centaur.game, boardstate);
         if (!maybe_valid) {
             goto next;
         }
 
+        // Execute player actions
         // TODO promotions menu
-        struct Move *move = list_first(candidates);
+        move = list_first(candidates);
+        int err = 0;
         if (takeback && move) {
-            game_complete_move(centaur.game, takeback, move);
+            err = game_complete_move(centaur.game, takeback, move);
             centaur_led(move->to);
         } else  if (takeback) {
-            game_apply_takeback(centaur.game, takeback);
+            err = game_apply_takeback(centaur.game, takeback);
             centaur_led(takeback->from);
         } else if (move) {
-            game_apply_move(centaur.game, move);
+            err = game_apply_move(centaur.game, move);
             centaur_led(move->to);
+        }
+
+        if (err) {
+            goto next;
+        }
+
+        // If it's now the computer's turn, ask for its move
+        current = game_current(centaur.game);
+        player  = current->turn == 'w' ? &standard.white : &standard.black;
+        if (player->type == COMPUTER) {
+            engine_play(centaur.game, player->computer.engine, player->computer.elo);
         }
 
     next:

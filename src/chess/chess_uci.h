@@ -15,9 +15,6 @@ struct UCIEngine;
 struct UCIEngine *uci_execvp(const char *file, char *const argv[]);
 void uci_quit(struct UCIEngine *engine);
 
-// Set engine strength
-void uci_set_elo(struct UCIEngine *engine, int elo);
-
 // Communicate with engine via request/response messages
 enum UCIRequest {
     UCI_REQUEST_HINT,
@@ -30,14 +27,18 @@ struct UCIMessage {
     enum UCIRequest type;
 };
 
-// for UCI_REQUEST_HINT and UCI_REQUEST_PLAY
+// for both UCI_REQUEST_HINT and UCI_REQUEST_PLAY
 struct UCIPlayMessage {
     struct UCIMessage  m;
     const struct Game *game;
+    int                elo;
     struct Move       *move;
 };
 
+// First available response or NULL, does not block
 struct UCIMessage *uci_receive(struct UCIEngine *engine);
+
+// Enqueue next request
 void uci_send(struct UCIEngine *engine, struct UCIMessage *message);
 
 #ifdef __cplusplus

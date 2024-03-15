@@ -4,6 +4,7 @@
 #include "model.h"
 #include "list.h"
 
+#include <assert.h>
 #include <stddef.h>
 
 #include <gc/gc.h>
@@ -14,14 +15,14 @@ struct Observer {
 };
 
 void model_init(struct Model *model) {
+    assert(model);
     model->observers = list_new();
 }
 
-void model_destroy(struct Model *model) {
-    model_init(model);
-}
-
 void model_observe(struct Model *model, ModelChanged model_changed, void *data) {
+    assert(model && list_valid(model->observers));
+    assert(model_changed);
+
     struct Observer *observer = GC_MALLOC(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
@@ -29,9 +30,15 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data) 
 }
 
 void model_unobserve(struct Model *model, ModelChanged model_changed, void *data) {
-    struct Observer *unobserve = NULL;
-    struct List     *begin = model->observers->next;
-    for (; !unobserve && begin != model->observers; begin = begin->next) {
+    assert(!model || list_valid(model->observers));
+    assert(model_changed);
+
+    if (!model) {
+        return;
+    }
+
+    struct List *begin = list_begin(model->observers);
+    for (; begin != list_end(model->observers); begin = begin->next) {
         struct Observer *observer = begin->data;
         if (observer->model_changed == model_changed && observer->data == data) {
             list_unlink(begin);
@@ -41,8 +48,10 @@ void model_unobserve(struct Model *model, ModelChanged model_changed, void *data
 }
 
 void model_changed(struct Model *model) {
-    struct List *begin = model->observers->next;
-    for (; begin != model->observers; begin = begin->next) {
+    assert(model && list_valid(model->observers));
+
+    struct List *begin = list_begin(model->observers);
+    for (; begin != list_end(model->observers); begin = begin->next) {
         struct Observer *observer = begin->data;
         observer->model_changed(model, observer->data);
     }

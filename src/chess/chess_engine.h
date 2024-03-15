@@ -2,25 +2,21 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CHESS_SAN_H
-#define RCM_CHESS_SAN_H
-
-#include <stdio.h>
+#ifndef RCM_CHESS_ENGINE_H
+#define RCM_CHESS_ENGINE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct Game;
 struct Move;
-struct Position;
 
-// Standard Algebraic Notation
-int
-san_write_move(FILE *out, const struct Position *before, const struct Move *move);
+// Ask if engine has a move ready
+struct Move *engine_move(struct Game *game, const char *engine_name);
 
-int move_san(char *buf, int len, const struct Move *move);
-const char *move_san_static(const struct Move *move);
-struct Move *move_from_san(const struct Position *before, const char *san);
+// Request engine to select a move
+void engine_play(struct Game *game, const char *engine_name, int elo);
 
 #ifdef __cplusplus
 }

@@ -237,6 +237,10 @@ void centaur_led(enum Square square) {
     board_led(square);
 }
 
+void centaur_led_from_to(enum Square from, enum Square to) {
+    board_led_from_to(from, to);
+}
+
 static void show_feedback(uint64_t diff) {
     static enum Square old_square1 = INVALID_SQUARE;
     static enum Square old_square2 = INVALID_SQUARE;

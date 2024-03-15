@@ -28,7 +28,6 @@ struct UCIEngine {
     int             write_fd;
     FILE           *in;
     FILE           *out;
-    int             elo;
 };
 
 struct UCIMessage *uci_receive(struct UCIEngine *engine) {
@@ -57,6 +56,7 @@ static char *uci_getline(struct UCIEngine *engine) {
     FD_ZERO(&read_fds);
     FD_SET(engine->read_fd, &read_fds);
     if (pselect(engine->read_fd + 1, &read_fds, NULL, NULL, &timeout, NULL) == 0) {
+        // Wait for input to be available
         return NULL;
     }
 
@@ -67,7 +67,7 @@ static char *uci_getline(struct UCIEngine *engine) {
     char *result = NULL;
     if (n_read > 0) {
         result = GC_MALLOC_ATOMIC(n_read + 1);
-        memcpy(result, line, n_read);
+        strncpy(result, line, n_read);
         result[n_read] = '\0';
     }
 
@@ -76,6 +76,11 @@ static char *uci_getline(struct UCIEngine *engine) {
     }
 
     return result;
+}
+
+static char *uci_expect(struct UCIEngine *engine, const char *startswith) {
+    char *line = uci_getline(engine);
+    return line && strncmp(line, startswith, strlen(startswith)) == 0 ? line : NULL;
 }
 
 static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
@@ -111,8 +116,8 @@ static int expect_bestmove(struct UCIEngine *engine, struct UCIPlayMessage *requ
             return 0;
         }
 
-        char *line = uci_getline(engine);
-        if (line && strncmp(line, "bestmove ", 9) == 0) {
+        char *line = uci_expect(engine, "bestmove ");
+        if (line) {
             request->move = move_from_name(line + 9);
             send_response(engine, (struct UCIMessage*)request);
             return 0;
@@ -126,7 +131,7 @@ static int handle_hint(struct UCIEngine *engine, struct UCIPlayMessage *request)
 }
 
 static int handle_play(struct UCIEngine *engine, struct UCIPlayMessage *request) {
-    uci_printf(engine, "setoption name UCI_Elo value %d\n", engine->elo);
+    uci_printf(engine, "setoption name UCI_Elo value %d\n", request->elo);
     uci_printf(engine, "setoption name UCI_LimitStrength value true\n");
     return expect_bestmove(engine, request);
 }
@@ -200,7 +205,6 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     engine->write_fd = write_fd;
     engine->in  = fdopen(engine->read_fd, "r");
     engine->out = fdopen(engine->write_fd, "w");
-    engine->elo = 2000;
 
     pthread_mutex_init(&engine->mutex, NULL);
     pthread_cond_init(&engine->cond, NULL);
@@ -257,13 +261,6 @@ void uci_quit(struct UCIEngine *engine) {
     pthread_join(engine->thread, NULL);
     pthread_mutex_destroy(&engine->mutex);
     pthread_cond_destroy(&engine->cond);
-}
-
-void uci_set_elo(struct UCIEngine *engine, int elo) {
-    if (elo < 1400 || 3000 < elo) {
-        elo = 2000;
-    }
-    engine->elo = elo;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

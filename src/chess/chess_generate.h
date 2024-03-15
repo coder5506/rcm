@@ -1,10 +1,15 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#ifndef CHESS_GENERATE_H
-#define CHESS_GENERATE_H
+#ifndef RCM_CHESS_GENERATE_H
+#define RCM_CHESS_GENERATE_H
 
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct List;
 struct Position;
@@ -19,6 +24,10 @@ struct List *position_legal_moves(const struct Position *before);
 
 bool position_is_check(const struct Position *position);
 bool position_is_checkmate(const struct Position *position);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
