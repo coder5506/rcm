@@ -2,6 +2,7 @@
 // See license at end of file
 
 #include "chess_uci.h"
+#include "chess.h"
 #include "../utility/list.h"
 
 #include <assert.h>
@@ -18,8 +19,8 @@
 #include <pthread.h>
 
 struct UCIEngine {
-    pthread_mutex_t mutex;
-    pthread_cond_t  cond;
+    pthread_mutex_t mutex;  // Lock request and response queues
+    pthread_cond_t  cond;   // Signal new request
     pthread_t       thread;
     struct List    *request_queue;
     struct List    *response_queue;
@@ -27,6 +28,7 @@ struct UCIEngine {
     int             write_fd;
     FILE           *in;
     FILE           *out;
+    int             elo;
 };
 
 struct UCIMessage *uci_receive(struct UCIEngine *engine) {
@@ -84,6 +86,51 @@ static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
     return n;
 }
 
+static struct UCIMessage *peek_request(struct UCIEngine *engine) {
+    pthread_mutex_lock(&engine->mutex);
+    struct UCIMessage *request = list_first(engine->request_queue);
+    pthread_mutex_unlock(&engine->mutex);
+    return request;
+}
+
+static void send_response(struct UCIEngine *engine, struct UCIMessage *response) {
+    pthread_mutex_lock(&engine->mutex);
+    list_push(engine->response_queue, response);
+    pthread_mutex_unlock(&engine->mutex);
+}
+
+static int expect_bestmove(struct UCIEngine *engine, struct UCIPlayMessage *request) {
+    uci_printf(engine, "setoption MultiPV 1\n");
+    uci_printf(engine, "position fen %s\n", game_fen(request->game));
+
+    char color = game_current((struct Game*)request->game)->turn;
+    uci_printf(engine, "go %ctime 60000 %cinc 600\n", color, color);
+
+    while (1) {
+        if (peek_request(engine)) {
+            return 0;
+        }
+
+        char *line = uci_getline(engine);
+        if (line && strncmp(line, "bestmove ", 9) == 0) {
+            request->move = move_from_name(line + 9);
+            send_response(engine, (struct UCIMessage*)request);
+            return 0;
+        }
+    }
+}
+
+static int handle_hint(struct UCIEngine *engine, struct UCIPlayMessage *request) {
+    uci_printf(engine, "setoption name UCI_LimitStrength value false\n");
+    return expect_bestmove(engine, request);
+}
+
+static int handle_play(struct UCIEngine *engine, struct UCIPlayMessage *request) {
+    uci_printf(engine, "setoption name UCI_Elo value %d\n", engine->elo);
+    uci_printf(engine, "setoption name UCI_LimitStrength value true\n");
+    return expect_bestmove(engine, request);
+}
+
 static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
     (void)request;
 
@@ -92,14 +139,23 @@ static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
     while (time(NULL) < timeout) {
         const char *line = uci_getline(engine);
         if (line && strcmp(line, "uciok\n") == 0) {
-            return 0;
+            goto success;
         }
     }
     return 1;
+
+success:
+    uci_printf(engine, "setoption name Threads value 2\n");
+    uci_printf(engine, "setoption name Hash value 192\n");
+    return 0;
 }
 
 static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) {
     switch (request->type) {
+    case UCI_REQUEST_HINT:
+        return handle_hint(engine, (struct UCIPlayMessage*)request);
+    case UCI_REQUEST_PLAY:
+        return handle_play(engine, (struct UCIPlayMessage*)request);
     case UCI_REQUEST_UCI:
         return handle_uci(engine, request);
     case UCI_REQUEST_QUIT:
@@ -144,6 +200,7 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     engine->write_fd = write_fd;
     engine->in  = fdopen(engine->read_fd, "r");
     engine->out = fdopen(engine->write_fd, "w");
+    engine->elo = 2000;
 
     pthread_mutex_init(&engine->mutex, NULL);
     pthread_cond_init(&engine->cond, NULL);
@@ -200,6 +257,13 @@ void uci_quit(struct UCIEngine *engine) {
     pthread_join(engine->thread, NULL);
     pthread_mutex_destroy(&engine->mutex);
     pthread_cond_destroy(&engine->cond);
+}
+
+void uci_set_elo(struct UCIEngine *engine, int elo) {
+    if (elo < 1400 || 3000 < elo) {
+        elo = 2000;
+    }
+    engine->elo = elo;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
