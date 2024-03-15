@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef CFG_H
-#define CFG_H
+#ifndef RCM_CFG_H
+#define RCM_CFG_H
 
 #ifdef __cplusplus
 extern "C" {

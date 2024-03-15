@@ -27,7 +27,6 @@ struct UCIEngine {
     int             read_fd;
     int             write_fd;
     FILE           *in;
-    FILE           *out;
 };
 
 struct UCIMessage *uci_receive(struct UCIEngine *engine) {
@@ -86,7 +85,7 @@ static char *uci_expect(struct UCIEngine *engine, const char *startswith) {
 static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
     va_list args;
     va_start(args, format);
-    const int n = vfprintf(engine->out, format, args);
+    const int n = vdprintf(engine->write_fd, format, args);
     va_end(args);
     return n;
 }
@@ -190,7 +189,7 @@ static void *engine_thread(void *arg) {
     engine->read_fd = -1;
 
     uci_printf(engine, "quit\n");
-    fclose(engine->out);
+    close(engine->write_fd);
     engine->write_fd = -1;
 
     return NULL;
@@ -204,7 +203,6 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     engine->read_fd  = read_fd;
     engine->write_fd = write_fd;
     engine->in  = fdopen(engine->read_fd, "r");
-    engine->out = fdopen(engine->write_fd, "w");
 
     pthread_mutex_init(&engine->mutex, NULL);
     pthread_cond_init(&engine->cond, NULL);

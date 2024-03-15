@@ -12,7 +12,7 @@ objects  = $(foreach s,$(sources),$(patsubst src/%.c,obj/%.o,$s))
 CPPFLAGS = -DGC_THREADS -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
-#CFLAGS  += -Wno-unused-parameter -Wno-unused-variable
+#CFLAGS  += -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable
 LDLIBS   = $(if $(centaur),-lpigpio,)
 LDLIBS  += -lgc -ljansson -lmicrohttpd -lpcre2-8 -lpng -lsqlite3 -lrt -lm
 

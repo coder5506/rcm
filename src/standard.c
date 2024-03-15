@@ -7,8 +7,9 @@
 #include "chess/chess.h"
 #include "db.h"
 #include "utility/list.h"
-#include "utility/utility.h"
 
+#include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <sys/select.h>
@@ -25,11 +26,12 @@ struct Player {
     union {
         struct {
             const char *engine;  // e.g. "stockfish"
-            int         elo;     // 1400 .. 3000
+            int         elo;     // Desired playing strength
         } computer;
         struct {
-            int blunder;    // centipawns, zero to disable
-            int imprecise;  // ditto
+            // centipawns, zero to disable
+            int error;        // Alert moves that actively worsen your position
+            int opportunity;  // Alert moves that fail to improve your position
         } human;
     };
 };
@@ -50,8 +52,8 @@ static struct StandardGame standard = {
     .black = {
         .type = HUMAN,
         .human = {
-            .blunder   = 0,
-            .imprecise = 0,
+            .error       = 0,
+            .opportunity = 0,
         },
     },
 };
@@ -67,8 +69,8 @@ static json_t *player_to_json(const struct Player *player) {
         json_object_set_new(data, "elo", json_integer(player->computer.elo));
         break;
     case HUMAN:
-        json_object_set_new(data, "blunder", json_integer(player->human.blunder));
-        json_object_set_new(data, "imprecise", json_integer(player->human.imprecise));
+        json_object_set_new(data, "error", json_integer(player->human.error));
+        json_object_set_new(data, "opportunity", json_integer(player->human.opportunity));
         break;
     }
 
@@ -114,11 +116,11 @@ static int player_from_json(struct Player *player, json_t *data) {
     if (strcmp(type, "human") == 0) {
         player->type = HUMAN;
 
-        int blunder = json_integer_value(json_object_get(data, "blunder"));
-        player->human.blunder = blunder < 0 ? 0 : blunder;
+        int error = json_integer_value(json_object_get(data, "error"));
+        player->human.error = error < 0 ? 0 : error;
 
-        int imprecise = json_integer_value(json_object_get(data, "imprecise"));
-        player->human.imprecise = imprecise < 0 ? 0 : imprecise;
+        int opportunity = json_integer_value(json_object_get(data, "opportunity"));
+        player->human.opportunity = opportunity < 0 ? 0 : opportunity;
 
         return 0;
     }
@@ -194,6 +196,19 @@ static void standard_set_game(struct Game *game) {
     MODEL_OBSERVE(centaur.game, game_changed, NULL);
 }
 
+static int poll_for_keypress(int timeout_ms) {
+    const struct timespec timeout = {
+        .tv_sec  =  timeout_ms / 1000,
+        .tv_nsec = (timeout_ms % 1000) * 1000000,
+    };
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(0, &readfds);
+
+    return pselect(1, &readfds, NULL, NULL, &timeout, NULL);
+}
+
 static void standard_start(void) {
     struct Game *game = db_load_latest();
     if (game && game->settings) {
@@ -224,26 +239,15 @@ static void standard_start(void) {
 
         // Discard actions generated during setup
         (void)centaur_update_actions();
-        sleep_ms(500);
+        if (poll_for_keypress(500) > 0) {
+            break;
+        }
     }
 
     centaur_purge_actions();
 }
 
-static int poll_for_keypress(int timeout_ms) {
-    const struct timespec timeout = {
-        .tv_sec  =  timeout_ms / 1000,
-        .tv_nsec = (timeout_ms % 1000) * 1000000,
-    };
-
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(0, &readfds);
-
-    return pselect(1, &readfds, NULL, NULL, &timeout, NULL);
-}
-
-// Gameplay loop: read actions, update game state, repeat
+// Gameplay loop: Read and interpret user actions to update game state
 static void standard_run(void) {
     struct List *candidates  = list_new();
     struct Move *takeback    = NULL;
@@ -252,16 +256,17 @@ static void standard_run(void) {
         const struct Position *current = game_current(centaur.game);
         const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
 
-        // See if computer has a move to play
+        // Check if computer has move to play
         struct Move *move = NULL;
         if (player->type == COMPUTER) {
             move = engine_move(centaur.game, player->computer.engine);
         }
         if (move) {
+            // Prompt user to move piece
             centaur_led_from_to(move->from, move->to);
         }
 
-        // See if there are player actions to process
+        // Check if there are user actions to process
         if (centaur_update_actions() == 0) {
             // No actions, nothing's changed, there's nothing to do
             goto next;
@@ -272,6 +277,7 @@ static void standard_run(void) {
         if (boardstate == STARTING_POSITION) {
             centaur_clear_actions();
             if (centaur.game->started) {
+                // Replace game in-progress with new game
                 standard_set_game(game_from_fen(NULL));
             }
             goto next;
@@ -300,12 +306,9 @@ static void standard_run(void) {
             err = game_apply_move(centaur.game, move);
             centaur_led(move->to);
         }
+        assert(err == 0);  // This really shouldn't happen
 
-        if (err) {
-            goto next;
-        }
-
-        // If it's now the computer's turn, ask for its move
+        // If is now computer's turn, ask for its move
         current = game_current(centaur.game);
         player  = current->turn == 'w' ? &standard.white : &standard.black;
         if (player->type == COMPUTER) {
@@ -313,7 +316,7 @@ static void standard_run(void) {
         }
 
     next:
-        // Looping 4x/second seems sufficient for smooth play
+        // Looping 4x/second seems(?) sufficient for smooth play
         if (poll_for_keypress(250) > 0) {
             break;
         }
@@ -321,9 +324,9 @@ static void standard_run(void) {
 }
 
 void standard_main(void) {
-    standard_start();
-    standard_run();
-    standard_stop();
+    standard_start();  // Wait for pieces to be set up
+    standard_run();    // Play a game
+    standard_stop();   // Clean up
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

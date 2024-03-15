@@ -1,19 +1,21 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-#include "utility.h"
+#ifndef RCM_SLEEP_H
+#define RCM_SLEEP_H
 
-#include <assert.h>
-#include <time.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void sleep_ms(int milliseconds) {
-    assert(milliseconds >= 0);
-    struct timespec request = {
-        .tv_sec  =  milliseconds / 1000,
-        .tv_nsec = (milliseconds % 1000) * 1000000,
-    };
-    nanosleep(&request, NULL);
+void sleep_ms(int milliseconds);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

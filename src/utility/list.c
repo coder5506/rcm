@@ -58,10 +58,11 @@ void list_push(struct List *list, void *data) {
 
 void *list_pop(struct List *list) {
     assert(list);
-    struct List *node = list->prev != list ? list->prev : NULL;
-    if (node) {
-        list_unlink(node);
+    if (list->prev == list) {
+        return NULL;
     }
+    struct List *node = list->prev;
+    list_unlink(node);
     return node->data;
 }
 
@@ -72,10 +73,11 @@ void list_unshift(struct List *list, void *data) {
 
 void *list_shift(struct List *list) {
     assert(list);
-    struct List *node = (list->next != list) ? list->next : NULL;
-    if (node) {
-        list_unlink(node);
+    if (list->next == list) {
+        return NULL;
     }
+    struct List *node = list->next;
+    list_unlink(node);
     return node->data;
 }
 
