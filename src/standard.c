@@ -16,6 +16,7 @@
 
 #include <jansson.h>
 
+// Either player can be computer or human, no restrictions
 enum PlayerType {
     COMPUTER,
     HUMAN,
@@ -24,10 +25,13 @@ enum PlayerType {
 struct Player {
     enum PlayerType type;
     union {
+        // Engine settings for computer players
         struct {
             const char *engine;  // e.g. "stockfish"
-            int         elo;     // Desired playing strength: 1400..2800
+            int         elo;     // Desired playing strength 1400..2800
+            // N.B., 2800 is about as good as Stockfish can do on a Pi Zero
         } computer;
+        // Coaching settings for human players
         struct {
             // centipawns, zero to disable
             int error;        // Alert moves that actively worsen your position
@@ -105,8 +109,8 @@ static int player_from_json(struct Player *player, json_t *data) {
         player->computer.engine = engine;
 
         int elo = json_integer_value(json_object_get(data, "elo"));
-        if (elo < 1400 || 3000 < elo) {
-            elo = 2000;
+        if (elo < 1400 || 2800 < elo) {
+            elo = 2000;  // for no other reason than this is the ELO basis
         }
         player->computer.elo = elo;
 
@@ -160,6 +164,7 @@ error:
     return 1;
 }
 
+// Ensure game and current settings are persisted to database
 static void game_changed(struct Game *game, void *data) {
     (void)data;
     if (!game->started) {
@@ -196,6 +201,8 @@ static void standard_set_game(struct Game *game) {
     MODEL_OBSERVE(centaur.game, game_changed, NULL);
 }
 
+// When running in the console, we can hit "Enter" to exit cleanly.  Otherwise
+// this is just a sleep.
 static int poll_for_keypress(int timeout_ms) {
     const struct timespec timeout = {
         .tv_sec  =  timeout_ms / 1000,
@@ -277,7 +284,7 @@ static void standard_run(void) {
         if (boardstate == STARTING_POSITION) {
             centaur_clear_actions();
             if (centaur.game->started) {
-                // Replace game in-progress with new game
+                // Replace in-progress game with new game
                 standard_set_game(game_from_fen(NULL));
             }
             goto next;
@@ -306,12 +313,18 @@ static void standard_run(void) {
             err = game_apply_move(centaur.game, move);
             centaur_led(move->to);
         }
-        assert(err == 0);  // This really shouldn't happen
+
+        // This really shouldn't happen.  If we read a move, we should be able
+        // to apply it.
+        assert(err == 0);
 
         // If is now computer's turn, ask for its move
         current = game_current(centaur.game);
         player  = current->turn == 'w' ? &standard.white : &standard.black;
         if (player->type == COMPUTER) {
+            // In case human played for computer and something is left in the queue
+            (void)engine_move(centaur.game, player->computer.engine);
+            // Ask for new move
             engine_play(centaur.game, player->computer.engine, player->computer.elo);
         }
 

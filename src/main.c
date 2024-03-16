@@ -24,7 +24,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Optional, ignore failure here
+    // Optional, can ignore failure
     httpd_start();
 
     standard_main();

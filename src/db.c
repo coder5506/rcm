@@ -5,6 +5,7 @@
 #include "cfg.h"
 #include "chess/chess.h"
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -26,10 +27,11 @@ static const char *SCHEMA =
     "  settings TEXT"   // JSON string describing game settings
     ");";
 
-static sqlite3 *db;
+static sqlite3 *db = NULL;
 
 void db_close(void) {
     sqlite3_close(db);
+    db = NULL;
 }
 
 int db_open(void) {
@@ -45,6 +47,9 @@ int db_open(void) {
 }
 
 static int insert_game(struct Game *game) {
+    assert(game_valid(game));
+    assert(db);
+
     const char *sql =
         "INSERT INTO games"
         "  (event, site, date, round, white, black, result, pgn, fen, settings)"
@@ -74,6 +79,9 @@ static int insert_game(struct Game *game) {
 }
 
 static int update_game(struct Game *game) {
+    assert(game_valid(game));
+    assert(db);
+
     const char *sql =
         "UPDATE games SET"
         "  event = ?, site  = ?, date     = ?, round = ?,"
@@ -108,6 +116,9 @@ int db_save_game(struct Game *game) {
 }
 
 struct Game *db_load_game(int64_t rowid) {
+    assert(rowid > 0);
+    assert(db);
+
     const char *sql = "SELECT pgn, fen, settings FROM games WHERE rowid = ?";
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
@@ -144,6 +155,8 @@ done:
 }
 
 struct Game *db_load_latest(void) {
+    assert(db);
+
     const char *sql = "SELECT MAX(rowid) FROM games";
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);

@@ -5,10 +5,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include <errno.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static const char *xdg_data_home(void) {
     static char *data_home = NULL;
