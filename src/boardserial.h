@@ -1,12 +1,17 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-// API for serial communication with field array on DGT Centaur board
+// API for serial communication with DGT Centaur board
 
-#ifndef BOARDSERIAL_H
-#define BOARDSERIAL_H
+#ifndef RCM_BOARDSERIAL_H
+#define RCM_BOARDSERIAL_H
 
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum Button {
     BUTTON_NONE = 0,
@@ -38,8 +43,8 @@ int boardserial_open(void);
 // Return battery and charging status
 int boardserial_chargingstate(void);
 
-// Read current state of board fields.  Returns bitmap where set bit
-// indicates presence of piece.
+// Read current state of board fields.  Returns bitmap where set bit indicates
+// presence of piece.
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 uint64_t boardserial_boardstate(void);
 
@@ -56,6 +61,10 @@ int boardserial_led_array(const int *squares, int num_squares);
 int boardserial_led_from_to(int from, int to);
 
 int boardserial_play_sound(enum Sound sound);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

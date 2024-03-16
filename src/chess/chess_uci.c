@@ -3,6 +3,7 @@
 
 #include "chess_uci.h"
 #include "chess.h"
+#include "../utility/buffer.h"
 #include "../utility/list.h"
 
 #include <assert.h>
@@ -10,10 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-#include <sys/select.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <gc/gc.h>
 #include <pthread.h>
@@ -24,13 +24,30 @@ struct UCIEngine {
     pthread_t       thread;
     struct List    *request_queue;
     struct List    *response_queue;
+    struct Buffer  *buffer;
     int             read_fd;
     int             write_fd;
-    FILE           *in;
 };
 
+static bool engine_valid(struct UCIEngine *engine) {
+    if (!engine) {
+        return false;
+    }
+
+    pthread_mutex_lock(&engine->mutex);
+    const bool is_valid =
+        list_valid(engine->response_queue) &&
+        list_valid(engine->request_queue) &&
+        buffer_valid(engine->buffer) &&
+        engine->read_fd  >= -1 &&
+        engine->write_fd >= -1;
+    pthread_mutex_unlock(&engine->mutex);
+
+    return is_valid;
+}
+
 struct UCIMessage *uci_receive(struct UCIEngine *engine) {
-    assert(engine);
+    assert(engine_valid(engine));
 
     pthread_mutex_lock(&engine->mutex);
     struct UCIMessage *response = list_shift(engine->response_queue);
@@ -39,7 +56,7 @@ struct UCIMessage *uci_receive(struct UCIEngine *engine) {
 }
 
 void uci_send(struct UCIEngine *engine, struct UCIMessage *request) {
-    assert(engine);
+    assert(engine_valid(engine));
     assert(request);
 
     pthread_mutex_lock(&engine->mutex);
@@ -49,48 +66,44 @@ void uci_send(struct UCIEngine *engine, struct UCIMessage *request) {
 }
 
 static char *uci_getline(struct UCIEngine *engine) {
-    const struct timespec timeout = {.tv_sec = 1};
-    fd_set read_fds;
+    assert(engine_valid(engine));
 
-    FD_ZERO(&read_fds);
-    FD_SET(engine->read_fd, &read_fds);
-    if (pselect(engine->read_fd + 1, &read_fds, NULL, NULL, &timeout, NULL) == 0) {
-        // Wait for input to be available
-        return NULL;
-    }
-
-    char  *line = NULL;
-    size_t size = 0;
-    const ssize_t n_read = getline(&line, &size, engine->in);
-
-    char *result = NULL;
-    if (n_read > 0) {
-        result = GC_MALLOC_ATOMIC(n_read + 1);
-        strncpy(result, line, n_read);
-        result[n_read] = '\0';
-    }
-
-    if (line) {
-        free(line);
-    }
-
-    return result;
+    char *const line = buffer_getline(engine->buffer, 1000);
+    printf("uci_getline(%p) => %s\n", (void*)engine, line);
+    return line;
 }
 
 static char *uci_expect(struct UCIEngine *engine, const char *startswith) {
-    char *line = uci_getline(engine);
+    assert(engine_valid(engine));
+    assert(startswith);
+
+    char *const line = uci_getline(engine);
+    printf("uci_expect(%p, %s) => %s\n", (void*)engine, startswith, line);
     return line && strncmp(line, startswith, strlen(startswith)) == 0 ? line : NULL;
 }
 
 static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
+    assert(engine_valid(engine));
+    assert(format);
+
     va_list args;
     va_start(args, format);
+
+    va_list trace_args;
+    va_copy(trace_args, args);
+    printf("uci_printf: ");
+    vprintf(format, trace_args);
+    va_end(trace_args);
+
     const int n = vdprintf(engine->write_fd, format, args);
     va_end(args);
+
     return n;
 }
 
 static struct UCIMessage *peek_request(struct UCIEngine *engine) {
+    assert(engine_valid(engine));
+
     pthread_mutex_lock(&engine->mutex);
     struct UCIMessage *request = list_first(engine->request_queue);
     pthread_mutex_unlock(&engine->mutex);
@@ -98,6 +111,9 @@ static struct UCIMessage *peek_request(struct UCIEngine *engine) {
 }
 
 static void send_response(struct UCIEngine *engine, struct UCIMessage *response) {
+    assert(engine_valid(engine));
+    assert(response);
+
     pthread_mutex_lock(&engine->mutex);
     list_push(engine->response_queue, response);
     pthread_mutex_unlock(&engine->mutex);
@@ -142,7 +158,7 @@ static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
     const time_t timeout = time(NULL) + 5;
     while (time(NULL) < timeout) {
         const char *line = uci_getline(engine);
-        if (line && strcmp(line, "uciok\n") == 0) {
+        if (line && strcmp(line, "uciok") == 0) {
             goto success;
         }
     }
@@ -155,6 +171,9 @@ success:
 }
 
 static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) {
+    assert(engine_valid(engine));
+    assert(request);
+
     switch (request->type) {
     case UCI_REQUEST_HINT:
         return handle_hint(engine, (struct UCIPlayMessage*)request);
@@ -170,6 +189,7 @@ static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) 
 
 static void *engine_thread(void *arg) {
     struct UCIEngine *const engine = arg;
+    assert(engine_valid(engine));
 
     while (1) {
         pthread_mutex_lock(&engine->mutex);
@@ -185,7 +205,7 @@ static void *engine_thread(void *arg) {
         }
     }
 
-    fclose(engine->in);
+    close(engine->read_fd);
     engine->read_fd = -1;
 
     uci_printf(engine, "quit\n");
@@ -196,13 +216,16 @@ static void *engine_thread(void *arg) {
 }
 
 static struct UCIEngine *uci_new(int read_fd, int write_fd) {
+    assert(read_fd >= 0);
+    assert(write_fd >= 0);
+
     struct UCIEngine *engine = GC_MALLOC(sizeof *engine);
 
     engine->request_queue  = list_new();
     engine->response_queue = list_new();
+    engine->buffer   = buffer_new(8192, read_fd);
     engine->read_fd  = read_fd;
     engine->write_fd = write_fd;
-    engine->in  = fdopen(engine->read_fd, "r");
 
     pthread_mutex_init(&engine->mutex, NULL);
     pthread_cond_init(&engine->cond, NULL);
@@ -212,13 +235,17 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     uci->type = UCI_REQUEST_UCI;
     uci_send(engine, uci);
 
+    assert(engine_valid(engine));
     return engine;
 }
 
 struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
+    assert(file && *file);
+    assert(argv);
+
     int  pipe_fds[] = {-1, -1, -1, -1};
-    int *read_pipe  = pipe_fds + 0;
-    int *write_pipe = pipe_fds + 2;
+    int *const read_pipe  = pipe_fds + 0;
+    int *const write_pipe = pipe_fds + 2;
     if (pipe(read_pipe) != 0 || pipe(write_pipe) != 0) {
         goto error;
     }
@@ -253,6 +280,8 @@ error:
 }
 
 void uci_quit(struct UCIEngine *engine) {
+    assert(engine_valid(engine));
+
     struct UCIMessage quit = {.type = UCI_REQUEST_QUIT};
     uci_send(engine, &quit);
 

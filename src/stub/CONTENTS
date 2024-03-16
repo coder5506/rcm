@@ -1,9 +1,8 @@
-This files in this directory provide stubs enabling the development and
-testing of RCM on Linux systems without access to a physical DGT Centaur
-board.
+Stubs to enable development and testing of RCM on Linux systems without access
+to a physical DGT Centaur board.
 
 boardserial.c
-: Stubs out serial communication with the board's field array.
+: Stubs out serial communication with board
 
 epd2in9d.c
-: Stubs out communication with the board's e-Paper display.
+: Stubs out communication with board's e-Paper display

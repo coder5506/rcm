@@ -1,8 +1,7 @@
-The files in this directory provide a low-level interface to the hardware
-of a DGT Centaur board.
+Provides low-level interface to the hardware of DGT Centaur board.
 
 boardserial.c
-: Provides serial communication with the board's field array.
+: Serial communication with board
 
 epd2in9d.c
-: Communicates with the board's e-Paper display.
+: Communication with board's e-Paper display.

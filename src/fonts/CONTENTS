@@ -1,10 +1,7 @@
-This directory provides simple bitmap fonts used for drawing text on the
-e-Paper display. The fonts are taken from BSD 3-Clause licensed examples
-provided by Waveshare.
+Simple bitmap fonts used for drawing text on the e-Paper display. Fonts are
+from BSD 3-Clause licensed examples provided by Waveshare.
 
--   https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/c/lib/Fonts
-
-font8.c
+- https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/c/lib/Fonts
 
 font12.c
 : Used as small font
@@ -16,7 +13,7 @@ font20.c
 : Courier New 15pt, used as large font
 
 font24.c
-:
+: Used as title font
 
 fonts.h
 : Defines font structure

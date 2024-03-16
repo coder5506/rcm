@@ -1,34 +1,47 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// This file stubs out serial communication with the field array on a
-// DGT Centaur board.  It is used for development and testing on Linux
-// systems where the board is not available.
+// Stubs out serial communication with DGT Centaur board.  Used for development
+// and testing on Linux systems where board is not available.
 
 #include "../boardserial.h"
+#include <stdio.h>
+
+// Default: no pieces on board
+static uint64_t boardstate = 0llu;
+
+// Hook for testing and debugging
+void boardserial_set_boardstate(uint64_t bitmap) {
+    printf("boardserial_set_boardstate(%016lx)\n", bitmap);
+    boardstate = bitmap;
+}
 
 void boardserial_close(void) {
+    printf("boardserial_close()\n");
 }
 
 int boardserial_open(void) {
-    return 0; // Success
+    printf("boardserial_open() => 0\n");
+    return 0;  // Success
 }
 
 int boardserial_chargingstate(void) {
-    return 20; // Fully charged, not charging
+    printf("boardserial_chargingstate() => 20\n");
+    return 20;  // Fully charged, not charging
 }
 
 uint64_t boardserial_boardstate(void) {
-    return 0; // No pieces on board
+    printf("boardserial_boardstate() => %016lx\n", boardstate);
+    return boardstate;
 }
 
 int boardserial_readdata(uint8_t *buf, int len) {
-    (void)buf;
-    (void)len;
-    return 6; // Idle
+    printf("boardserial_readdata(%p, %d) => 6\n", (void*)buf, len);
+    return 6;  // Idle
 }
 
 void boardserial_buttons(enum Button *press, enum Button *release) {
+    printf("boardserial_buttons(%p, %p)\n", (void*)press, (void*)release);
     if (press) {
         *press = BUTTON_NONE;
     }
@@ -38,32 +51,32 @@ void boardserial_buttons(enum Button *press, enum Button *release) {
 }
 
 int boardserial_leds_off(void) {
-    return 0; // Success
+    printf("boardserial_leds_off() => 0\n");
+    return 0;  // Success
 }
 
 int boardserial_led_flash(void) {
+    printf("boardserial_led_flash() => 0\n");
     return 0;
 }
 
 int boardserial_led(int square) {
-    (void)square;
+    printf("boardserial_led(%d) => 0\n", square);
     return 0;
 }
 
 int boardserial_led_array(const int *squares, int num_squares) {
-    (void)squares;
-    (void)num_squares;
+    printf("boardserial_led_array(%p, %d) => 0\n", (void*)squares, num_squares);
     return 0;
 }
 
 int boardserial_led_from_to(int from, int to) {
-    (void)from;
-    (void)to;
+    printf("boardserial_led_from_to(%d, %d) => 0\n", from, to);
     return 0;
 }
 
 int boardserial_play_sound(enum Sound sound) {
-    (void)sound;
+    printf("boardserial_play_sound(%d) => 0\n", sound);
     return 0;
 }
 

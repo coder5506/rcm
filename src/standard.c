@@ -26,7 +26,7 @@ struct Player {
     union {
         struct {
             const char *engine;  // e.g. "stockfish"
-            int         elo;     // Desired playing strength
+            int         elo;     // Desired playing strength: 1400..2800
         } computer;
         struct {
             // centipawns, zero to disable

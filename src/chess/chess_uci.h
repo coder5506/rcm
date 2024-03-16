@@ -9,13 +9,12 @@
 extern "C" {
 #endif
 
+struct Game;
 struct UCIEngine;
 
-// Run engine in background thread
 struct UCIEngine *uci_execvp(const char *file, char *const argv[]);
 void uci_quit(struct UCIEngine *engine);
 
-// Communicate with engine via request/response messages
 enum UCIRequest {
     UCI_REQUEST_HINT,
     UCI_REQUEST_PLAY,
@@ -27,7 +26,6 @@ struct UCIMessage {
     enum UCIRequest type;
 };
 
-// for both UCI_REQUEST_HINT and UCI_REQUEST_PLAY
 struct UCIPlayMessage {
     struct UCIMessage  m;
     const struct Game *game;
@@ -38,7 +36,6 @@ struct UCIPlayMessage {
 // First available response or NULL, does not block
 struct UCIMessage *uci_receive(struct UCIEngine *engine);
 
-// Enqueue next request
 void uci_send(struct UCIEngine *engine, struct UCIMessage *message);
 
 #ifdef __cplusplus

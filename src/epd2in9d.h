@@ -1,12 +1,17 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 // API for communication with e-Paper display on DGT Centaur board
 
-#ifndef EPD2IN9D_H
-#define EPD2IN9D_H
+#ifndef RCM_EPD2IN9D_H
+#define RCM_EPD2IN9D_H
 
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 296
@@ -21,7 +26,6 @@ int epd2in9d_open(void);
 void epd2in9d_sleep(void);
 
 // Wake display from sleep
-void epd2in9d_wake(void);
 void epd2in9d_init(void);
 
 // Partially update display.  That is, instruct the e-Paper to make the minimal
@@ -31,6 +35,10 @@ void epd2in9d_update(const uint8_t *data);
 // Fully refresh display.  This is slower and draws more power than partial
 // updates, but should be done occassionally to cleanup e-Paper artifacts.
 void epd2in9d_display(const uint8_t *data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

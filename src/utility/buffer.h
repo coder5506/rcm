@@ -1,40 +1,28 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
-// Stubs out communication with e-Paper display on DGT Centaur board.  Used for
-// development and testing on Linux systems where board is not available.
+#ifndef RCM_BUFFER_H
+#define RCM_BUFFER_H
 
-#include "../epd2in9d.h"
-#include "../utility/sleep.h"
+#include <stdbool.h>
+#include <stddef.h>
 
-#include <stdio.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void epd2in9d_close(void) {
-    printf("epd2in9d_close()\n");
+struct Buffer;
+
+bool buffer_valid(const struct Buffer *buf);
+struct Buffer *buffer_new(size_t size, int fd);
+char *buffer_getline(struct Buffer *buf, long timeout_ms);
+
+#ifdef __cplusplus
 }
+#endif
 
-int epd2in9d_open(void) {
-    printf("epd2in9d_open() => 0\n");
-    return 0;  // Success
-}
-
-void epd2in9d_sleep(void) {
-    printf("epd2in9d_sleep()\n");
-    sleep_ms(2000);  // Simulate delay
-}
-
-void epd2in9d_init(void) {
-    printf("epd2in9d_init()\n");
-}
-
-void epd2in9d_update(const uint8_t *data) {
-    printf("epd2in9d_update(%p)\n", (void*)data);
-    sleep_ms(100);
-}
-
-void epd2in9d_display(const uint8_t *data) {
-    printf("epd2in9d_display(%p)\n", (void*)data);
-}
+#endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //
