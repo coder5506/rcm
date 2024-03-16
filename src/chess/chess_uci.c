@@ -69,7 +69,6 @@ static char *uci_getline(struct UCIEngine *engine) {
     assert(engine_valid(engine));
 
     char *const line = buffer_getline(engine->buffer, 1000);
-    printf("uci_getline(%p) => %s\n", (void*)engine, line);
     return line;
 }
 
@@ -78,8 +77,13 @@ static char *uci_expect(struct UCIEngine *engine, const char *startswith) {
     assert(startswith);
 
     char *const line = uci_getline(engine);
-    printf("uci_expect(%p, %s) => %s\n", (void*)engine, startswith, line);
-    return line && strncmp(line, startswith, strlen(startswith)) == 0 ? line : NULL;
+    if (!line) {
+        return NULL;
+    }
+    if (strncmp(line, startswith, strlen(startswith)) != 0) {
+        return NULL;
+    }
+    return line;
 }
 
 static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
@@ -131,7 +135,7 @@ static int expect_bestmove(struct UCIEngine *engine, struct UCIPlayMessage *requ
             return 0;
         }
 
-        char *line = uci_expect(engine, "bestmove ");
+        char *const line = uci_expect(engine, "bestmove ");
         if (line) {
             request->move = move_from_name(line + 9);
             send_response(engine, (struct UCIMessage*)request);

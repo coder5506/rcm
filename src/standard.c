@@ -50,7 +50,7 @@ static struct StandardGame standard = {
         .type = COMPUTER,
         .computer = {
             .engine = "stockfish",
-            .elo    = 1600,
+            .elo    = 1400,
         },
     },
     .black = {
@@ -259,9 +259,22 @@ static void standard_run(void) {
     struct List *candidates  = list_new();
     struct Move *takeback    = NULL;
 
+    const struct Position *current = game_current(centaur.game);
+    const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
+
+    // If camputer has first move, see what it wants to do
+    current = game_current(centaur.game);
+    player  = current->turn == 'w' ? &standard.white : &standard.black;
+    if (player->type == COMPUTER) {
+        // In case human played for computer and something is left in the queue
+        (void)engine_move(centaur.game, player->computer.engine);
+        // Ask for new move
+        engine_play(centaur.game, player->computer.engine, player->computer.elo);
+    }
+
     while (1) {
-        const struct Position *current = game_current(centaur.game);
-        const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
+        current = game_current(centaur.game);
+        player  = current->turn == 'w' ? &standard.white : &standard.black;
 
         // Check if computer has move to play
         struct Move *move = NULL;
@@ -321,10 +334,12 @@ static void standard_run(void) {
         // If is now computer's turn, ask for its move
         current = game_current(centaur.game);
         player  = current->turn == 'w' ? &standard.white : &standard.black;
+        printf("turn %c player %d\n", current->turn, player->type);
         if (player->type == COMPUTER) {
             // In case human played for computer and something is left in the queue
             (void)engine_move(centaur.game, player->computer.engine);
             // Ask for new move
+            printf("requesting engine move\n");
             engine_play(centaur.game, player->computer.engine, player->computer.elo);
         }
 

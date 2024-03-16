@@ -91,7 +91,10 @@ struct Move *move_from_name(const char *name) {
     const enum Square from = square_named(name + 0);
     const enum Square to   = square_named(name + 2);
 
-    enum Piece promotion = name[4] || EMPTY;
+    enum Piece promotion = EMPTY;
+    if (name[4] && strchr("nbrq", name[4])) {
+        promotion = name[4];
+    }
     if (promotion != EMPTY) {
         switch (square_rank(to)) {
         case '8':

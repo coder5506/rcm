@@ -11,7 +11,7 @@ static struct UCIEngine *engine = NULL;
 static struct UCIEngine *start_engine(void) {
     if (!engine) {
         char *argv[] = {"stockfish", NULL};
-        engine = uci_execvp("stockfish", argv);
+        engine = uci_execvp("/usr/games/stockfish", argv);
     }
     return engine;
 }

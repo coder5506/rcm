@@ -137,6 +137,8 @@ struct Game *db_load_game(int64_t rowid) {
     const char *pgn = (const char*)sqlite3_column_text(stmt, 0);
     const char *fen = (const char*)sqlite3_column_text(stmt, 1);
 
+    return NULL;
+
     game = game_from_pgn_and_fen(pgn, fen);
     if (!game) {
         goto done;
