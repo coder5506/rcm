@@ -5,9 +5,7 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stddef.h>
-
-#include <gc/gc.h>
+#include <stdlib.h>
 
 struct Observer {
     ModelChanged  model_changed;
@@ -23,7 +21,7 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data) 
     assert(model && list_valid(model->observers));
     assert(model_changed);
 
-    struct Observer *observer = GC_MALLOC(sizeof *observer);
+    struct Observer *observer = malloc(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
     list_push(model->observers, observer);

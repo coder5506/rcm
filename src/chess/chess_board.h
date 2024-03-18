@@ -11,39 +11,13 @@
 extern "C" {
 #endif
 
-// Both colors and pieces are really just characters.  There's no reason for
-// anything fancier.  We define these enums as documentation.
-
-enum Color {
-    WHITE = 'w',
-    BLACK = 'b',
-    INVALID_COLOR = -1,
-};
-
-enum Piece {
-    EMPTY         = ' ',
-    WHITE_PAWN    = 'P',
-    WHITE_KNIGHT  = 'N',
-    WHITE_BISHOP  = 'B',
-    WHITE_ROOK    = 'R',
-    WHITE_QUEEN   = 'Q',
-    WHITE_KING    = 'K',
-    BLACK_PAWN    = 'p',
-    BLACK_KNIGHT  = 'n',
-    BLACK_BISHOP  = 'b',
-    BLACK_ROOK    = 'r',
-    BLACK_QUEEN   = 'q',
-    BLACK_KING    = 'k',
-    INVALID_PIECE = -1,
-};
-
 static inline bool
-color_valid(enum Color color) { return color == 'w' || color == 'b'; }
+color_valid(char color) { return color == 'w' || color == 'b'; }
 
-enum Color color_other(enum Color color);
+char color_other(char color);
 
-bool piece_valid(enum Piece piece);
-enum Color piece_color(enum Piece piece);
+bool piece_valid(char piece);
+char piece_color(char piece);
 
 // We enumerate squares to align with the FEN standard.  Conveniently, this
 // also matches the field indices used by the Centaur board.
@@ -61,20 +35,20 @@ enum Square {
 };
 
 static inline bool
-square_valid(enum Square square) { return A8 <= square && square <= H1; }
+square_valid(int square) { return A8 <= square && square <= H1; }
 
-char square_file(enum Square square);
-char square_rank(enum Square square);
-enum Square square(char file, char rank);
+char square_file(int square);
+char square_rank(int square);
+int square(char file, char rank);
 
-const char *square_name(enum Square square);
-enum Square square_named(const char *name);
+const char *square_name(int square);
+int square_named(const char *name);
 
-char starting_rank(enum Color color);
-char last_rank(enum Color color);
+char starting_rank(char color);
+char last_rank(char color);
 
-bool is_starting_rank(enum Square square, enum Color color);
-bool is_last_rank(enum Square square, enum Color color);
+bool is_starting_rank(int square, char color);
+bool is_last_rank(int square, char color);
 
 // A board is an 8x8 grid of pieces, indexed by square.
 struct Board {
@@ -86,17 +60,17 @@ struct Board {
 struct Mailbox {
     // N.B., a board has "squares", a mailbox has "cells"
     //
-    // It is helpful to use "enum Square" for board indices and "int" for
+    // It is helpful to use "int" for board indices and "int" for
     // mailbox indices, to minimize confusion.
     char cells[120];
 };
 
 // We use lookup tables to translate between the two.
 extern const int         mailbox_index[64]; // Map board squares to mailbox cells
-extern const enum Square board_index[120];  // Map mailbox cells to board squares
+extern const int board_index[120];  // Map mailbox cells to board squares
 
 void board_print(const struct Board *board);
-void board_set_all(struct Board *board, enum Piece piece);
+void board_set_all(struct Board *board, char piece);
 void board_empty(struct Board *board);
 
 void mailbox_print(const struct Mailbox *mailbox);

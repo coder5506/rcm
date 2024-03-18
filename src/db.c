@@ -6,11 +6,10 @@
 #include "chess/chess.h"
 
 #include <assert.h>
-#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
 #include <sqlite3.h>
 
 static const char *SCHEMA =
@@ -147,7 +146,7 @@ struct Game *db_load_game(int64_t rowid) {
     game->id = rowid;
     game->settings = NULL;
     if (sqlite3_column_bytes(stmt, 2) > 0) {
-        game->settings = GC_MALLOC_ATOMIC(sqlite3_column_bytes(stmt, 2) + 1);
+        game->settings = malloc(sqlite3_column_bytes(stmt, 2) + 1);
         strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
     }
 

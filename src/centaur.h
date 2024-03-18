@@ -33,8 +33,8 @@ void centaur_set_game(struct Game *game);
 
 int centaur_batterylevel(void);
 int centaur_charging(void);
-void centaur_led(enum Square square);
-void centaur_led_from_to(enum Square from, enum Square to);
+void centaur_led(int square);
+void centaur_led_from_to(int from, int to);
 
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0

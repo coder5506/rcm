@@ -4,13 +4,11 @@
 #include "kv.h"
 
 #include <assert.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 static struct KeyValue *node_new(const char *key, void *data) {
-    struct KeyValue *node = GC_MALLOC(sizeof *node);
+    struct KeyValue *node = malloc(sizeof *node);
     *node = (struct KeyValue){.data = data, .key = key};
     return node;
 }

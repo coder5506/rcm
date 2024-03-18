@@ -16,7 +16,7 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
     assert(position_valid(before));
     assert(move_valid(move));
 
-    const enum Piece piece = position_piece(before, move->from);
+    const char piece = position_piece(before, move->from);
     if (piece_color(piece) != before->turn) {
         // Not a valid move
         return 1;
@@ -67,7 +67,7 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
     }
 
     // Capture
-    if (position_piece(before, move->to) != EMPTY) {
+    if (position_piece(before, move->to) != ' ') {
         if (piece == 'P' || piece == 'p') {
             // File required for pawn captures, b/c no piece symbol
             fputc(square_file(move->from), out);
@@ -80,7 +80,7 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
     fputc(square_rank(move->to), out);
 
     // Promotion
-    if (move->promotion != EMPTY) {
+    if (move->promotion != ' ') {
         fputc('=', out);
         fputc(toupper(move->promotion), out);
     }
@@ -136,7 +136,7 @@ struct Move *move_from_san(const struct Position *before, const char *san) {
     char from_rank = '\0';
     char to_file   = '\0';
     char to_rank   = '\0';
-    char promotion = EMPTY;
+    char promotion = ' ';
 
     // Piece symbol
     if (*san && strchr("NBRQK", *san)) {
@@ -197,7 +197,7 @@ promotion:
         return NULL;
     }
 
-    const enum Square to = square(to_file, to_rank);
+    const int to = square(to_file, to_rank);
     struct Move *found = NULL;
 
     // Find matching move
@@ -208,7 +208,7 @@ promotion:
             position_piece(before, move->from) == piece &&
             (from_file == '\0'  || square_file(move->from) == from_file) &&
             (from_rank == '\0'  || square_rank(move->from) == from_rank) &&
-            (promotion == EMPTY || promotion == move->promotion))
+            (promotion == ' ' || promotion == move->promotion))
         {
             if (found) {
                 // Ambiguous
@@ -219,7 +219,7 @@ promotion:
         }
     }
 
-    if (found && capture && position_piece(before, found->to) == EMPTY) {
+    if (found && capture && position_piece(before, found->to) == ' ') {
         // Nothing captured
         found = NULL;
     }

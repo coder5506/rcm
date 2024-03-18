@@ -68,14 +68,14 @@ int board_led_flash(void) {
     return boardserial_led_flash();
 }
 
-int board_led(enum Square square) {
+int board_led(int square) {
     if (board_reversed) {
         square = rotate_square(square);
     }
     return boardserial_led(square);
 }
 
-int board_led_array(const enum Square *squares, int num_squares) {
+int board_led_array(const int *squares, int num_squares) {
     int rotated_squares[num_squares];
     for (int i = 0; i != num_squares; ++i) {
         rotated_squares[i] = squares[i];
@@ -86,7 +86,7 @@ int board_led_array(const enum Square *squares, int num_squares) {
     return boardserial_led_array(rotated_squares, num_squares);
 }
 
-int board_led_from_to(enum Square from, enum Square to) {
+int board_led_from_to(int from, int to) {
     if (board_reversed) {
         from = rotate_square(from);
         to   = rotate_square(to);

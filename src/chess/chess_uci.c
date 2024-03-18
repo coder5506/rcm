@@ -15,7 +15,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <gc/gc.h>
 #include <pthread.h>
 
 struct UCIEngine {
@@ -223,7 +222,7 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     assert(read_fd >= 0);
     assert(write_fd >= 0);
 
-    struct UCIEngine *engine = GC_MALLOC(sizeof *engine);
+    struct UCIEngine *engine = malloc(sizeof *engine);
 
     engine->request_queue  = list_new();
     engine->response_queue = list_new();
@@ -235,7 +234,7 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     pthread_cond_init(&engine->cond, NULL);
     pthread_create(&engine->thread, NULL, engine_thread, engine);
 
-    struct UCIMessage *uci = GC_MALLOC_ATOMIC(sizeof *uci);
+    struct UCIMessage *uci = malloc(sizeof *uci);
     uci->type = UCI_REQUEST_UCI;
     uci_send(engine, uci);
 

@@ -13,7 +13,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <gc/gc.h>
 #include <pcre2.h>
 #include <pthread.h>
 
@@ -318,7 +317,7 @@ static struct HttpdResponse*
 get_events(struct HttpdRequest *request) {
     (void)request;
 
-    struct EventStream *stream = GC_MALLOC(sizeof *stream);
+    struct EventStream *stream = malloc(sizeof *stream);
     pthread_cond_init(&stream->cond, NULL);
     pthread_mutex_init(&stream->mutex, NULL);
 

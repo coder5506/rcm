@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 static void pgn_write_tags(FILE *out, const struct Game *game)
 {
     assert(out);
@@ -112,11 +110,7 @@ char *game_pgn(const struct Game *game) {
         return NULL;
     }
 
-    // Move to GC heap
-    char *result = GC_MALLOC_ATOMIC(len + 1);
-    strncpy(result, buf, len + 1);
-    free(buf);
-    return result;
+    return buf;
 }
 
 void game_save_pgn(const struct Game *game, const char *filename) {
@@ -187,14 +181,9 @@ struct List *game_pgn_list(const struct Game *game) {
         return NULL;
     }
 
-    // Move to GC heap
-    char *result = GC_MALLOC_ATOMIC(len + 1);
-    strncpy(result, buf, len + 1);
-    free(buf);
-
     struct List *list = list_new();
-    while (result) {
-        char *line = strsep(&result, "\n");
+    while (buf) {
+        char *line = strsep(&buf, "\n");
         if (*line == ' ') {
             line++;
         }

@@ -11,16 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
-bool move_validate(enum Square from, enum Square to, enum Piece promotion) {
+bool move_validate(int from, int to, char promotion) {
     if (from == to || !square_valid(from) || !square_valid(to)) {
         return false;
     }
     if (!promotion || !strchr(" NBRQnbrq", promotion)) {
         return false;
     }
-    return promotion == EMPTY || is_last_rank(to, piece_color(promotion));
+    return promotion == ' ' || is_last_rank(to, piece_color(promotion));
 }
 
 bool move_valid(const struct Move *move) {
@@ -28,9 +26,9 @@ bool move_valid(const struct Move *move) {
     return move_validate(move->from, move->to, move->promotion);
 }
 
-struct Move *move_new(enum Square from, enum Square to, enum Piece promotion) {
+struct Move *move_new(int from, int to, char promotion) {
     assert(move_validate(from, to, promotion));
-    struct Move *move = GC_MALLOC(sizeof *move);
+    struct Move *move = malloc(sizeof *move);
     *move = (struct Move){
         .from      = from,
         .to        = to,
@@ -74,7 +72,7 @@ int move_name(char *buf, int len, const struct Move *move) {
     return snprintf(buf, len, "%s%s%c",
         square_name(move->from),
         square_name(move->to),
-        move->promotion == EMPTY ? '\0' : tolower(move->promotion));
+        move->promotion == ' ' ? '\0' : tolower(move->promotion));
 }
 
 const char *move_name_static(const struct Move *move) {
@@ -88,14 +86,14 @@ struct Move *move_from_name(const char *name) {
         return NULL;
     }
 
-    const enum Square from = square_named(name + 0);
-    const enum Square to   = square_named(name + 2);
+    const int from = square_named(name + 0);
+    const int to   = square_named(name + 2);
 
-    enum Piece promotion = EMPTY;
+    char promotion = ' ';
     if (name[4] && strchr("nbrq", name[4])) {
         promotion = name[4];
     }
-    if (promotion != EMPTY) {
+    if (promotion != ' ') {
         switch (square_rank(to)) {
         case '8':
             promotion = toupper(promotion);

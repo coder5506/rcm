@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
 #include <png.h>
 
 static bool image_valid(const struct Image *image) {
@@ -29,7 +28,7 @@ struct Image *image_alloc(int width, int height) {
     const int width_bytes = (width + 7) / 8;
     const int size_bytes  = width_bytes * height;
 
-    struct Image *image = GC_MALLOC_ATOMIC(sizeof(struct Image) + size_bytes);
+    struct Image *image = malloc(sizeof(struct Image) + size_bytes);
     image->width  = width;
     image->height = height;
     image->width_bytes = width_bytes;

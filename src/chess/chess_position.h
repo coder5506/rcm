@@ -26,9 +26,9 @@ enum Castle {
 
 struct Position {
     struct Mailbox mailbox;
-    enum Color     turn;
+    char     turn;
     enum Castle    castle;
-    enum Square    en_passant;
+    int    en_passant;
     int            halfmove;
     int            fullmove;
     uint64_t       bitmap;
@@ -43,7 +43,7 @@ struct Position *position_new(void);
 struct Position *position_dup(const struct Position *position);
 struct Position *position_from_fen(const char *fen);
 
-enum Piece position_piece(const struct Position *position, enum Square square);
+char position_piece(const struct Position *position, int square);
 bool position_equal(const struct Position *a, const struct Position *b);
 
 static inline void position_print(const struct Position *position) {
@@ -58,8 +58,8 @@ bool position_incomplete(const struct Position *position, uint64_t boardstate);
 
 // Action can be either lift or place
 struct Action {
-    enum Square lift;
-    enum Square place;
+    int lift;
+    int place;
 };
 
 #define EMPTY_ACTION (struct Action){.lift = -1, .place = -1}

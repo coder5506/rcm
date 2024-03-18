@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <gc/gc.h>
-
 const char *game_tag(struct Game *game, const char *key) {
     assert(game && kv_valid(game->tags));
     assert(key && *key);
@@ -65,13 +63,13 @@ static void game_changed(struct Game *game, void *data) {
     struct tm timestamp;
     localtime_r(&game->started, &timestamp);
 
-    char *date = GC_MALLOC_ATOMIC(11);
+    char *date = malloc(11);
     strftime(date, 11, "%Y.%m.%d", &timestamp);
     game_set_tag(game, "Date", date);
 }
 
 static struct Game *game_alloc(void) {
-    struct Game *game = GC_MALLOC(sizeof *game);
+    struct Game *game = malloc(sizeof *game);
 
     MODEL_INIT(game);
     game->history = list_new();

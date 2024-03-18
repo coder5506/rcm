@@ -4,7 +4,7 @@
 #include "chess_engine.h"
 #include "chess.h"
 
-#include <gc/gc.h>
+#include <stdlib.h>
 
 static struct UCIEngine *engine = NULL;
 
@@ -43,7 +43,7 @@ void engine_play(struct Game *game, const char *engine_name, int elo) {
         return;
     }
 
-    struct UCIPlayMessage *request = GC_MALLOC(sizeof *request);
+    struct UCIPlayMessage *request = malloc(sizeof *request);
     request->m.type = UCI_REQUEST_PLAY;
     request->game = game;
     request->elo = elo;

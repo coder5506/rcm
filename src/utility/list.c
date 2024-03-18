@@ -4,12 +4,10 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stddef.h>
-
-#include <gc/gc.h>
+#include <stdlib.h>
 
 static struct List *node_new(void *data) {
-    struct List *node = GC_MALLOC(sizeof *node);
+    struct List *node = malloc(sizeof *node);
     *node = (struct List){.data = data};
     return node;
 }

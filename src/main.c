@@ -8,13 +8,7 @@
 
 #include <stdlib.h>
 
-#include <gc/gc.h>
-#include <jansson.h>
-
 int main(void) {
-    GC_INIT();
-    json_set_alloc_funcs(GC_malloc, GC_free);
-
     if (db_open() != 0) {
         // Required
         return EXIT_FAILURE;

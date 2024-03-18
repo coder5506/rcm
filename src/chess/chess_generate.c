@@ -15,13 +15,13 @@
 //
 
 static void
-add_promotion(struct List *list, int from, int to, enum Piece promotion) {
+add_promotion(struct List *list, int from, int to, char promotion) {
     assert(0 <= from && from < 120);
     assert(0 <= to   && to   < 120);
     assert(to != from);
 
-    const enum Square from_square = board_index[from];
-    const enum Square to_square   = board_index[to];
+    const int from_square = board_index[from];
+    const int to_square   = board_index[to];
 
     // Validate squares
     assert(square_valid(from_square));
@@ -42,7 +42,7 @@ static void add_move(struct List *list, int from, int to) {
 }
 
 static void
-add_pawn_moves(struct List *list, int from, int to, enum Color turn) {
+add_pawn_moves(struct List *list, int from, int to, char turn) {
     if (!is_last_rank(board_index[to], turn)) {
         add_move(list, from, to);
         return;
@@ -59,14 +59,14 @@ add_pawn_moves(struct List *list, int from, int to, enum Color turn) {
 //
 
 static void
-pawn_attacks(struct List *list, const struct Mailbox *mailbox, enum Color turn)
+pawn_attacks(struct List *list, const struct Mailbox *mailbox, char turn)
 {
-    const enum Piece pawn      = turn == 'w' ? 'P' : 'p';
-    const enum Color other     = color_other(turn);
+    const char pawn      = turn == 'w' ? 'P' : 'p';
+    const char other     = color_other(turn);
     const int        direction = pawn == 'P' ? -10 : 10;
 
     const char *cells = mailbox->cells;
-    for (enum Square sq = A7; sq <= H2; ++sq) {
+    for (int sq = A7; sq <= H2; ++sq) {
         const int from = mailbox_index[sq];
         if (cells[from] != (char)pawn) {
             continue;
@@ -74,12 +74,12 @@ pawn_attacks(struct List *list, const struct Mailbox *mailbox, enum Color turn)
 
         const int advance = from + direction;
 
-        const enum Piece target_1 = cells[advance - 1];
+        const char target_1 = cells[advance - 1];
         if (target_1 == ' ' || piece_color(target_1) == other) {
             add_move(list, from, advance - 1);
         }
 
-        const enum Piece target_2 = cells[advance + 1];
+        const char target_2 = cells[advance + 1];
         if (target_2 == ' ' || piece_color(target_2) == other) {
             add_move(list, from, advance + 1);
         }
@@ -88,12 +88,12 @@ pawn_attacks(struct List *list, const struct Mailbox *mailbox, enum Color turn)
 
 static void
 pawn_moves(struct List *list, const struct Position *position) {
-    const enum Piece pawn      = position->turn == 'w' ? 'P' : 'p';
-    const enum Color other     = color_other(position->turn);
+    const char pawn      = position->turn == 'w' ? 'P' : 'p';
+    const char other     = color_other(position->turn);
     const int        direction = pawn == 'P' ? -10 : 10;
 
     const char *cells = position->mailbox.cells;
-    for (enum Square sq = A7; sq <= H2; ++sq) {
+    for (int sq = A7; sq <= H2; ++sq) {
         const int from = mailbox_index[sq];
         if (cells[from] != (char)pawn) {
             continue;
@@ -136,7 +136,7 @@ pawn_moves(struct List *list, const struct Position *position) {
 //
 
 // How pieces move in mailbox representation
-static const int *move_offsets(enum Piece piece) {
+static const int *move_offsets(char piece) {
     static const int offsets[6][9] = {
         {   0,   0,   0,   0,  0,  0,  0,  0, 0, }, // Pawn
         { -21, -19, -12,  -8,  8, 12, 19, 21, 0, }, // Knight
@@ -165,7 +165,7 @@ static const int *move_offsets(enum Piece piece) {
 }
 
 // Sliding pieces move along a vector
-static bool is_sliding(enum Piece piece) {
+static bool is_sliding(char piece) {
     assert(piece_valid(piece));
     switch (piece) {
     case 'B': case 'R': case 'Q':
@@ -177,14 +177,14 @@ static bool is_sliding(enum Piece piece) {
 }
 
 static void
-piece_attacks(struct List *list, const struct Mailbox *mailbox, enum Color turn)
+piece_attacks(struct List *list, const struct Mailbox *mailbox, char turn)
 {
-    const enum Color other = color_other(turn);
+    const char other = color_other(turn);
 
     const char *cells = mailbox->cells;
-    for (enum Square sq = A8; sq <= H1; ++sq) {
+    for (int sq = A8; sq <= H1; ++sq) {
         const int        from  = mailbox_index[sq];
-        const enum Piece piece = cells[from];
+        const char piece = cells[from];
         if (piece_color(piece) != turn) {
             continue;
         }
@@ -196,8 +196,8 @@ piece_attacks(struct List *list, const struct Mailbox *mailbox, enum Color turn)
         for (; *offsets; ++offsets) {
             // Iterate steps along vector
             for (int to = from + *offsets; ; to += *offsets) {
-                const enum Piece target = cells[to];
-                if (target == INVALID_PIECE) {
+                const char target = cells[to];
+                if (target == -1) {
                     // Sentinel
                     break;
                 }
@@ -229,7 +229,7 @@ piece_moves(struct List *list, const struct Position *position) {
 //
 
 static void
-attacks_list(struct List *list, const struct Mailbox *mailbox, enum Color turn)
+attacks_list(struct List *list, const struct Mailbox *mailbox, char turn)
 {
     pawn_attacks(list, mailbox, turn);
     piece_attacks(list, mailbox, turn);
@@ -239,10 +239,10 @@ static void
 attacked_squares(
     struct Board         *board,
     const struct Mailbox *mailbox,
-    enum Color            turn)
+    char            turn)
 {
     // INVALID_PIECE is not attacked
-    board_set_all(board, INVALID_PIECE);
+    board_set_all(board, -1);
 
     struct List *list = list_new();
     attacks_list(list, mailbox, turn);
@@ -327,14 +327,14 @@ candidate_moves(struct List *list, const struct Position *position) {
     generate_castle_moves(list, position);
 }
 
-static bool in_check(const struct Mailbox *mailbox, enum Color turn) {
+static bool in_check(const struct Mailbox *mailbox, char turn) {
     // Find all squares attacked by opponent
     struct Board attacks;
     attacked_squares(&attacks, mailbox, color_other(turn));
 
     // Is our king under attack?
-    const enum Piece king = turn == 'w' ? 'K' : 'k';
-    for (enum Square sq = A8; sq <= H1; ++sq) {
+    const char king = turn == 'w' ? 'K' : 'k';
+    for (int sq = A8; sq <= H1; ++sq) {
         if (attacks.squares[sq] == (char)king) {
             return true;
         }

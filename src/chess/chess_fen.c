@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 const char *STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 static void fen_write_board(FILE *out, const struct Board *board) {
@@ -20,8 +18,8 @@ static void fen_write_board(FILE *out, const struct Board *board) {
     for (char r = '8'; r >= '1'; --r) {
         int empty = 0;
         for (char f = 'a'; f <= 'h'; ++f) {
-            const enum Piece piece = board->squares[sq++];
-            if (piece == EMPTY) {
+            const char piece = board->squares[sq++];
+            if (piece == ' ') {
                 ++empty;
             } else {
                 if (empty) {
@@ -95,7 +93,7 @@ char *position_fen(const struct Position *position) {
     }
 
     // Move to GC heap
-    char *result = GC_MALLOC(len + 1);
+    char *result = malloc(len + 1);
     strncpy(result, buf, len + 1);
     free(buf);
     return result;

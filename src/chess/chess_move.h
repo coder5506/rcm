@@ -16,17 +16,17 @@ struct Position;
 
 // Represent moves in terms of named squares on an 8x8 board
 struct Move {
-    enum Square from;
-    enum Square to;
-    enum Piece  promotion;
+    int from;
+    int to;
+    char  promotion;
     int         movetime;   // Think time for move, in milliseconds
     const struct Position *before;
     const struct Position *after;
 };
 
-bool move_validate(enum Square from, enum Square to, enum Piece promotion);
+bool move_validate(int from, int to, char promotion);
 bool move_valid(const struct Move *move);
-struct Move *move_new(enum Square from, enum Square to, enum Piece promotion);
+struct Move *move_new(int from, int to, char promotion);
 
 bool move_equal(const struct Move *a, const struct Move *b);
 struct Move *movelist_find_equal(const struct List *list, const struct Move *move);

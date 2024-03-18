@@ -46,12 +46,12 @@ static void render_board(struct View *board_view, struct Context *context) {
             const int x_dst = left + c * square_size;
             const int y_src = (r + c) % 2 ? square_size : 0; // Square color
 
-            enum Square square = 8 * r + c;
+            int square = 8 * r + c;
             if (board_reversed) {
                 square = rotate_square(square);
             }
 
-            const enum Piece piece = position->mailbox.cells[mailbox_index[square]];
+            const char piece = position->mailbox.cells[mailbox_index[square]];
             const char *sprite = strchr(sprites, piece);
             const int   x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
@@ -233,20 +233,20 @@ static void clear_feedback(void) {
     board_leds_off();
 }
 
-void centaur_led(enum Square square) {
+void centaur_led(int square) {
     board_led(square);
 }
 
-void centaur_led_from_to(enum Square from, enum Square to) {
+void centaur_led_from_to(int from, int to) {
     board_led_from_to(from, to);
 }
 
 static void show_feedback(uint64_t diff) {
-    static enum Square old_square1 = INVALID_SQUARE;
-    static enum Square old_square2 = INVALID_SQUARE;
+    static int old_square1 = INVALID_SQUARE;
+    static int old_square2 = INVALID_SQUARE;
 
-    enum Square square1 = INVALID_SQUARE;
-    enum Square square2 = INVALID_SQUARE;
+    int square1 = INVALID_SQUARE;
+    int square2 = INVALID_SQUARE;
 
     switch (__builtin_popcountll(diff)) {
     case 1:

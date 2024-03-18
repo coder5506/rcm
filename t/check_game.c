@@ -43,7 +43,7 @@ END_TEST
 START_TEST(test_open_e4)
 {
     struct Game *g = game_from_fen(NULL);
-    struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
+    struct Move e4 = { .from = E2, .to = E4, .promotion = ' ' };
     game_apply_move(g, &e4);
 
     ck_assert_int_eq(game_current(g)->bitmap, move(START, E2, E4));
@@ -56,8 +56,8 @@ START_TEST(test_open_e4e5)
 {
     struct Game *g = game_from_fen(NULL);
 
-    struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
-    struct Move e5 = { .from = E7, .to = E5, .promotion = EMPTY };
+    struct Move e4 = { .from = E2, .to = E4, .promotion = ' ' };
+    struct Move e5 = { .from = E7, .to = E5, .promotion = ' ' };
     game_apply_move(g, &e4);
     game_apply_move(g, &e5);
 
@@ -96,7 +96,7 @@ END_TEST
 START_TEST(test_read_e4e5)
 {
     struct Game *g = game_from_fen(NULL);
-    struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
+    struct Move e4 = { .from = E2, .to = E4, .promotion = ' ' };
     game_apply_move(g, &e4);
 
     uint64_t boardstate = move(START, E2, E4);
@@ -121,8 +121,8 @@ START_TEST(test_read_takeback)
     struct Game *g = game_from_fen(NULL);
 
     // Play "1. e4 e5"
-    struct Move e4 = { .from = E2, .to = E4, .promotion = EMPTY };
-    struct Move e5 = { .from = E7, .to = E5, .promotion = EMPTY };
+    struct Move e4 = { .from = E2, .to = E4, .promotion = ' ' };
+    struct Move e5 = { .from = E7, .to = E5, .promotion = ' ' };
     game_apply_move(g, &e4);
     game_apply_move(g, &e5);
 

@@ -12,14 +12,14 @@ START_TEST(test_white_legal) {
     ck_assert_ptr_nonnull(m);
     ck_assert_int_eq(m->from, E2);
     ck_assert_int_eq(m->to, E4);
-    ck_assert_int_eq(m->promotion, EMPTY);
+    ck_assert_int_eq(m->promotion, ' ');
     ck_assert_str_eq(move_san_static(m), "e4");
 
     m = move_from_san(p, "Nf3");
     ck_assert_ptr_nonnull(m);
     ck_assert_int_eq(m->from, G1);
     ck_assert_int_eq(m->to, F3);
-    ck_assert_int_eq(m->promotion, EMPTY);
+    ck_assert_int_eq(m->promotion, ' ');
     ck_assert_str_eq(move_san_static(m), "Nf3");
 }
 END_TEST
@@ -44,14 +44,14 @@ START_TEST(test_black_legal) {
     ck_assert_ptr_nonnull(m);
     ck_assert_int_eq(m->from, E7);
     ck_assert_int_eq(m->to, E5);
-    ck_assert_int_eq(m->promotion, EMPTY);
+    ck_assert_int_eq(m->promotion, ' ');
     ck_assert_str_eq(move_san_static(m), "e5");
 
     m = move_from_san(p, "Nf6");
     ck_assert_ptr_nonnull(m);
     ck_assert_int_eq(m->from, G8);
     ck_assert_int_eq(m->to, F6);
-    ck_assert_int_eq(m->promotion, EMPTY);
+    ck_assert_int_eq(m->promotion, ' ');
     ck_assert_str_eq(move_san_static(m), "Nf6");
 }
 END_TEST

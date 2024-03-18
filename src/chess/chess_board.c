@@ -12,23 +12,23 @@
 // Pieces
 //
 
-enum Color color_other(enum Color color) {
+char color_other(char color) {
     assert(color_valid(color));
     return color == 'w' ? 'b' : 'w';
 }
 
-enum Color piece_color(enum Piece piece) {
+char piece_color(char piece) {
     switch (piece) {
     case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
         return 'w';
     case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
         return 'b';
     default:
-        return INVALID_COLOR;
+        return -1;
     }
 }
 
-bool piece_valid(enum Piece piece) {
+bool piece_valid(char piece) {
     return color_valid(piece_color(piece));
 }
 
@@ -36,25 +36,25 @@ bool piece_valid(enum Piece piece) {
 // Squares
 //
 
-char square_file(enum Square square) {
+char square_file(int square) {
     assert(square_valid(square));
     const char file = 'a' + (square % 8);
     assert('a' <= file && file <= 'h');
     return file;
 }
 
-char square_rank(enum Square square) {
+char square_rank(int square) {
     assert(square_valid(square));
     const char rank = '8' - (square / 8);
     assert('1' <= rank && rank <= '8');
     return rank;
 }
 
-enum Square square(char file, char rank) {
+int square(char file, char rank) {
     assert('a' <= file && file <= 'h');
     assert('1' <= rank && rank <= '8');
 
-    const enum Square sq = ('8' - rank) * 8 + (file - 'a');
+    const int sq = ('8' - rank) * 8 + (file - 'a');
     assert(square_valid(sq));
     assert(square_file(sq) == file);
     assert(square_rank(sq) == rank);
@@ -62,7 +62,7 @@ enum Square square(char file, char rank) {
     return sq;
 }
 
-const char *square_name(enum Square square) {
+const char *square_name(int square) {
     static const char *names[] = {
         "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
         "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
@@ -78,26 +78,26 @@ const char *square_name(enum Square square) {
     return names[square];
 }
 
-enum Square square_named(const char *name) {
+int square_named(const char *name) {
     assert(name);
     return square(name[0], name[1]);
 }
 
-char starting_rank(enum Color color) {
+char starting_rank(char color) {
     assert(color_valid(color));
     return color == 'w' ? '2' : '7';
 }
 
-char last_rank(enum Color color) {
+char last_rank(char color) {
     assert(color_valid(color));
     return color == 'w' ? '8' : '1';
 }
 
-bool is_starting_rank(enum Square square, enum Color color) {
+bool is_starting_rank(int square, char color) {
     return square_rank(square) == starting_rank(color);
 }
 
-bool is_last_rank(enum Square square, enum Color color) {
+bool is_last_rank(int square, char color) {
     return square_rank(square) == last_rank(color);
 }
 
@@ -121,7 +121,7 @@ const int mailbox_index[64] = {
 //
 // Only one sentinel is needed on the left and right edges because
 // columns "wrap".  Move offsets are always scalar values.
-const enum Square board_index[120] = {
+const int board_index[120] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, A8, B8, C8, D8, E8, F8, G8, H8, -1,
@@ -138,7 +138,7 @@ const enum Square board_index[120] = {
 
 void board_print(const struct Board *board) {
     assert(board);
-    enum Square sq = A8;
+    int sq = A8;
     for (char r = '8'; r >= '1'; --r) {
         for (char f = 'a'; f <= 'h'; ++f) {
             printf(" %c", board->squares[sq++]);
@@ -147,7 +147,7 @@ void board_print(const struct Board *board) {
     }
 }
 
-void board_set_all(struct Board *board, enum Piece piece) {
+void board_set_all(struct Board *board, char piece) {
     assert(board);
     memset(board, piece, sizeof *board);
 }
@@ -158,7 +158,7 @@ void board_empty(struct Board *board) {
 
 void mailbox_print(const struct Mailbox *mailbox) {
     assert(mailbox);
-    enum Square sq = A8;
+    int sq = A8;
     for (char r = '8'; r >= '1'; --r) {
         for (char f = 'a'; f <= 'h'; ++f) {
             printf(" %c", mailbox->cells[mailbox_index[sq++]]);
@@ -169,13 +169,13 @@ void mailbox_print(const struct Mailbox *mailbox) {
 
 void mailbox_invalid(struct Mailbox *mailbox) {
     assert(mailbox);
-    memset(mailbox, INVALID_PIECE, sizeof *mailbox);
+    memset(mailbox, -1, sizeof *mailbox);
 }
 
 void mailbox_empty(struct Mailbox *mailbox) {
     mailbox_invalid(mailbox);
-    for (enum Square sq = A8; sq <= H1; ++sq) {
-        mailbox->cells[mailbox_index[sq]] = EMPTY;
+    for (int sq = A8; sq <= H1; ++sq) {
+        mailbox->cells[mailbox_index[sq]] = ' ';
     }
 }
 
@@ -192,7 +192,7 @@ bool mailbox_equal(const struct Mailbox *a, const struct Mailbox *b) {
 
 void board_from_mailbox(struct Board *board, const struct Mailbox *mailbox) {
     assert(board && mailbox);
-    for (enum Square sq = A8; sq <= H1; ++sq) {
+    for (int sq = A8; sq <= H1; ++sq) {
         board->squares[sq] = mailbox->cells[mailbox_index[sq]];
     }
 }
@@ -200,7 +200,7 @@ void board_from_mailbox(struct Board *board, const struct Mailbox *mailbox) {
 void mailbox_from_board(struct Mailbox *mailbox, const struct Board *board) {
     assert(mailbox && board);
     mailbox_invalid(mailbox);
-    for (enum Square sq = A8; sq <= H1; ++sq) {
+    for (int sq = A8; sq <= H1; ++sq) {
         mailbox->cells[mailbox_index[sq]] = board->squares[sq];
     }
 }

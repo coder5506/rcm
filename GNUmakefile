@@ -14,7 +14,7 @@ CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
 #CFLAGS  += -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable
 LDLIBS   = $(if $(centaur),-lpigpio,)
-LDLIBS  += -lgc -ljansson -lmicrohttpd -lpcre2-8 -lpng -lsqlite3 -lrt -lm
+LDLIBS  += -ljansson -lmicrohttpd -lpcre2-8 -lpng -lsqlite3 -lrt -lm
 
 $(shell mkdir -p bin $(obj_dirs))
 all: bin/rcm

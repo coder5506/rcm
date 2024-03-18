@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 struct Context default_context = {
     .next       = NULL,
     .image      = NULL,
@@ -29,7 +27,7 @@ void context_free(struct Context *context) {
 }
 
 struct Context *context_alloc() {
-    struct Context *context = GC_MALLOC(sizeof *context);
+    struct Context *context = malloc(sizeof *context);
     *context = default_context;
     return context;
 }

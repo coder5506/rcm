@@ -32,14 +32,14 @@ int board_charging(void);
 
 int board_leds_off(void);
 int board_led_flash(void);
-int board_led(enum Square square);
-int board_led_array(const enum Square *squares, int num_squares);
-int board_led_from_to(enum Square from, enum Square to);
+int board_led(int square);
+int board_led_array(const int *squares, int num_squares);
+int board_led_from_to(int from, int to);
 
 // Return number of actions read
 int board_read_actions(struct Action *actions, int max_actions);
 
-static inline enum Square rotate_square(enum Square square) {
+static inline int rotate_square(int square) {
     // square  == 8 * (7 - row) + col
     //         == 56 - 8 * row + col
     //         == 56 - (8 * row - col)

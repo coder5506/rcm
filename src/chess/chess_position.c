@@ -11,10 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 // Piece at square
-enum Piece position_piece(const struct Position *position, enum Square square) {
+char position_piece(const struct Position *position, int square) {
     return position->mailbox.cells[mailbox_index[square]];
 }
 
@@ -46,7 +44,7 @@ static void position_update_bitmap(const struct Position *position) {
     uint64_t white = 0;
     uint64_t black = 0;
     uint64_t mask  = 1;
-    for (enum Square sq = A8; sq <= H1; ++sq) {
+    for (int sq = A8; sq <= H1; ++sq) {
         switch (position_piece(position, sq)) {
         case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
             white |= mask;
@@ -66,9 +64,9 @@ static void position_update_bitmap(const struct Position *position) {
 }
 
 struct Position *position_new(void) {
-    struct Position *position = GC_MALLOC(sizeof *position);
+    struct Position *position = malloc(sizeof *position);
     *position = (struct Position){
-        .turn         = WHITE,
+        .turn         = 'w',
         .castle       = 0,
         .en_passant   = INVALID_SQUARE,
         .halfmove     = 0,
@@ -125,8 +123,8 @@ position_apply_move(const struct Position *before, const struct Move *move) {
     // Move and capture
     const int from_cell = mailbox_index[move->from];
     const int to_cell   = mailbox_index[move->to];
-    const enum Piece moving = after->mailbox.cells[from_cell];
-    enum Piece captured = after->mailbox.cells[to_cell];
+    const char moving = after->mailbox.cells[from_cell];
+    char captured = after->mailbox.cells[to_cell];
     if (piece_color(moving)   != before->turn ||
         piece_color(captured) == before->turn)
     {
@@ -141,7 +139,7 @@ position_apply_move(const struct Position *before, const struct Move *move) {
     // Capture en passant
     if ((moving == 'P' || moving == 'p') && move->to == after->en_passant) {
         // Direction of moving pawn, not captured pawn
-        const int direction = piece_color(moving) == WHITE ? -10 : 10;
+        const int direction = piece_color(moving) == 'w' ? -10 : 10;
 
         // Capture opposite moving pawn's direction of travel
         captured = after->mailbox.cells[to_cell - direction];
@@ -357,14 +355,14 @@ bool position_read_move(
         struct List *next = each->next;
 
         const struct Move *move = each->data;
-        if (move->promotion != EMPTY) {
+        if (move->promotion != ' ') {
             // Can't resolve promotion here
             ++num_promotions;
             goto next;
         }
 
-        const enum Piece capture = position_piece(before, move->to);
-        if (capture == EMPTY) {
+        const char capture = position_piece(before, move->to);
+        if (capture == ' ') {
             // No capture, not ambiguous
             ++num_moves;
             goto next;
