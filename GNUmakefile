@@ -4,10 +4,10 @@ centaur  = centaur
 build    = $(or $(centaur),stub)
 
 src_dirs = src src/chess src/fonts src/utility src/$(build)
-sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.c))
+sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.cpp))
 
 obj_dirs = $(patsubst src%,obj%,$(src_dirs))
-objects  = $(foreach s,$(sources),$(patsubst src/%.c,obj/%.o,$s))
+objects  = $(foreach s,$(sources),$(patsubst src/%.cpp,obj/%.o,$s))
 
 CPPFLAGS = -DGC_THREADS -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
@@ -29,13 +29,13 @@ bin/rcm: $(objects)
 	$(LINK.cc) $^ $(LDLIBS) -o $@
 
 test_sources = \
-	$(wildcard src/chess/*.c) \
-	src/utility/buffer.c \
-	src/utility/kv.c \
-	src/utility/list.c \
-	src/utility/model.c
-bin/check: $(wildcard t/*.c) $(test_sources)
-	$(LINK.cc) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
+	$(wildcard src/chess/*.cpp) \
+	src/utility/buffer.cpp \
+	src/utility/kv.cpp \
+	src/utility/list.cpp \
+	src/utility/model.cpp
+bin/check: $(wildcard t/*.cpp) $(test_sources)
+	$(LINK.cc) $^ -o $@ -lcheck -lsubunit -lrt -lm
 
-obj/%.o: src/%.c
+obj/%.o: src/%.cpp
 	$(COMPILE.cc) $< -o $@
