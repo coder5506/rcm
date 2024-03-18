@@ -28,7 +28,7 @@ bool move_valid(const struct Move *move) {
 
 struct Move *move_new(int from, int to, char promotion) {
     assert(move_validate(from, to, promotion));
-    struct Move *move = malloc(sizeof *move);
+    struct Move *move = (struct Move*)malloc(sizeof *move);
     *move = (struct Move){
         .from      = from,
         .to        = to,
@@ -52,8 +52,8 @@ movelist_find_equal(const struct List *list, const struct Move *move) {
     assert(list_valid(list));
     assert(move_valid(move));
     for (struct List *each = list->next; each != list; each = each->next) {
-        if (move_equal(each->data, move)) {
-            return each->data;
+        if (move_equal((struct Move*)each->data, move)) {
+            return (struct Move*)each->data;
         }
     }
     return NULL;

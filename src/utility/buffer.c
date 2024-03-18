@@ -32,7 +32,7 @@ bool buffer_valid(const struct Buffer *buf) {
 struct Buffer *buffer_new(size_t size, int fd) {
     assert(fd >= 0);
 
-    struct Buffer *buf = malloc(sizeof *buf + size + 1);
+    struct Buffer *buf = (struct Buffer*)malloc(sizeof *buf + size + 1);
     buf->read  = buf->begin;
     buf->write = buf->begin;
     buf->end   = buf->begin + size;

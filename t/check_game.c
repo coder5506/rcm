@@ -85,7 +85,7 @@ START_TEST(test_read_e4)
     ck_assert_int_eq(list_length(candidates), 1);
     ck_assert_ptr_null(takeback);
 
-    game_apply_move(g, list_pop(candidates));
+    game_apply_move(g, (struct Move*)list_pop(candidates));
 
     // Position matches "1. e4"
     ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
@@ -109,7 +109,7 @@ START_TEST(test_read_e4e5)
         game_read_move(candidates, &takeback, g, boardstate, actions, 0);
 
     ck_assert(maybe_valid);
-    game_apply_move(g, list_pop(candidates));
+    game_apply_move(g, (struct Move*)list_pop(candidates));
 
     ck_assert_str_eq(game_fen(g), "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 }

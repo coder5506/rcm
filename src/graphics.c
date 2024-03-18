@@ -27,7 +27,7 @@ void context_free(struct Context *context) {
 }
 
 struct Context *context_alloc() {
-    struct Context *context = malloc(sizeof *context);
+    struct Context *context = (struct Context*)malloc(sizeof *context);
     *context = default_context;
     return context;
 }

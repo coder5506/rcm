@@ -45,7 +45,7 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
     struct List *list = position_legal_moves(before);
     struct List *each = (piece != 'P' && piece != 'p') ? list->next : list;
     for (; each != list; each = each->next) {
-        struct Move *mv = each->data;
+        struct Move *mv = (struct Move*)each->data;
         if (mv->to   == move->to   &&
             mv->from != move->from &&
             position_piece(before, mv->from) == piece)
@@ -57,7 +57,7 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
 
     // Disambiguate from square
     if (each != list) {
-        struct Move *mv = each->data;
+        struct Move *mv = (struct Move*)each->data;
         if (square_rank(mv->from) == square_rank(move->from)) {
             fputc(square_file(move->from), out);
         }
@@ -203,7 +203,7 @@ promotion:
     // Find matching move
     struct List *list = position_legal_moves(before);
     for (struct List *each = list->next; each != list; each = each->next) {
-        struct Move *move = each->data;
+        struct Move *move = (struct Move*)each->data;
         if (move->to == to &&
             position_piece(before, move->from) == piece &&
             (from_file == '\0'  || square_file(move->from) == from_file) &&

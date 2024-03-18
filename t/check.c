@@ -12,7 +12,7 @@ static Suite *chess_suite(void) {
     return suite_create("chess");
 }
 
-int main(void) {
+int main() {
     SRunner *sr = srunner_create(chess_suite());
     srunner_add_suite(sr, game_suite());
     srunner_add_suite(sr, pgn_suite());

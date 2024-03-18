@@ -7,10 +7,6 @@
 
 #include "chess/chess.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // 0xffff00000000ffff
 extern const uint64_t STARTING_POSITION;
 
@@ -49,10 +45,6 @@ static inline int rotate_square(int square) {
     // et voila
     return 63 - square;
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

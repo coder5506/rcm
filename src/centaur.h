@@ -7,10 +7,6 @@
 
 #include "board.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct Context;
 struct View;
 
@@ -50,10 +46,6 @@ centaur_read_move(
     struct Move **takeback,
     struct Game  *game,
     uint64_t      boardstate);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

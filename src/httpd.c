@@ -56,7 +56,7 @@ httpd_request_new(
     const char            *url,
     HttpdRequestHandler    handler)
 {
-    struct HttpdRequest *request = malloc(sizeof *request);
+    struct HttpdRequest *request = (struct HttpdRequest*)malloc(sizeof *request);
     request->mhd_connection = connection;
     request->method         = method;
     request->url            = url;
@@ -97,9 +97,9 @@ httpd_request_accumulate_body(
             desired = request->body_used + len + 1;
         }
         if (request->body == NULL) {
-            request->body = malloc(desired);
+            request->body = (uint8_t*)malloc(desired);
         } else {
-            request->body = realloc(request->body, desired);
+            request->body = (uint8_t*)realloc(request->body, desired);
         }
         request->body_allocated = desired;
     }
@@ -141,7 +141,7 @@ query_iterator_cb(void *cls, enum MHD_ValueKind kind, const char *name, const ch
 {
     assert(MHD_GET_ARGUMENT_KIND == kind);
 
-    char **query = cls;
+    char **query = (char**)cls;
 
     char *prev = *query;
     char *curr = NULL;
@@ -224,7 +224,7 @@ const char*
 httpd_request_post_var(const struct HttpdRequest *request, const char *name) {
     parse_post_vars((struct HttpdRequest*)request);
     struct KeyValue *var = kv_find(request->post_vars, name);
-    return var ? var->data : NULL;
+    return var ? (const char*)var->data : NULL;
 }
 
 //
@@ -244,7 +244,7 @@ httpd_response_new(struct MHD_Response *mhd_response, int status_code) {
     if (mhd_response) {
         MHD_add_response_header(mhd_response, "Cache-Control", "no-store");
     }
-    struct HttpdResponse *response = malloc(sizeof *response);
+    struct HttpdResponse *response = (struct HttpdResponse*)malloc(sizeof *response);
     response->mhd_response = mhd_response;
     response->status_code  = status_code;
     return response;
@@ -263,7 +263,7 @@ struct EventStream {
 static void observe_game(struct Model *model, struct EventStream *stream) {
     (void)model;
     pthread_mutex_lock(&stream->mutex);
-    list_push(stream->events, "game_changed");
+    list_push(stream->events, (void*)"game_changed");
     pthread_cond_signal(&stream->cond);
     pthread_mutex_unlock(&stream->mutex);
 }
@@ -271,7 +271,7 @@ static void observe_game(struct Model *model, struct EventStream *stream) {
 static void observe_screen(struct Model *model, struct EventStream *stream) {
     (void)model;
     pthread_mutex_lock(&stream->mutex);
-    list_push(stream->events, "screen_changed");
+    list_push(stream->events, (void*)"screen_changed");
     pthread_cond_signal(&stream->cond);
     pthread_mutex_unlock(&stream->mutex);
 }
@@ -302,7 +302,7 @@ stream_events(struct EventStream *stream, uint64_t pos, char *buf, size_t max)
     int err = pthread_cond_timedwait(&stream->cond, &stream->mutex, &ts);
     if (!err) {
         clock_gettime(CLOCK_REALTIME, &ts);
-        const char *event = list_shift(stream->events);
+        const char *event = (const char*)list_shift(stream->events);
         if (event) {
             rc = snprintf(
                 buf, max, "event: %s\ndata: {\"timestamp\": %ld}\n\n", event, ts.tv_sec);
@@ -317,7 +317,7 @@ static struct HttpdResponse*
 get_events(struct HttpdRequest *request) {
     (void)request;
 
-    struct EventStream *stream = malloc(sizeof *stream);
+    struct EventStream *stream = (struct EventStream*)malloc(sizeof *stream);
     pthread_cond_init(&stream->cond, NULL);
     pthread_mutex_init(&stream->mutex, NULL);
 
@@ -580,7 +580,7 @@ handle_body(
     (void)method;
     (void)version;
 
-    struct HttpdRequest *request = *con_cls;
+    struct HttpdRequest *request = (struct HttpdRequest*)*con_cls;
 
     if (*upload_data_size) {
         // Handle incoming request data.
@@ -664,7 +664,7 @@ handle_completed(
     (void)connection;
     (void)reason;
 
-    struct HttpdRequest *request = *con_cls;
+    struct HttpdRequest *request = (struct HttpdRequest*)*con_cls;
     if (request) {
         httpd_request_free(request);
     }

@@ -39,10 +39,6 @@
 #ifndef RCM_FONTS_H
 #define RCM_FONTS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct sFONT {
     const unsigned char *table;
     int Width;
@@ -53,10 +49,6 @@ extern const struct sFONT Font12;
 extern const struct sFONT Font16;
 extern const struct sFONT Font20;
 extern const struct sFONT Font24;
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

@@ -7,10 +7,6 @@
 
 #include "chess_board.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct List;
 struct Position;
 
@@ -35,10 +31,6 @@ struct Move *movelist_find_equal(const struct List *list, const struct Move *mov
 int move_name(char *buf, int len, const struct Move *move);
 const char *move_name_static(const struct Move *move);
 struct Move *move_from_name(const char *name);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

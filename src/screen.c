@@ -19,8 +19,8 @@ static void *update_epd2in9d(void *data) {
     const int width_bytes = (SCREEN_WIDTH + 7) / 8;
     const int size_bytes  = width_bytes * SCREEN_HEIGHT;
 
-    uint8_t *const new_image = alloca(size_bytes);
-    uint8_t *const old_image = alloca(size_bytes);
+    uint8_t *const new_image = (uint8_t*)alloca(size_bytes);
+    uint8_t *const old_image = (uint8_t*)alloca(size_bytes);
     memset(old_image, -1, size_bytes);
     memset(new_image, -1, size_bytes);
 

@@ -89,7 +89,7 @@ static void render_pgn(struct View *pgn_view, struct Context *context) {
     int top  = pgn_view->bounds.top;
     struct List *each = list_begin(pgn_list);
     for (; each != list_end(pgn_list); each = each->next) {
-        graphics_drawstring(context, left, top, each->data);
+        graphics_drawstring(context, left, top, (const char*)each->data);
         top += line_height;
     }
 }
@@ -391,7 +391,7 @@ centaur_read_move(
                 err = game_apply_takeback(copy, local_takeback);
             }
             if (!err && !list_empty(local_candidates)) {
-                err = game_apply_move(copy, list_first(local_candidates));
+                err = game_apply_move(copy, (const struct Move*)list_first(local_candidates));
             }
             if (err) {
                 step_valid = false;

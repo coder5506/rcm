@@ -5,15 +5,7 @@
 #ifndef RCM_SLEEP_H
 #define RCM_SLEEP_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void sleep_ms(int milliseconds);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

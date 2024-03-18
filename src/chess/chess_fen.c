@@ -92,11 +92,7 @@ char *position_fen(const struct Position *position) {
         return NULL;
     }
 
-    // Move to GC heap
-    char *result = malloc(len + 1);
-    strncpy(result, buf, len + 1);
-    free(buf);
-    return result;
+    return buf;
 }
 
 char *game_fen(const struct Game *game) {
@@ -152,13 +148,13 @@ static int fen_read(struct Position *position, FILE *in) {
     }
     position->turn = c;
 
-    position->castle = 0;
+    position->castle = (enum Castle)0;
     while ((c = fgetc(in)) != ' ') {
         switch (c) {
-        case 'K': position->castle |= K_CASTLE; break;
-        case 'Q': position->castle |= Q_CASTLE; break;
-        case 'k': position->castle |= k_CASTLE; break;
-        case 'q': position->castle |= q_CASTLE; break;
+        case 'K': position->castle = (enum Castle)(position->castle | K_CASTLE); break;
+        case 'Q': position->castle = (enum Castle)(position->castle | Q_CASTLE); break;
+        case 'k': position->castle = (enum Castle)(position->castle | k_CASTLE); break;
+        case 'q': position->castle = (enum Castle)(position->castle | q_CASTLE); break;
         default:
             return 1;
         }

@@ -28,7 +28,7 @@ struct Image *image_alloc(int width, int height) {
     const int width_bytes = (width + 7) / 8;
     const int size_bytes  = width_bytes * height;
 
-    struct Image *image = malloc(sizeof(struct Image) + size_bytes);
+    struct Image *image = (struct Image*)malloc(sizeof(struct Image) + size_bytes);
     image->width  = width;
     image->height = height;
     image->width_bytes = width_bytes;
@@ -87,19 +87,22 @@ struct Image *image_readbmp(const char *path) {
     fread(&header, sizeof header, 1, fp);
     if (strncmp((const char*)&header.bType, "BM", 2) != 0) {
         // Not a Windows bitmap file
-        goto error;
+        fclose(fp);
+        return NULL;
     }
 
     struct BMPINFOHEADER info;
     fread(&info, sizeof info, 1, fp);
     if (info.biInfoSize != 40) {
         // Not a Windows bitmap file
-        goto error;
+        fclose(fp);
+        return NULL;
     }
 
     if (info.biBitCount != 1 && info.biBitCount != 8) {
         // Not a supported size
-        goto error;
+        fclose(fp);
+        return NULL;
     }
 
     struct BMPRGBQUAD rgb[2];
@@ -122,7 +125,8 @@ struct Image *image_readbmp(const char *path) {
         for (int x = 0; x < row_bytes; ++x) {
             uint8_t Rdata;
             if (fread((char*)&Rdata, 1, 1, fp) != 1) {
-                goto error;
+                fclose(fp);
+                return NULL;
             }
 
             if (info.biBitCount == 1) {
@@ -146,13 +150,6 @@ struct Image *image_readbmp(const char *path) {
 
     assert(image_valid(image));
     return image;
-
-error:
-    fclose(fp);
-    if (image) {
-        image_free(image);
-    }
-    return NULL;
 }
 
 int image_png(const struct Image *image, uint8_t **png, size_t *size) {
@@ -164,18 +161,25 @@ int image_png(const struct Image *image, uint8_t **png, size_t *size) {
 
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
-        goto error;
+        fclose(file);
+        return 1;
     }
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         png_destroy_write_struct(&png_ptr, NULL);
-        goto error;
+        fclose(file);
+        return 1;
     }
 
     if (setjmp(png_jmpbuf(png_ptr))) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
-        goto error;
+        fclose(file);
+        if (*png) {
+            free(*png);
+            *png = NULL;
+        }
+        return 1;
     }
 
     png_init_io(png_ptr, file);
@@ -191,7 +195,7 @@ int image_png(const struct Image *image, uint8_t **png, size_t *size) {
         PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png_ptr, info_ptr);
 
-    png_bytep *row_pointers = alloca(image->height * sizeof(png_bytep));
+    png_bytep *row_pointers = (png_bytep*)alloca(image->height * sizeof(png_bytep));
     for (int y = 0; y != image->height; ++y) {
         row_pointers[y] = (uint8_t*)image->data + y * image->width_bytes;
     }
@@ -202,15 +206,6 @@ int image_png(const struct Image *image, uint8_t **png, size_t *size) {
 
     fclose(file);
     return 0;
-
-error:
-    fclose(file);
-    if (*png) {
-        free(*png);
-        *png = NULL;
-    }
-    *size = 0;
-    return 1;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

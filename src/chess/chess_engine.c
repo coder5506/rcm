@@ -10,7 +10,7 @@ static struct UCIEngine *engine = NULL;
 
 static struct UCIEngine *start_engine(void) {
     if (!engine) {
-        char *argv[] = {"stockfish", NULL};
+        char *argv[] = {(char*)"stockfish", NULL};
         engine = uci_execvp("/usr/games/stockfish", argv);
     }
     return engine;
@@ -43,7 +43,7 @@ void engine_play(struct Game *game, const char *engine_name, int elo) {
         return;
     }
 
-    struct UCIPlayMessage *request = malloc(sizeof *request);
+    struct UCIPlayMessage *request = (struct UCIPlayMessage*)malloc(sizeof *request);
     request->m.type = UCI_REQUEST_PLAY;
     request->game = game;
     request->elo = elo;

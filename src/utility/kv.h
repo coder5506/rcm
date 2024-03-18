@@ -7,10 +7,6 @@
 
 #include "list.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct KeyValue {
     struct KeyValue *next;
     struct KeyValue *prev;
@@ -59,10 +55,6 @@ struct KeyValue *kv_last(const struct KeyValue *list);
 static inline int kv_length(const struct KeyValue *list) {
     return list_length((struct List*)list);
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

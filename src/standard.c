@@ -140,13 +140,15 @@ int settings_from_json(const char *json) {
 
     const char *module = json_string_value(json_object_get(data, "module"));
     if (strcmp(module, "standard") != 0) {
-        goto error;
+        json_decref(data);
+        return 1;
     }
 
     json_t *white = json_object_get(data, "white");
     json_t *black = json_object_get(data, "black");
     if (!white || !black) {
-        goto error;
+        json_decref(data);
+        return 1;
     }
 
     int err = player_from_json(&standard.white, white);
@@ -154,14 +156,8 @@ int settings_from_json(const char *json) {
         err = player_from_json(&standard.black, black);
     }
 
-    if (!err) {
-        json_decref(data);
-        return 0;
-    }
-
-error:
     json_decref(data);
-    return 1;
+    return err;
 }
 
 // Ensure game and current settings are persisted to database
@@ -174,13 +170,13 @@ static void game_changed(struct Game *game, void *data) {
     if (standard.white.type == COMPUTER) {
         game_set_tag(game, "White", (char*)standard.white.computer.engine);
     } else {
-        game_set_tag(game, "White", "Human");
+        game_set_tag(game, "White", (void*)"Human");
     }
 
     if (standard.black.type == COMPUTER) {
         game_set_tag(game, "Black", (char*)standard.black.computer.engine);
     } else {
-        game_set_tag(game, "Black", "Human");
+        game_set_tag(game, "Black", (void*)"Human");
     }
 
     game->settings = settings_to_json();
@@ -286,12 +282,16 @@ static void standard_run(void) {
             centaur_led_from_to(move->from, move->to);
         }
 
+        uint64_t boardstate = 0;
+        bool maybe_valid = false;
+        int err = 0;
+
         // Check if there are user actions to process
         if (centaur_update_actions() == 0) {
             // No actions, nothing's changed, there's nothing to do
             goto next;
         }
-        const uint64_t boardstate = centaur_getstate();
+        boardstate = centaur_getstate();
 
         // Detect start of new game
         if (boardstate == STARTING_POSITION) {
@@ -306,7 +306,7 @@ static void standard_run(void) {
         // Interpret player actions
         list_clear(candidates);
         takeback = NULL;
-        const bool maybe_valid =
+        maybe_valid =
             centaur_read_move(candidates, &takeback, centaur.game, boardstate);
         if (!maybe_valid) {
             goto next;
@@ -314,8 +314,8 @@ static void standard_run(void) {
 
         // Execute player actions
         // TODO promotions menu
-        move = list_first(candidates);
-        int err = 0;
+        move = (struct Move*)list_first(candidates);
+        err = 0;
         if (takeback && move) {
             err = game_complete_move(centaur.game, takeback, move);
             centaur_led(move->to);

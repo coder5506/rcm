@@ -8,7 +8,7 @@
 #include <string.h>
 
 static struct KeyValue *node_new(const char *key, void *data) {
-    struct KeyValue *node = malloc(sizeof *node);
+    struct KeyValue *node = (struct KeyValue*)malloc(sizeof *node);
     *node = (struct KeyValue){.data = data, .key = key};
     return node;
 }

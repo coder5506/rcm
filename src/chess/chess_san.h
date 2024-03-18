@@ -7,10 +7,6 @@
 
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct Move;
 struct Position;
 
@@ -21,10 +17,6 @@ san_write_move(FILE *out, const struct Position *before, const struct Move *move
 int move_san(char *buf, int len, const struct Move *move);
 const char *move_san_static(const struct Move *move);
 struct Move *move_from_san(const struct Position *before, const char *san);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

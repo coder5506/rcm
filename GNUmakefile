@@ -26,7 +26,7 @@ clean:
 	$(RM) -R bin/rcm bin/check obj/
 
 bin/rcm: $(objects)
-	$(LINK.c) $^ $(LDLIBS) -o $@
+	$(LINK.cc) $^ $(LDLIBS) -o $@
 
 test_sources = \
 	$(wildcard src/chess/*.c) \
@@ -35,7 +35,7 @@ test_sources = \
 	src/utility/list.c \
 	src/utility/model.c
 bin/check: $(wildcard t/*.c) $(test_sources)
-	$(LINK.c) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
+	$(LINK.cc) $^ -o $@ -lcheck -lsubunit -lgc -lrt -lm
 
 obj/%.o: src/%.c
-	$(COMPILE.c) $< -o $@
+	$(COMPILE.cc) $< -o $@

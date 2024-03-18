@@ -66,13 +66,13 @@ pgn_write_moves(FILE *out, const struct Position *before, bool is_first_move)
         const struct List *begin = list_begin(before->moves_played);
         const struct List *end   = list_end(before->moves_played);
 
-        const struct Move *move = begin->data;
+        const struct Move *move = (const struct Move*)begin->data;
         pgn_write_move(out, before, move, show_move_number);
         show_move_number = false;
 
         for (begin = begin->next; begin != end; begin = begin->next) {
             fprintf(out, " (");
-            const struct Move *variation = begin->data;
+            const struct Move *variation = (const struct Move*)begin->data;
             pgn_write_move(out, before, variation, true);
             pgn_write_moves(out, variation->after, false);
             fprintf(out, ") ");
@@ -131,15 +131,15 @@ static void pgn_write_list(FILE *out, const struct Game *game)
     struct List *begin = list_begin(((struct Game*)game)->history);
     struct List *end   = list_end(((struct Game*)game)->history);
 
-    const struct Position *before = begin->data;
+    const struct Position *before = (const struct Position*)begin->data;
     bool is_first_move = true;
     for (begin = begin->next; begin != end; begin = begin->next) {
-        const struct Position *after = begin->data;
+        const struct Position *after = (const struct Position*)begin->data;
 
         const struct Move *move = NULL;
         const struct List *each = list_begin(before->moves_played);
         for (; each != list_end(before->moves_played); each = each->next) {
-            move = each->data;
+            move = (const struct Move*)each->data;
             if (move->after == after) {
                 break;
             }
@@ -159,7 +159,7 @@ static void pgn_write_list(FILE *out, const struct Game *game)
 
     const struct List *each = list_begin(before->moves_played);
     for (; each != list_end(before->moves_played); each = each->next) {
-        const struct Move *move = each->data;
+        const struct Move *move = (const struct Move*)each->data;
         pgn_write_move(out, before, move, true);
         fputc('\n', out);
     }

@@ -21,7 +21,7 @@ void model_observe(struct Model *model, ModelChanged model_changed, void *data) 
     assert(model && list_valid(model->observers));
     assert(model_changed);
 
-    struct Observer *observer = malloc(sizeof *observer);
+    struct Observer *observer = (struct Observer*)malloc(sizeof *observer);
     observer->model_changed = model_changed;
     observer->data          = data;
     list_push(model->observers, observer);
@@ -37,7 +37,7 @@ void model_unobserve(struct Model *model, ModelChanged model_changed, void *data
 
     struct List *begin = list_begin(model->observers);
     for (; begin != list_end(model->observers); begin = begin->next) {
-        struct Observer *observer = begin->data;
+        struct Observer *observer = (struct Observer*)begin->data;
         if (observer->model_changed == model_changed && observer->data == data) {
             list_unlink(begin);
             return;
@@ -50,7 +50,7 @@ void model_changed(struct Model *model) {
 
     struct List *begin = list_begin(model->observers);
     for (; begin != list_end(model->observers); begin = begin->next) {
-        struct Observer *observer = begin->data;
+        struct Observer *observer = (struct Observer*)begin->data;
         observer->model_changed(model, observer->data);
     }
 }

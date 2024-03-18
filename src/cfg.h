@@ -5,16 +5,8 @@
 #ifndef RCM_CFG_H
 #define RCM_CFG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 const char *cfg_data_dir(void);
 int cfg_port(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

@@ -5,10 +5,6 @@
 #ifndef RCM_CHESS_ENGINE_H
 #define RCM_CHESS_ENGINE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct Game;
 struct Move;
 
@@ -17,10 +13,6 @@ struct Move *engine_move(struct Game *game, const char *engine_name);
 
 // Request engine to select a move
 void engine_play(struct Game *game, const char *engine_name, int elo);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

@@ -49,7 +49,7 @@ struct UCIMessage *uci_receive(struct UCIEngine *engine) {
     assert(engine_valid(engine));
 
     pthread_mutex_lock(&engine->mutex);
-    struct UCIMessage *response = list_shift(engine->response_queue);
+    struct UCIMessage *response = (struct UCIMessage*)list_shift(engine->response_queue);
     pthread_mutex_unlock(&engine->mutex);
     return response;
 }
@@ -108,7 +108,7 @@ static struct UCIMessage *peek_request(struct UCIEngine *engine) {
     assert(engine_valid(engine));
 
     pthread_mutex_lock(&engine->mutex);
-    struct UCIMessage *request = list_first(engine->request_queue);
+    struct UCIMessage *request = (struct UCIMessage*)list_first(engine->request_queue);
     pthread_mutex_unlock(&engine->mutex);
     return request;
 }
@@ -191,15 +191,15 @@ static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) 
 }
 
 static void *engine_thread(void *arg) {
-    struct UCIEngine *const engine = arg;
+    struct UCIEngine *const engine = (struct UCIEngine*)arg;
     assert(engine_valid(engine));
 
     while (1) {
         pthread_mutex_lock(&engine->mutex);
-        struct UCIMessage *request = list_shift(engine->request_queue);
+        struct UCIMessage *request = (struct UCIMessage*)list_shift(engine->request_queue);
         while (!request) {
             pthread_cond_wait(&engine->cond, &engine->mutex);
-            request = list_shift(engine->request_queue);
+            request = (struct UCIMessage*)list_shift(engine->request_queue);
         }
         pthread_mutex_unlock(&engine->mutex);
 
@@ -222,7 +222,7 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     assert(read_fd >= 0);
     assert(write_fd >= 0);
 
-    struct UCIEngine *engine = malloc(sizeof *engine);
+    struct UCIEngine *engine = (struct UCIEngine*)malloc(sizeof *engine);
 
     engine->request_queue  = list_new();
     engine->response_queue = list_new();
@@ -234,7 +234,7 @@ static struct UCIEngine *uci_new(int read_fd, int write_fd) {
     pthread_cond_init(&engine->cond, NULL);
     pthread_create(&engine->thread, NULL, engine_thread, engine);
 
-    struct UCIMessage *uci = malloc(sizeof *uci);
+    struct UCIMessage *uci = (struct UCIMessage*)malloc(sizeof *uci);
     uci->type = UCI_REQUEST_UCI;
     uci_send(engine, uci);
 
@@ -246,6 +246,8 @@ struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
     assert(file && *file);
     assert(argv);
 
+    pid_t pid = -1;
+
     int  pipe_fds[] = {-1, -1, -1, -1};
     int *const read_pipe  = pipe_fds + 0;
     int *const write_pipe = pipe_fds + 2;
@@ -253,7 +255,7 @@ struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
         goto error;
     }
 
-    const pid_t pid = fork();
+    pid = fork();
     if (pid < 0) {
         goto error;
     }

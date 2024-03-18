@@ -128,9 +128,9 @@ struct Game *db_load_game(int64_t rowid) {
     sqlite3_bind_int64(stmt, 1, rowid);
     rc = sqlite3_step(stmt);
 
-    struct Game *game = NULL;
     if (rc != SQLITE_ROW) {
-        goto done;
+        sqlite3_finalize(stmt);
+        return NULL;
     }
 
     const char *pgn = (const char*)sqlite3_column_text(stmt, 0);
@@ -138,19 +138,19 @@ struct Game *db_load_game(int64_t rowid) {
 
     return NULL;
 
-    game = game_from_pgn_and_fen(pgn, fen);
+    struct Game *game = game_from_pgn_and_fen(pgn, fen);
     if (!game) {
-        goto done;
+        sqlite3_finalize(stmt);
+        return NULL;
     }
 
     game->id = rowid;
     game->settings = NULL;
     if (sqlite3_column_bytes(stmt, 2) > 0) {
-        game->settings = malloc(sqlite3_column_bytes(stmt, 2) + 1);
+        game->settings = (const char*)malloc(sqlite3_column_bytes(stmt, 2) + 1);
         strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
     }
 
-done:
     sqlite3_finalize(stmt);
     return game;
 }

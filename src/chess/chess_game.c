@@ -14,7 +14,7 @@ const char *game_tag(struct Game *game, const char *key) {
     assert(game && kv_valid(game->tags));
     assert(key && *key);
     const struct KeyValue *tag = kv_find(game->tags, key);
-    return tag ? tag->data : NULL;
+    return tag ? (const char*)tag->data : NULL;
 }
 
 void game_set_tag(struct Game *game, const char *key, void *data) {
@@ -42,13 +42,13 @@ static void game_reset(struct Game *game) {
     game->settings = NULL;
 
     // Reset default metadata
-    game_set_tag(game, "Event", "?");
-    game_set_tag(game, "Site", "?");
-    game_set_tag(game, "Date", "????.??.??");
-    game_set_tag(game, "Round", "-");
-    game_set_tag(game, "White", "?");
-    game_set_tag(game, "Black", "?");
-    game_set_tag(game, "Result", "*");
+    game_set_tag(game, "Event",  (void*)"?");
+    game_set_tag(game, "Site",   (void*)"?");
+    game_set_tag(game, "Date",   (void*)"????.??.??");
+    game_set_tag(game, "Round",  (void*)"-");
+    game_set_tag(game, "White",  (void*)"?");
+    game_set_tag(game, "Black",  (void*)"?");
+    game_set_tag(game, "Result", (void*)"*");
 }
 
 static void game_changed(struct Game *game, void *data) {
@@ -63,13 +63,13 @@ static void game_changed(struct Game *game, void *data) {
     struct tm timestamp;
     localtime_r(&game->started, &timestamp);
 
-    char *date = malloc(11);
+    char *date = (char*)malloc(11);
     strftime(date, 11, "%Y.%m.%d", &timestamp);
     game_set_tag(game, "Date", date);
 }
 
 static struct Game *game_alloc(void) {
-    struct Game *game = malloc(sizeof *game);
+    struct Game *game = (struct Game*)malloc(sizeof *game);
 
     MODEL_INIT(game);
     game->history = list_new();
@@ -112,7 +112,7 @@ struct Game *game_from_fen(const char *fen) {
 
 struct Position *game_position(struct Game *game, int index) {
     assert(game_valid(game));
-    struct Position *position = list_index(game->history, index);
+    struct Position *position = (struct Position*)list_index(game->history, index);
     assert(!position || position_valid(position));
     return position;
 }
@@ -145,7 +145,7 @@ static int game_recover_history(struct Game *game, const struct Position *target
 
     struct List *begin = list_begin(current->moves_played);
     for (; begin != list_end(current->moves_played); begin = begin->next) {
-        struct Move *move = begin->data;
+        struct Move *move = (struct Move*)begin->data;
         list_push(game->history, (struct Position*)move->after);
         if (game_recover_history(game, target) == 0) {
             return 0;
@@ -230,7 +230,8 @@ int game_apply_move(struct Game *game, const struct Move *move) {
     if (matching) {
         // Move already in graph
         list_push(game->history, (struct Position*)matching->after);
-        goto success;
+        MODEL_CHANGED(game);
+        return 0;
     }
 
     struct Move *candidate = movelist_find_equal(position_legal_moves(current), move);
@@ -244,7 +245,6 @@ int game_apply_move(struct Game *game, const struct Move *move) {
     assert(position_valid(candidate->after));
     assert(game_valid(game));
 
-success:
     MODEL_CHANGED(game);
     return 0;
 }
@@ -312,7 +312,7 @@ bool game_read_move(
         generate_castle_moves(castling, previous);
     }
     for (struct List *each = castling->next; each != castling; each = each->next) {
-        struct Position *after = position_apply_move(previous, each->data);
+        struct Position *after = position_apply_move(previous, (struct Move*)each->data);
         if (!position_legal(after)) {
             continue;
         }
@@ -324,7 +324,7 @@ bool game_read_move(
         // Find takeback move
         struct List *it = list_begin(previous->moves_played);
         for (; it != list_end(previous->moves_played); it = it->next) {
-            struct Move *move = it->data;
+            struct Move *move = (struct Move*)it->data;
             if (position_equal(move->after, current)) {
                 *takeback = move;
                 break;
@@ -342,7 +342,7 @@ bool game_read_move(
     if (previous && previous->bitmap == boardstate) {
         struct List *each = previous->moves_played->next;
         for (; each != previous->moves_played; each = each->next) {
-            struct Move *move = each->data;
+            struct Move *move = (struct Move*)each->data;
             if (position_equal(move->after, current)) {
                 *takeback = move;
                 return true;

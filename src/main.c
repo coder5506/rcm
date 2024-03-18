@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-int main(void) {
+int main() {
     if (db_open() != 0) {
         // Required
         return EXIT_FAILURE;

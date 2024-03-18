@@ -7,14 +7,9 @@
 
 #include "../utility/model.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #include <time.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct Action;
 struct KeyValue;
@@ -72,10 +67,6 @@ bool game_read_move(
     uint64_t       boardstate,
     struct Action *actions,
     int            num_actions);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

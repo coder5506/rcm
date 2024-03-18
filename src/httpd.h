@@ -5,15 +5,10 @@
 #ifndef RCM_HTTPD_H
 #define RCM_HTTPD_H
 
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <microhttpd.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 //
 // Types
@@ -81,10 +76,6 @@ void httpd_response_free(struct HttpdResponse *response);
 
 void httpd_stop(void);
 int httpd_start(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

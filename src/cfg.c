@@ -22,7 +22,7 @@ static const char *xdg_data_home(void) {
     }
 
     if (getuid() == 0) {
-        data_home = "/usr/local/share";
+        data_home = (char*)"/usr/local/share";
         return data_home;
     }
 
@@ -43,7 +43,7 @@ static const char *xdg_data_home(void) {
     }
 
     if (!data_home) {
-        data_home = "/usr/local/share";
+        data_home = (char*)"/usr/local/share";
     }
     return data_home;
 }
@@ -59,7 +59,7 @@ const char *cfg_data_dir(void) {
         }
     }
     if (!data_dir) {
-        data_dir = "/usr/local/share/rcm";
+        data_dir = (char*)"/usr/local/share/rcm";
     }
     return data_dir;
 }

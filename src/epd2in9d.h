@@ -9,10 +9,6 @@
 
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 296
 
@@ -35,10 +31,6 @@ void epd2in9d_update(const uint8_t *data);
 // Fully refresh display.  This is slower and draws more power than partial
 // updates, but should be done occassionally to cleanup e-Paper artifacts.
 void epd2in9d_display(const uint8_t *data);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

@@ -5,10 +5,6 @@
 #ifndef RCM_CHESS_PGN_H
 #define RCM_CHESS_PGN_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct Game;
 
 // Portable Game Notation
@@ -19,10 +15,6 @@ struct List *game_pgn_list(const struct Game *game);
 
 int game_read_pgn(struct Game *game, const char *pgn);
 struct Game *game_from_pgn(const char *pgn);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

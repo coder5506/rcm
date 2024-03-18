@@ -248,7 +248,7 @@ attacked_squares(
     attacks_list(list, mailbox, turn);
 
     for (struct List *it = list->next; it != list; it = it->next) {
-        const struct Move *move = it->data;
+        const struct Move *move = (const struct Move*)it->data;
         board->squares[move->to] = mailbox->cells[mailbox_index[move->to]];
     }
 }
@@ -351,7 +351,7 @@ void generate_legal_moves(struct List *list, const struct Position *before) {
     candidate_moves(candidates, before);
 
     for (struct List *each = candidates->next; each != candidates; each = each->next) {
-        struct Move     *move  = each->data;
+        struct Move     *move  = (struct Move*)each->data;
         struct Position *after = position_apply_move(before, move);
         if (position_legal(after)) {
             move->before = before;
@@ -363,9 +363,9 @@ void generate_legal_moves(struct List *list, const struct Position *before) {
 
 struct List *position_legal_moves(const struct Position *before) {
     if (!before->legal_moves) {
-        struct Position *mutable = (struct Position*)before;
-        mutable->legal_moves = list_new();
-        generate_legal_moves(mutable->legal_moves, before);
+        struct Position *pos = (struct Position*)before;
+        pos->legal_moves = list_new();
+        generate_legal_moves(pos->legal_moves, before);
     }
     return before->legal_moves;
 }

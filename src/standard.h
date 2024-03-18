@@ -5,19 +5,11 @@
 #ifndef RCM_STANDARD_H
 #define RCM_STANDARD_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Standard gameplay module:
 // - Standard chess
 // - Casual play
 // - Human vs. Computer or Human vs. Human
 void standard_main(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

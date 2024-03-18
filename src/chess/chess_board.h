@@ -5,12 +5,6 @@
 #ifndef RCM_CHESS_BOARD_H
 #define RCM_CHESS_BOARD_H
 
-#include <stdbool.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 static inline bool
 color_valid(char color) { return color == 'w' || color == 'b'; }
 
@@ -81,10 +75,6 @@ bool mailbox_equal(const struct Mailbox *a, const struct Mailbox *b);
 
 void board_from_mailbox(struct Board *board, const struct Mailbox *mailbox);
 void mailbox_from_board(struct Mailbox *mailbox, const struct Board *board);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

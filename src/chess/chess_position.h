@@ -9,10 +9,6 @@
 
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct List;
 struct Move;
 
@@ -70,10 +66,6 @@ bool position_read_move(
     uint64_t               boardstate,
     struct Action         *actions,
     int                    num_actions);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

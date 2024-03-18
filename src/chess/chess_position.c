@@ -58,16 +58,16 @@ static void position_update_bitmap(const struct Position *position) {
         mask <<= 1;
     }
 
-    struct Position *mutable = (struct Position*)position;
-    mutable->bitmap = white | black;
-    mutable->white_bitmap = white;
+    struct Position *pos = (struct Position*)position;
+    pos->bitmap = white | black;
+    pos->white_bitmap = white;
 }
 
 struct Position *position_new(void) {
-    struct Position *position = malloc(sizeof *position);
+    struct Position *position = (struct Position*)malloc(sizeof *position);
     *position = (struct Position){
         .turn         = 'w',
-        .castle       = 0,
+        .castle       = (enum Castle)0,
         .en_passant   = INVALID_SQUARE,
         .halfmove     = 0,
         .fullmove     = 1,
@@ -169,19 +169,19 @@ position_apply_move(const struct Position *before, const struct Move *move) {
 
     // Update castling
     if (moving == 'K') {
-        after->castle &= ~(K_CASTLE | Q_CASTLE);
+        after->castle = (enum Castle)(after->castle & ~(K_CASTLE | Q_CASTLE));
     } else if (moving == 'k') {
-        after->castle &= ~(k_CASTLE | q_CASTLE);
+        after->castle = (enum Castle)(after->castle & ~(k_CASTLE | q_CASTLE));
     }
 
     if (moving == 'R' && move->from == H1) {
-        after->castle &= ~K_CASTLE;
+        after->castle = (enum Castle)(after->castle & ~K_CASTLE);
     } else if (moving == 'R' && move->from == A1) {
-        after->castle &= ~Q_CASTLE;
+        after->castle = (enum Castle)(after->castle & ~Q_CASTLE);
     } else if (moving == 'r' && move->from == H8) {
-        after->castle &= ~k_CASTLE;
+        after->castle = (enum Castle)(after->castle & ~k_CASTLE);
     } else if (moving == 'r' && move->from == A8) {
-        after->castle &= ~q_CASTLE;
+        after->castle = (enum Castle)(after->castle & ~q_CASTLE);
     }
 
     // Update en passant
@@ -309,7 +309,7 @@ static bool position_read_moves(
     struct List *legal_moves = position_legal_moves(before);
     struct List *each = list_begin(legal_moves);
     for (; each != list_end(legal_moves); each = each->next) {
-        const struct Move     *move  = each->data;
+        const struct Move     *move  = (const struct Move*)each->data;
         const struct Position *after = move->after;
         if (after->bitmap == boardstate) {
             list_push(candidates, (struct Move*)move);
@@ -354,14 +354,18 @@ bool position_read_move(
     while (each != list_end(candidates)) {
         struct List *next = each->next;
 
-        const struct Move *move = each->data;
+        char capture   = ' ';
+        bool got_place = false;
+        bool got_lift  = false;
+
+        const struct Move *move = (const struct Move*)each->data;
         if (move->promotion != ' ') {
             // Can't resolve promotion here
             ++num_promotions;
             goto next;
         }
 
-        const char capture = position_piece(before, move->to);
+        capture = position_piece(before, move->to);
         if (capture == ' ') {
             // No capture, not ambiguous
             ++num_moves;
@@ -369,8 +373,8 @@ bool position_read_move(
         }
 
         // History should show a lift followed by a place on the capture square
-        bool got_place = false;
-        bool got_lift  = false;
+        got_place = false;
+        got_lift  = false;
         for (int i = num_actions - 1; i >= 0; --i) {
             if (!got_place) {
                 if (actions[i].place == move->to) {

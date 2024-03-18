@@ -5,22 +5,13 @@
 #ifndef RCM_BUFFER_H
 #define RCM_BUFFER_H
 
-#include <stdbool.h>
 #include <stddef.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct Buffer;
 
 bool buffer_valid(const struct Buffer *buf);
 struct Buffer *buffer_new(size_t size, int fd);
 char *buffer_getline(struct Buffer *buf, long timeout_ms);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

@@ -38,8 +38,8 @@ START_TEST(test_fools_mate_list)
 
     struct List *list = game_pgn_list(g);
     ck_assert_int_eq(list_length(list), 2);
-    ck_assert_str_eq(list_index(list, 0), "1. f3 e6");
-    ck_assert_str_eq(list_index(list, 1), "2. g4 Qh4#");
+    ck_assert_str_eq((const char*)list_index(list, 0), "1. f3 e6");
+    ck_assert_str_eq((const char*)list_index(list, 1), "2. g4 Qh4#");
 }
 END_TEST
 
@@ -66,11 +66,11 @@ START_TEST(test_semi_steinitz_list)
 
     struct List *list = game_pgn_list(g);
     ck_assert_int_eq(list_length(list), 5);
-    ck_assert_str_eq(list_index(list, 0), "1. e4 e5");
-    ck_assert_str_eq(list_index(list, 1), "2. Nf3 Nc6");
-    ck_assert_str_eq(list_index(list, 2), "3. Bb5");
-    ck_assert_str_eq(list_index(list, 3), "3... a6");
-    ck_assert_str_eq(list_index(list, 4), "3... d6");
+    ck_assert_str_eq((const char*)list_index(list, 0), "1. e4 e5");
+    ck_assert_str_eq((const char*)list_index(list, 1), "2. Nf3 Nc6");
+    ck_assert_str_eq((const char*)list_index(list, 2), "3. Bb5");
+    ck_assert_str_eq((const char*)list_index(list, 3), "3... a6");
+    ck_assert_str_eq((const char*)list_index(list, 4), "3... d6");
 }
 END_TEST
 

@@ -5,10 +5,6 @@
 #ifndef RCM_CHESS_UCI_H
 #define RCM_CHESS_UCI_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct Game;
 struct UCIEngine;
 
@@ -37,10 +33,6 @@ struct UCIPlayMessage {
 struct UCIMessage *uci_receive(struct UCIEngine *engine);
 
 void uci_send(struct UCIEngine *engine, struct UCIMessage *message);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

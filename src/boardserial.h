@@ -9,10 +9,6 @@
 
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 enum Button {
     BUTTON_NONE = 0,
     BUTTON_BACK = 1 << 0,
@@ -61,10 +57,6 @@ int boardserial_led_array(const int *squares, int num_squares);
 int boardserial_led_from_to(int from, int to);
 
 int boardserial_play_sound(enum Sound sound);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 
