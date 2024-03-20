@@ -3,7 +3,7 @@
 centaur  = centaur
 build    = $(or $(centaur),stub)
 
-src_dirs = src src/chess src/fonts src/utility src/$(build)
+src_dirs = src src/chess src/fonts src/thc src/utility src/$(build)
 sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.cpp))
 
 obj_dirs = $(patsubst src%,obj%,$(src_dirs))
