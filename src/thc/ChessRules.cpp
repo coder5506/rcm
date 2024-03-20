@@ -225,95 +225,63 @@ void ChessRules::PlayMove(Move imove) {
     PushMove(imove);
 }
 
-/****************************************************************************
- * Create a list of all legal moves in this position
- ****************************************************************************/
+// Create a list of all legal moves in this position
 void ChessRules::GenLegalMoveList(vector<Move>& moves) {
-    MOVELIST movelist;
-    GenLegalMoveList(&movelist);
-    for(int i = 0; i < movelist.count; ++i) {
-        moves.push_back(movelist.moves[i]);
+    moves.clear();
+
+    // Generate all moves, including illegal (e.g. put king in check) moves
+    vector<Move> list2;
+    GenMoveList(list2);
+
+    // Loop copying the proven good ones
+    for (auto move : list2) {
+        PushMove(move);
+        const bool okay = Evaluate();
+        PopMove(move);
+        if (okay) {
+            moves.push_back(move);
+        }
     }
 }
 
-/****************************************************************************
- * Create a list of all legal moves in this position, with extra info
- ****************************************************************************/
+// Create a list of all legal moves in this position, with extra info
 void ChessRules::GenLegalMoveList(vector<Move>& moves,
                                   vector<bool>& check,
                                   vector<bool>& mate,
                                   vector<bool>& stalemate)
 {
-    MOVELIST movelist;
-    bool bcheck[MAXMOVES];
-    bool bmate[MAXMOVES];
-    bool bstalemate[MAXMOVES];
-    GenLegalMoveList(&movelist, bcheck, bmate, bstalemate );
-    for (int i = 0; i < movelist.count; ++i) {
-        moves.push_back(movelist.moves[i]);
-        check.push_back(bcheck[i]);
-        mate.push_back(bmate[i]);
-        stalemate.push_back(bstalemate[i]);
-    }
-}
+    moves.clear();
+    check.clear();
+    mate.clear();
+    stalemate.clear();
 
-/****************************************************************************
- * Create a list of all legal moves in this position
- ****************************************************************************/
-void ChessRules::GenLegalMoveList(MOVELIST* list) {
     // Generate all moves, including illegal (e.g. put king in check) moves
-    MOVELIST list2;
-    GenMoveList(&list2);
+    vector<Move> list2;
+    GenMoveList(list2);
 
     // Loop copying the proven good ones
-    int j = 0;
-    for (int i = 0; i < list2.count; ++i) {
-        PushMove(list2.moves[i]);
-        const bool okay = Evaluate();
-        PopMove(list2.moves[i]);
-        if (okay) {
-            list->moves[j++] = list2.moves[i];
-        }
-    }
-    list->count = j;
-}
-
-/****************************************************************************
- * Create a list of all legal moves in this position, with extra info
- ****************************************************************************/
-void ChessRules::GenLegalMoveList(MOVELIST* list, bool check[MAXMOVES],
-                                                  bool mate[MAXMOVES],
-                                                  bool stalemate[MAXMOVES])
-{
-    // Generate all moves, including illegal (e.g. put king in check) moves
-    MOVELIST list2;
-    GenMoveList(&list2);
-
-    // Loop copying the proven good ones
-    int j = 0;
-    for (int i = 0; i < list2.count; ++i) {
-        PushMove(list2.moves[i]);
+    for (auto move : list2) {
+        PushMove(move);
 
         TERMINAL terminal_score;
         const bool okay = Evaluate(terminal_score);
 
-        Square king_to_move = static_cast<Square>(white ? wking_square : bking_square);
-        bool bcheck = false;
-        if (AttackedPiece(king_to_move)) {
-            bcheck = true;
-        }
-        PopMove(list2.moves[i]);
+        const Square king_to_move = static_cast<Square>(white ? wking_square : bking_square);
+        const bool bcheck = AttackedPiece(king_to_move);
+        PopMove(move);
 
         if (okay) {
-            stalemate[j] = (terminal_score==TERMINAL_WSTALEMATE ||
-                            terminal_score==TERMINAL_BSTALEMATE);
-            mate[j]      = (terminal_score==TERMINAL_WCHECKMATE ||
-                            terminal_score==TERMINAL_BCHECKMATE);
-            check[j]     = mate[j] ? false : bcheck;
-            list->moves[j++] = list2.moves[i];
+            moves.push_back(move);
+            stalemate.push_back(
+                terminal_score == TERMINAL_WSTALEMATE ||
+                terminal_score == TERMINAL_BSTALEMATE);
+            const bool is_mate =
+                terminal_score == TERMINAL_WCHECKMATE ||
+                terminal_score == TERMINAL_BCHECKMATE;
+            mate.push_back(is_mate);
+            check.push_back(is_mate ? false : bcheck);
         }
     }
-    list->count = j;
 }
 
 /****************************************************************************
@@ -545,458 +513,285 @@ bool ChessRules::IsInsufficientDraw(bool white_asks, DRAWTYPE& result) {
     return( draw );
 }
 
-/****************************************************************************
- * Generate a list of all possible moves in a position
- ****************************************************************************/
-void ChessRules::GenMoveList(MOVELIST* l) {
-    Square square;
-
+// Generate a list of all possible moves in a position
+void ChessRules::GenMoveList(vector<Move>& moves) {
     // Convenient spot for some asserts
     //  Have a look at TestInternals() for this,
     //   A ChessPositionRaw should finish with 32 bits of detail information
     //   (see DETAIL macros, this assert() checks that)
-    assert( sizeof(ChessPositionRaw) ==
+    assert(
+        sizeof(ChessPositionRaw) ==
                (offsetof(ChessPositionRaw,full_move_count) + sizeof(full_move_count) + sizeof(DETAIL))
-          );
+    );
 
     // We also rely on Moves being 32 bits for the implementation of Move
     //  bitwise == and != operators
-    assert( sizeof(Move) == sizeof(int32_t) );
+    assert(sizeof(Move) == sizeof(int32_t));
 
     // Clear move list
-    l->count  = 0;   // set each field for each move
+    moves.clear();
 
     // Loop through all squares
-    for( square=a8; square<=h1; ++square ) {
+    for (Square square = a8; square <= h1; ++square) {
         // If square occupied by a piece of the right colour
-        char piece=squares[square];
-        if( (white&&IsWhite(piece)) || (!white&&IsBlack(piece)) ) {
-            // Generate moves according to the occupying piece
-            switch( piece )
-            {
-            case 'P':
-                WhitePawnMoves( l, square );
-                break;
-            case 'p':
-                BlackPawnMoves( l, square );
-                break;
-            case 'N':
-            case 'n':
-            {
-                const lte *ptr = knight_lookup[square];
-                ShortMoves( l, square, ptr, NOT_SPECIAL );
-                break;
-            }
-            case 'B':
-            case 'b':
-            {
-                const lte *ptr = bishop_lookup[square];
-                LongMoves( l, square, ptr );
-                break;
-            }
-            case 'R':
-            case 'r':
-            {
-                const lte *ptr = rook_lookup[square];
-                LongMoves( l, square, ptr );
-                break;
-            }
-            case 'Q':
-            case 'q':
-            {
-                const lte *ptr = queen_lookup[square];
-                LongMoves( l, square, ptr );
-                break;
-            }
-            case 'K':
-            case 'k':
-                KingMoves( l, square );
-                break;
-            }
+        const char piece=squares[square];
+        if ((white && IsBlack(piece)) || (!white && IsWhite(piece))) {
+            continue;
+        }
+
+        // Generate moves according to the occupying piece
+        switch (piece) {
+        case 'P':
+            WhitePawnMoves(moves, square );
+            break;
+        case 'p':
+            BlackPawnMoves(moves, square );
+            break;
+        case 'N':
+        case 'n': {
+            const lte* ptr = knight_lookup[square];
+            ShortMoves(moves, square, ptr, NOT_SPECIAL);
+            break;
+        }
+        case 'B':
+        case 'b': {
+            const lte* ptr = bishop_lookup[square];
+            LongMoves(moves, square, ptr);
+            break;
+        }
+        case 'R':
+        case 'r': {
+            const lte* ptr = rook_lookup[square];
+            LongMoves(moves, square, ptr);
+            break;
+        }
+        case 'Q':
+        case 'q': {
+            const lte* ptr = queen_lookup[square];
+            LongMoves(moves, square, ptr);
+            break;
+        }
+        case 'K':
+        case 'k':
+            KingMoves(moves, square);
+            break;
         }
     }
 }
 
-/****************************************************************************
- * Generate moves for pieces that move along multi-move rays (B,R,Q)
- ****************************************************************************/
-void ChessRules::LongMoves(MOVELIST* l, Square square, const lte* ptr) {
-    Move *m=&l->moves[l->count];
-    Square dst;
+// Generate moves for pieces that move along multi-move rays (B,R,Q)
+void ChessRules::LongMoves(vector<Move>& moves, Square square, const lte* ptr) {
     lte nbr_rays = *ptr++;
-    while( nbr_rays-- ) {
+    while (--nbr_rays >= 0) {
         lte ray_len = *ptr++;
-        while( ray_len-- ) {
-            dst = (Square)*ptr++;
-            char piece=squares[dst];
+        while (--ray_len >= 0) {
+            const Square dst = static_cast<Square>(*ptr++);
+            const char piece = squares[dst];
 
             // If square not occupied (empty), add move to list
-            if( IsEmptySquare(piece) ) {
-                m->src     = square;
-                m->dst     = dst;
-                m->capture = ' ';
-                m->special = NOT_SPECIAL;
-                m++;
-                l->count++;
+            if (IsEmptySquare(piece)) {
+                moves.push_back({square, dst, NOT_SPECIAL, ' '});
             }
-
             // Else must move to end of ray
             else {
                 ptr += ray_len;
                 ray_len = 0;
 
                 // If not occupied by our man add a capture
-                if( (white&&IsBlack(piece)) || (!white&&IsWhite(piece)) )
-                {
-                    m->src     = square;
-                    m->dst     = dst;
-                    m->special = NOT_SPECIAL;
-                    m->capture = piece;
-                    l->count++;
-                    m++;
+                if ((white && IsBlack(piece)) || (!white && IsWhite(piece))) {
+                    moves.push_back({square, dst, NOT_SPECIAL, piece});
                 }
             }
         }
     }
 }
 
-/****************************************************************************
- * Generate moves for pieces that move along single move rays (N,K)
- ****************************************************************************/
-void ChessRules::ShortMoves(MOVELIST* l, Square square,
-                                         const lte* ptr, SPECIAL special)
+// Generate moves for pieces that move along single move rays (N,K)
+void ChessRules::ShortMoves(
+    vector<Move>& moves, Square square, const lte* ptr, SPECIAL special)
 {
-    Move *m=&l->moves[l->count];
-    Square dst;
     lte nbr_moves = *ptr++;
-    while( nbr_moves-- ) {
-        dst = (Square)*ptr++;
-        char piece = squares[dst];
+    while (--nbr_moves >= 0) {
+        const Square dst = static_cast<Square>(*ptr++);
+        const char piece = squares[dst];
 
         // If square not occupied (empty), add move to list
-        if( IsEmptySquare(piece) ) {
-            m->src     = square;
-            m->dst     = dst;
-            m->special = special;
-            m->capture = ' ';
-            m++;
-            l->count++;
+        if (IsEmptySquare(piece)) {
+            moves.push_back({square, dst, special, ' '});
         }
-
         // Else if occupied by enemy man, add move to list as a capture
-        else if( (white&&IsBlack(piece)) || (!white&&IsWhite(piece)) ) {
-            m->src     = square;
-            m->dst     = dst;
-            m->special = special;
-            m->capture = piece;
-            m++;
-            l->count++;
+        else if ((white && IsBlack(piece)) || (!white && IsWhite(piece))) {
+            moves.push_back({square, dst, special, piece});
         }
     }
 }
 
-/****************************************************************************
- * Generate list of king moves
- ****************************************************************************/
-void ChessRules::KingMoves(MOVELIST* l, Square square) {
-    const lte *ptr = king_lookup[square];
-    ShortMoves( l, square, ptr, SPECIAL_KING_MOVE );
-
-    // Generate castling king moves
-    Move *m;
-    m = &l->moves[l->count];
+// Generate list of king moves
+void ChessRules::KingMoves(vector<Move>& moves, Square square) {
+    const lte* ptr = king_lookup[square];
+    ShortMoves(moves, square, ptr, SPECIAL_KING_MOVE);
 
     // White castling
-    if( square == e1 )   // king on e1 ?
+    if (square == e1)   // king on e1 ?
     {
-
         // King side castling
-        if(
-            squares[g1] == ' '   &&
-            squares[f1] == ' '   &&
-            squares[h1] == 'R'   &&
-            (wking)            &&
+        if (squares[g1] == ' '        &&
+            squares[f1] == ' '        &&
+            squares[h1] == 'R'        &&
+            (wking)                   &&
             !AttackedSquare(e1,false) &&
             !AttackedSquare(f1,false) &&
-            !AttackedSquare(g1,false)
-          )
+            !AttackedSquare(g1,false))
         {
-            m->src     = e1;
-            m->dst     = g1;
-            m->special = SPECIAL_WK_CASTLING;
-            m->capture = ' ';
-            m++;
-            l->count++;
+            moves.push_back({e1, g1, SPECIAL_WK_CASTLING, ' '});
         }
 
         // Queen side castling
-        if(
-            squares[b1] == ' '         &&
-            squares[c1] == ' '         &&
-            squares[d1] == ' '         &&
-            squares[a1] == 'R'         &&
-            (wqueen)                 &&
-            !AttackedSquare(e1,false)  &&
-            !AttackedSquare(d1,false)  &&
-            !AttackedSquare(c1,false)
-          )
+        if (squares[b1] == ' '        &&
+            squares[c1] == ' '        &&
+            squares[d1] == ' '        &&
+            squares[a1] == 'R'        &&
+            (wqueen)                  &&
+            !AttackedSquare(e1,false) &&
+            !AttackedSquare(d1,false) &&
+            !AttackedSquare(c1,false))
         {
-            m->src     = e1;
-            m->dst     = c1;
-            m->special = SPECIAL_WQ_CASTLING;
-            m->capture = ' ';
-            m++;
-            l->count++;
+            moves.push_back({e1, c1, SPECIAL_WQ_CASTLING, ' '});
         }
     }
 
     // Black castling
-    if( square == e8 )   // king on e8 ?
+    if (square == e8)   // king on e8 ?
     {
-
         // King side castling
-        if(
-            squares[g8] == ' '         &&
-            squares[f8] == ' '         &&
-            squares[h8] == 'r'         &&
+        if (squares[g8] == ' '       &&
+            squares[f8] == ' '       &&
+            squares[h8] == 'r'       &&
             (bking)                  &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(f8,true) &&
-            !AttackedSquare(g8,true)
-          )
+            !AttackedSquare(g8,true))
         {
-            m->src     = e8;
-            m->dst     = g8;
-            m->special = SPECIAL_BK_CASTLING;
-            m->capture = ' ';
-            m++;
-            l->count++;
+            moves.push_back({e8, g8, SPECIAL_BK_CASTLING, ' '});
         }
 
         // Queen side castling
-        if(
-            squares[b8] == ' '         &&
-            squares[c8] == ' '         &&
-            squares[d8] == ' '         &&
-            squares[a8] == 'r'         &&
+        if (squares[b8] == ' '       &&
+            squares[c8] == ' '       &&
+            squares[d8] == ' '       &&
+            squares[a8] == 'r'       &&
             (bqueen)                 &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(d8,true) &&
-            !AttackedSquare(c8,true)
-          )
+            !AttackedSquare(c8,true))
         {
-            m->src     = e8;
-            m->dst     = c8;
-            m->special = SPECIAL_BQ_CASTLING;
-            m->capture = ' ';
-            m++;
-            l->count++;
+            moves.push_back({e8, c8, SPECIAL_BQ_CASTLING, ' '});
         }
     }
 }
 
-/****************************************************************************
- * Generate list of white pawn moves
- ****************************************************************************/
-void ChessRules::WhitePawnMoves(MOVELIST* l, Square square) {
-    Move *m = &l->moves[l->count];
-    const lte *ptr = pawn_white_lookup[square];
-    bool promotion = (RANK(square) == '7');
+// Generate list of white pawn moves
+void ChessRules::WhitePawnMoves(vector<Move>& moves, Square square) {
+    const lte* ptr = pawn_white_lookup[square];
+    bool promotion = RANK(square) == '7';
 
     // Capture ray
     lte nbr_moves = *ptr++;
-    while( nbr_moves-- ) {
-        Square dst = (Square)*ptr++;
-        if( dst == enpassant_target ) {
-            m->src     = square;
-            m->dst     = dst;
-            m->special = SPECIAL_WEN_PASSANT;
-            m->capture = 'p';
-            m++;
-            l->count++;
+    while (--nbr_moves >= 0) {
+        const Square dst = static_cast<Square>(*ptr++);
+        if (dst == enpassant_target) {
+            moves.push_back({square, dst, SPECIAL_WEN_PASSANT, 'p'});
         }
-        else if( IsBlack(squares[dst]) ) {
-            m->src    = square;
-            m->dst    = dst;
-            m->capture = squares[dst];
-            if( !promotion ) {
-                m->special = NOT_SPECIAL;
-                m++;
-                l->count++;
+        else if (IsBlack(squares[dst])) {
+            const int capture = squares[dst];
+            if (!promotion) {
+                moves.push_back({square, dst, NOT_SPECIAL, capture});
             }
             else {
                 // Generate (under)promotions in the order (Q),N,B,R
                 //  but we no longer rely on this elsewhere as it
                 //  stops us reordering moves
-                m->special   = SPECIAL_PROMOTION_QUEEN;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_KNIGHT;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_BISHOP;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_ROOK;
-                m++;
-                l->count++;
+                moves.push_back({square, dst, SPECIAL_PROMOTION_QUEEN,  capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_KNIGHT, capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_BISHOP, capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_ROOK,   capture});
             }
         }
     }
 
     // Advance ray
     nbr_moves = *ptr++;
-    for( lte i=0; i<nbr_moves; i++ ) {
-        Square dst = (Square)*ptr++;
+    for (int i = 0; i < nbr_moves; ++i) {
+        const Square dst = static_cast<Square>(*ptr++);
 
         // If square occupied, end now
-        if( !IsEmptySquare(squares[dst]) )
+        if (!IsEmptySquare(squares[dst])) {
             break;
-        m->src     = square;
-        m->dst     = dst;
-        m->capture = ' ';
-        if( !promotion ) {
-            m->special  =  (i==0 ? NOT_SPECIAL : SPECIAL_WPAWN_2SQUARES);
-            m++;
-            l->count++;
+        }
+        if (!promotion) {
+            moves.push_back({square, dst, i == 0 ? NOT_SPECIAL : SPECIAL_WPAWN_2SQUARES, ' '});
         }
         else {
             // Generate (under)promotions in the order (Q),N,B,R
             //  but we no longer rely on this elsewhere as it
             //  stops us reordering moves
-            m->special   = SPECIAL_PROMOTION_QUEEN;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_KNIGHT;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_BISHOP;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_ROOK;
-            m++;
-            l->count++;
+            moves.push_back({square, dst, SPECIAL_PROMOTION_QUEEN,  ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_KNIGHT, ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_BISHOP, ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_ROOK,   ' '});
         }
     }
 }
 
-/****************************************************************************
- * Generate list of black pawn moves
- ****************************************************************************/
-void ChessRules::BlackPawnMoves(MOVELIST* l, Square square) {
-    Move *m = &l->moves[l->count];
-    const lte *ptr = pawn_black_lookup[square];
-    bool promotion = (RANK(square) == '2');
+// Generate list of black pawn moves
+void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
+    const lte* ptr = pawn_black_lookup[square];
+    bool promotion = RANK(square) == '2';
 
     // Capture ray
     lte nbr_moves = *ptr++;
-    while( nbr_moves-- ) {
-        Square dst = (Square)*ptr++;
-        if( dst == enpassant_target ) {
-            m->src     = square;
-            m->dst     = dst;
-            m->special = SPECIAL_BEN_PASSANT;
-            m->capture = 'P';
-            m++;
-            l->count++;
+    while (--nbr_moves >= 0) {
+        const Square dst = static_cast<Square>(*ptr++);
+        if (dst == enpassant_target) {
+            moves.push_back({square, dst, SPECIAL_BEN_PASSANT, 'P'});
         }
-        else if( IsWhite(squares[dst]) ) {
-            m->src  = square;
-            m->dst    = dst;
-            m->capture = squares[dst];
-            if( !promotion ) {
-                m->special = NOT_SPECIAL;
-                m++;
-                l->count++;
+        else if (IsWhite(squares[dst])) {
+            const int capture = squares[dst];
+            if (!promotion) {
+                moves.push_back({square, dst, NOT_SPECIAL, capture});
             }
             else {
                 // Generate (under)promotions in the order (Q),N,B,R
                 //  but we no longer rely on this elsewhere as it
                 //  stops us reordering moves
-                m->special   = SPECIAL_PROMOTION_QUEEN;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_KNIGHT;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_BISHOP;
-                m++;
-                l->count++;
-                m->src       = square;
-                m->dst       = dst;
-                m->capture   = squares[dst];
-                m->special   = SPECIAL_PROMOTION_ROOK;
-                m++;
-                l->count++;
+                moves.push_back({square, dst, SPECIAL_PROMOTION_QUEEN,  capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_KNIGHT, capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_BISHOP, capture});
+                moves.push_back({square, dst, SPECIAL_PROMOTION_ROOK,   capture});
             }
         }
     }
 
     // Advance ray
     nbr_moves = *ptr++;
-    for( int i=0; i<nbr_moves; i++ ) {
-        Square dst = (Square)*ptr++;
+    for (int i = 0; i < nbr_moves; ++i) {
+        const Square dst = static_cast<Square>(*ptr++);
 
         // If square occupied, end now
-        if( !IsEmptySquare(squares[dst]) )
+        if (!IsEmptySquare(squares[dst])) {
             break;
-        m->src  = square;
-        m->dst  = dst;
-        m->capture = ' ';
-        if( !promotion ) {
-            m->special  =  (i==0 ? NOT_SPECIAL : SPECIAL_BPAWN_2SQUARES);
-            m++;
-            l->count++;
+        }
+        if (!promotion) {
+            moves.push_back({square, dst, i == 0 ? NOT_SPECIAL : SPECIAL_BPAWN_2SQUARES, ' '});
         }
         else {
             // Generate (under)promotions in the order (Q),N,B,R
             //  but we no longer rely on this elsewhere as it
             //  stops us reordering moves
-            m->special   = SPECIAL_PROMOTION_QUEEN;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_KNIGHT;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_BISHOP;
-            m++;
-            l->count++;
-            m->src       = square;
-            m->dst       = dst;
-            m->capture   = ' ';
-            m->special   = SPECIAL_PROMOTION_ROOK;
-            m++;
-            l->count++;
+            moves.push_back({square, dst, SPECIAL_PROMOTION_QUEEN,  ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_KNIGHT, ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_BISHOP, ' '});
+            moves.push_back({square, dst, SPECIAL_PROMOTION_ROOK,   ' '});
         }
     }
 }
@@ -1270,15 +1065,13 @@ bool ChessRules::Evaluate(TERMINAL &score_terminal) {
     return Evaluate(nullptr, score_terminal);
 }
 
-bool ChessRules::Evaluate(MOVELIST* p, TERMINAL& score_terminal) {
-    /* static ;remove for thread safety */ MOVELIST local_list;
-    MOVELIST &list = p?*p:local_list;
+bool ChessRules::Evaluate(vector<Move> *p, TERMINAL& score_terminal) {
+    vector<Move> local_list;
+    vector<Move>& list = p ? *p : local_list;
     int i, any;
     Square my_king, enemy_king;
     bool okay;
     score_terminal=NOT_TERMINAL;
-
-    //DIAG_evaluate_count++;
 
     // Enemy king is attacked and our move, position is illegal
     enemy_king = (Square)(white ? bking_square : wking_square);
@@ -1290,13 +1083,14 @@ bool ChessRules::Evaluate(MOVELIST* p, TERMINAL& score_terminal) {
         okay = true;
 
         // Work out if the game is over by checking for any legal moves
-        GenMoveList( &list );
-        for( any=i=0 ; i<list.count && any==0 ; i++ ) {
-            PushMove( list.moves[i] );
+        GenMoveList(list);
+        any = 0;
+        for (auto move: list) {
+            PushMove(move);
             my_king = (Square)(white ? bking_square : wking_square);
             if( !AttackedPiece(my_king) )
                 any++;
-            PopMove( list.moves[i] );
+            PopMove(move);
         }
 
         // If no legal moves, position is either checkmate or stalemate
@@ -1310,117 +1104,7 @@ bool ChessRules::Evaluate(MOVELIST* p, TERMINAL& score_terminal) {
                                         : TERMINAL_BSTALEMATE);
         }
     }
-    return(okay);
-}
-
-// Transform a position with W to move into an equivalent with B to move and vice-versa
-void ChessRules::Transform()
-{
-    Toggle();
-    Square wking_square_ = (Square)0;
-    Square bking_square_ = (Square)0;
-    Square enpassant_target_ = (Square)this->enpassant_target;
-
-    // swap wking <-> bking
-    int tmp = wking;
-    wking  = bking;
-    bking  = tmp;
-
-    // swap wqueen <-> bqueen
-    tmp    = wqueen;
-    wqueen = bqueen;
-    bqueen = tmp;
-    Square src, dst;
-    char file, r1, r2;
-
-    // Loop through the board
-    for( file='a'; file<='h'; file++ )
-    {
-        for( r1='1',r2='8'; r1<='8'; r1++,r2-- )
-        {
-            src = SQ(file,r1);
-            dst = SQ(file,r2);
-            if( wking_square == src )
-                bking_square_ = dst;
-            if( bking_square == src )
-                wking_square_ = dst;
-            if( enpassant_target == src )
-                enpassant_target_ = dst;
-        }
-    }
-    this->wking_square      = wking_square_;
-    this->bking_square      = bking_square_;
-    this->enpassant_target  = enpassant_target_;
-
-    // Loop through half the board
-    for( file='a'; file<='h'; file++ ) {
-        for( r1='1',r2='8'; r1<='4'; r1++,r2-- ) {
-            src = SQ(file ,r1);
-            dst = SQ(file ,r2);
-            char from = squares[src];
-            char tmpc = squares[dst];
-            for( int i=0; i<2; i++ ) {
-                switch( from ) {
-                case 'K':   squares[dst] = 'k';   break;
-                case 'Q':   squares[dst] = 'q';   break;
-                case 'R':   squares[dst] = 'r';   break;
-                case 'B':   squares[dst] = 'b';   break;
-                case 'N':   squares[dst] = 'n';   break;
-                case 'P':   squares[dst] = 'p';   break;
-                case 'k':   squares[dst] = 'K';   break;
-                case 'q':   squares[dst] = 'Q';   break;
-                case 'r':   squares[dst] = 'R';   break;
-                case 'b':   squares[dst] = 'B';   break;
-                case 'n':   squares[dst] = 'N';   break;
-                case 'p':   squares[dst] = 'P';   break;
-                default:    squares[dst] = from;
-                }
-                from = tmpc;
-                dst  = src;
-            }
-        }
-    }
-}
-
-// Transform a W move in a transformed position to a B one and vice-versa
-Move ChessRules::Transform(Move move) {
-    Move ret;
-    Square src=a8, dst=a8, from, to;
-    char file, r1, r2;
-
-    // Loop through the board (this is a very lazy and slow way to do it!)
-    for( file='a'; file<='h'; file++ ) {
-        for( r1='1', r2='8'; r1<='8'; r1++,r2-- ) {
-            from = SQ(file,r1);
-            to = SQ(file,r2);
-            if( move.src == from )
-                src = to;
-            if( move.dst == from )
-                dst = to;
-        }
-    }
-    ret.src = src;
-    ret.dst = dst;
-
-    // Special moves
-    switch( move.special ) {
-    case SPECIAL_WK_CASTLING:       ret.special = SPECIAL_BK_CASTLING;          break;
-    case SPECIAL_BK_CASTLING:       ret.special = SPECIAL_WK_CASTLING;          break;
-    case SPECIAL_WQ_CASTLING:       ret.special = SPECIAL_BQ_CASTLING;          break;
-    case SPECIAL_BQ_CASTLING:       ret.special = SPECIAL_WQ_CASTLING;          break;
-    case SPECIAL_WPAWN_2SQUARES:    ret.special = SPECIAL_BPAWN_2SQUARES;       break;
-    case SPECIAL_BPAWN_2SQUARES:    ret.special = SPECIAL_WPAWN_2SQUARES;       break;
-    case SPECIAL_WEN_PASSANT:       ret.special = SPECIAL_BEN_PASSANT;          break;
-    case SPECIAL_BEN_PASSANT:       ret.special = SPECIAL_WEN_PASSANT;          break;
-    default: break;
-    }
-
-    // Captures
-    if( islower(move.capture) )
-        ret.capture = toupper(move.capture);
-    else if( isupper(move.capture) )
-        ret.capture = tolower(move.capture);
-    return ret;
+    return okay;
 }
 
 /****************************************************************************
@@ -1437,71 +1121,76 @@ bool ChessRules::IsLegal(ILLEGAL_REASON& reason) {
     // Loop through the board
     file=0;     // go from a8,b8..h8,a7,b7..h1
     rank=7;
-    for( ;;) {
+    for (;;) {
         Square sq = SQ('a'+file, '1'+rank);
         p = squares[sq];
-        if( (p=='P'||p=='p') && (rank==0||rank==7) ) {
+        if ((p == 'P' || p == 'p') && (rank == 0 || rank == 7)) {
             legal = false;
             ireason |= IR_PAWN_POSITION;
         }
-        if( IsWhite(p) ) {
-            if( p == 'P' )
+        if (IsWhite(p)) {
+            if (p == 'P') {
                 wpawns++;
+            }
             else {
                 wpieces++;
-                if( p == 'K' ) {
+                if (p == 'K') {
                     wkings++;
-                    if( !white )
+                    if (!white) {
                         opposition_king_location = sq;
+                    }
                 }
             }
         }
-        else if( IsBlack(p) ) {
-            if( p == 'p' )
+        else if (IsBlack(p)) {
+            if (p == 'p') {
                 bpawns++;
+            }
             else {
                 bpieces++;
-                if( p == 'k' ) {
+                if (p == 'k') {
                     bkings++;
-                    if( white )
+                    if (white) {
                         opposition_king_location = sq;
+                    }
                 }
             }
         }
-        if( sq == h1 )
+        if( sq == h1 ) {
             break;
+        }
         else {
             file++;
-            if( file == 8 ) {
+            if (file == 8) {
                 file = 0;
                 rank--;
             }
         }
     }
-    if( wkings!=1 || bkings!=1 ) {
+    if (wkings!=1 || bkings!=1) {
         legal = false;
         ireason |= IR_NOT_ONE_KING_EACH;
     }
-    if( opposition_king_location!=SQUARE_INVALID && AttackedPiece(opposition_king_location) ) {
+    if (opposition_king_location!=SQUARE_INVALID && AttackedPiece(opposition_king_location)) {
         legal = false;
         ireason |= IR_CAN_TAKE_KING;
     }
-    if( wpieces>8 && (wpieces+wpawns)>16 ) {
+    if (wpieces>8 && (wpieces+wpawns)>16) {
         legal = false;
         ireason |= IR_WHITE_TOO_MANY_PIECES;
     }
-    if( bpieces>8 && (bpieces+bpawns)>16 ) {
+    if (bpieces>8 && (bpieces+bpawns)>16) {
         legal = false;
         ireason |= IR_BLACK_TOO_MANY_PIECES;
     }
-    if( wpawns > 8 ) {
+    if (wpawns > 8) {
         legal = false;
         ireason |= IR_WHITE_TOO_MANY_PAWNS;
     }
-    if( bpawns > 8 ) {
+    if (bpawns > 8) {
         legal = false;
         ireason |= IR_BLACK_TOO_MANY_PAWNS;
     }
-    reason = (ILLEGAL_REASON)ireason;
-    return( legal );
+    reason = static_cast<ILLEGAL_REASON>(ireason);
+    return legal;
 }

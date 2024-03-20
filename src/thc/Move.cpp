@@ -19,13 +19,22 @@
 using namespace std;
 using namespace thc;
 
+Move::Move(Square src, Square dst, SPECIAL special, int capture)
+    : src{src}, dst{dst}, special{special}, capture{capture}
+{
+}
+
+Move::Move() : Move{a1, a1, NOT_SPECIAL, ' '}
+{
+}
+
 /****************************************************************************
  * Read natural string move eg "Nf3"
  *  return bool okay
  ****************************************************************************/
 bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
 {
-    MOVELIST list;
+    vector<Move> list;
     int  i, len=0;
     char src_file='\0', src_rank='\0', dst_file='\0', dst_rank='\0';
     char promotion='\0';
@@ -247,36 +256,34 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
     // Check against all possible moves
     if( okay )
     {
-        cr->GenLegalMoveList( &list );
+        cr->GenLegalMoveList(list);
 
         // Have source and destination, eg "d2d3"
         if( enpassant )
             src_rank = dst_rank = '\0';
         if( src_file && src_rank && dst_file && dst_rank )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( (default_piece || piece==cr->squares[m->src])  &&
-                    src_file  ==   FILE(m->src)       &&
-                    src_rank  ==   RANK(m->src)       &&
-                    dst_       ==   m->dst
+            for (auto& m : list) {
+                if( (default_piece || piece==cr->squares[m.src])  &&
+                    src_file  ==   FILE(m.src)       &&
+                    src_rank  ==   RANK(m.src)       &&
+                    dst_       ==   m.dst
                 )
                 {
                     if( kcastling )
                     {
-                        if( m->special ==
+                        if( m.special ==
                              (white?SPECIAL_WK_CASTLING:SPECIAL_BK_CASTLING) )
-                            found = m;
+                            found = &m;
                     }
                     else if( qcastling )
                     {
-                        if( m->special ==
+                        if( m.special ==
                              (white?SPECIAL_WQ_CASTLING:SPECIAL_BQ_CASTLING) )
-                            found = m;
+                            found = &m;
                     }
                     else
-                        found = m;
+                        found = &m;
                     break;
                 }
             }
@@ -285,16 +292,14 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
         // Have source file only, eg "Rae1"
         else if( src_file && dst_file && dst_rank )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( piece     ==   cr->squares[m->src]  &&
-                    src_file  ==   FILE(m->src)         &&
-                 /* src_rank  ==   RANK(m->src)  */
-                    dst_       ==   m->dst
+            for (auto& m : list) {
+                if( piece     ==   cr->squares[m.src]  &&
+                    src_file  ==   FILE(m.src)         &&
+                 /* src_rank  ==   RANK(m.src)  */
+                    dst_       ==   m.dst
                 )
                 {
-                    found = m;
+                    found = &m;
                     break;
                 }
             }
@@ -303,16 +308,14 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
         // Have source rank only, eg "R2d2"
         else if( src_rank && dst_file && dst_rank )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( piece     ==   cr->squares[m->src]   &&
-                 /* src_file  ==   FILE(m->src) */
-                    src_rank  ==   RANK(m->src)          &&
-                    dst_       ==   m->dst
+            for (auto& m : list) {
+                if( piece     ==   cr->squares[m.src]   &&
+                 /* src_file  ==   FILE(m.src) */
+                    src_rank  ==   RANK(m.src)          &&
+                    dst_       ==   m.dst
                 )
                 {
-                    found = m;
+                    found = &m;
                     break;
                 }
             }
@@ -321,16 +324,14 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
         // Have destination file only eg e4f (because 2 ef moves are possible)
         else if( src_file && src_rank && dst_file )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( piece     ==   cr->squares[m->src]      &&
-                    src_file  ==   FILE(m->src)             &&
-                    src_rank  ==   RANK(m->src)             &&
-                    dst_file  ==   FILE(m->dst)
+            for (auto& m : list) {
+                if( piece     ==   cr->squares[m.src]      &&
+                    src_file  ==   FILE(m.src)             &&
+                    src_rank  ==   RANK(m.src)             &&
+                    dst_file  ==   FILE(m.dst)
                 )
                 {
-                    found = m;
+                    found = &m;
                     break;
                 }
             }
@@ -339,23 +340,21 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
         // Have files only, eg "ef"
         else if( src_file && dst_file )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( piece     ==   cr->squares[m->src]      &&
-                    src_file  ==   FILE(m->src)             &&
-                 /* src_rank  ==   RANK(m->src) */
-                    dst_file  ==   FILE(m->dst)
+            for (auto& m : list) {
+                if( piece     ==   cr->squares[m.src]      &&
+                    src_file  ==   FILE(m.src)             &&
+                 /* src_rank  ==   RANK(m.src) */
+                    dst_file  ==   FILE(m.dst)
                 )
                 {
                     if( enpassant )
                     {
-                        if( m->special ==
+                        if( m.special ==
                              (white?SPECIAL_WEN_PASSANT:SPECIAL_BEN_PASSANT) )
-                            found = m;
+                            found = &m;
                     }
                     else
-                        found = m;
+                        found = &m;
                     break;
                 }
             }
@@ -364,14 +363,12 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
         // Have destination square only eg "a4"
         else if( dst_rank && dst_file )
         {
-            for( i=0; i<list.count; i++ )
-            {
-                m = &list.moves[i];
-                if( piece     ==   cr->squares[m->src]          &&
-                    dst_       ==   m->dst
+            for (auto& m : list) {
+                if( piece     ==   cr->squares[m.src]          &&
+                    dst_       ==   m.dst
                 )
                 {
-                    found = m;
+                    found = &m;
                     break;
                 }
             }
@@ -1169,7 +1166,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
  ****************************************************************************/
 bool Move::TerseIn(ChessRules* cr, const char* tmove)
 {
-    MOVELIST list;
+    vector<Move> list;
     int i;
     bool okay=false;
     if( strlen(tmove)>=4 && 'a'<=tmove[0] && tmove[0]<='h'
@@ -1191,12 +1188,11 @@ bool Move::TerseIn(ChessRules* cr, const char* tmove)
         }
 
         // Generate legal moves, then search for this move
-        cr->GenLegalMoveList( &list );
-        for( i=0; !okay && i<list.count; i++ )
-        {
-            if( list.moves[i].dst==dst_ && list.moves[i].src==src_ )
+        cr->GenLegalMoveList(list);
+        for (auto move : list) {
+            if( move.dst==dst_ && move.src==src_ )
             {
-                switch( list.moves[i].special )
+                switch( move.special )
                 {
                     default:    okay=true;  break;
                     case SPECIAL_PROMOTION_QUEEN:
@@ -1226,7 +1222,7 @@ bool Move::TerseIn(ChessRules* cr, const char* tmove)
                 }
             }
             if( okay )
-                *this = list.moves[i];
+                *this = move;
         }
     }
     return okay;
@@ -1254,10 +1250,10 @@ std::string Move::NaturalOut(ChessRules* cr)
     nmove[0] = '-';
     nmove[1] = '-';
     nmove[2] = '\0';
-    MOVELIST list;
-    bool check[MAXMOVES];
-    bool mate[MAXMOVES];
-    bool stalemate[MAXMOVES];
+    vector<Move> list;
+    vector<bool> check;
+    vector<bool> mate;
+    vector<bool> stalemate;
     enum
     {
         ALG_PAWN_MOVE,
@@ -1270,11 +1266,9 @@ std::string Move::NaturalOut(ChessRules* cr)
     bool done=false;
     bool found = false;
     char append='\0';
-    cr->GenLegalMoveList( &list, check, mate, stalemate );
-    Move mfound = list.moves[0];   // just to prevent a bogus compiler uninitialized var warning
-    for( int i=0; !found && i<list.count; i++ )
-    {
-        mfound = list.moves[i];
+    cr->GenLegalMoveList(list, check, mate, stalemate);
+    for (int i = 0; i != list.size(); ++i) {
+        Move mfound = list[i];
         if( mfound == *this )
         {
             found = true;
@@ -1294,7 +1288,7 @@ std::string Move::NaturalOut(ChessRules* cr)
 
         // Run the algorithm on the input move (i=-1) AND on all legal moves
         //  in a loop if do_loop set for this algorithm (i=0 to i=count-1)
-        for( int i=-1; !done && i<(do_loop?list.count:0); i++ )
+        for( int i=-1; !done && i<(do_loop?list.size():0); i++ )
         {
             char *str_dst;
             char compare[10];
@@ -1305,7 +1299,7 @@ std::string Move::NaturalOut(ChessRules* cr)
             }
             else
             {
-                m = list.moves[i];
+                m = list[i];
                 str_dst = compare;
             }
             Square src_ = m.src;

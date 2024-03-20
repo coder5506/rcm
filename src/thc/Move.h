@@ -44,6 +44,9 @@ public:
                                 // blows sizeof(Move) out to 64 bits if
                                 // capture is defined as char instead of int
 
+    Move(Square src, Square dst, SPECIAL special, int capture);
+    Move();
+
     bool operator==(const Move& other) const
     {
         return *reinterpret_cast<const std::int32_t*>(this) == *reinterpret_cast<const std::int32_t*>(&other);
@@ -79,13 +82,6 @@ public:
 
     // Convert to terse string eg "e7e8q"
     std::string TerseOut();
-};
-
-// List of moves
-struct MOVELIST
-{
-    int count;  // number of moves
-    Move moves[MAXMOVES];
 };
 
 }

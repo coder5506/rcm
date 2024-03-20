@@ -90,12 +90,6 @@ public:
     // Determine if an occupied square is attacked
     bool AttackedPiece(Square square);
 
-    // Transform a position with W to move into an equivalent with B to move and vice-versa
-    void Transform();
-
-    // Transform a W move in a transformed position to a B one and vice-versa
-    Move Transform(Move m);
-
     // Create a list of all legal moves in this position
     void GenLegalMoveList(std::vector<Move>& moves);
 
@@ -104,14 +98,6 @@ public:
                           std::vector<bool>& check,
                           std::vector<bool>& mate,
                           std::vector<bool>& stalemate);
-
-    // Create a list of all legal moves in this position
-    void GenLegalMoveList(MOVELIST* list);
-
-    // Create a list of all legal moves in this position, with extra info
-    void GenLegalMoveList(MOVELIST* list, bool check[MAXMOVES],
-                                          bool mate[MAXMOVES],
-                                          bool stalemate[MAXMOVES]);
 
     // Make a move (with the potential to undo)
     void PushMove(Move& m);
@@ -122,32 +108,28 @@ public:
     // Test fundamental internal assumptions and operations
     void TestInternals();
 
-// Private stuff
 protected:
-
     // Generate a list of all possible moves in a position (including
     //  illegally "moving into check")
-    void GenMoveList(MOVELIST* l);
+    void GenMoveList(std::vector<Move>& moves);
 
     // Generate moves for pieces that move along multi-move rays (B,R,Q)
-    void LongMoves(MOVELIST* l, Square square, const lte* ptr);
+    void LongMoves(std::vector<Move>& moves, Square square, const lte* ptr);
 
     // Generate moves for pieces that move along single-move rays (K,N,P)
-    void ShortMoves(MOVELIST* l, Square square, const lte* ptr, SPECIAL special);
+    void ShortMoves(std::vector<Move>& moves, Square square, const lte* ptr, SPECIAL special);
 
     // Generate list of king moves
-    void KingMoves(MOVELIST* l, Square square);
+    void KingMoves(std::vector<Move>& moves, Square square);
 
     // Generate list of white pawn moves
-    void WhitePawnMoves(MOVELIST* l, Square square);
+    void WhitePawnMoves(std::vector<Move>& moves, Square square);
 
     // Generate list of black pawn moves
-    void BlackPawnMoves(MOVELIST* l, Square square);
+    void BlackPawnMoves(std::vector<Move>& moves, Square square);
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
-    bool Evaluate(MOVELIST* list, TERMINAL& score_terminal);
-
-    //### Data
+    bool Evaluate(std::vector<Move> *p, TERMINAL& score_terminal);
 
     // Move history is a ring array
     Move history[256];                 // must be 256 ..
