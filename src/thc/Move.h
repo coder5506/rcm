@@ -4,12 +4,14 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef MOVE_H
 #define MOVE_H
+
 #include "ChessDefs.h"
 #include <string>
 
-// TripleHappyChess
 namespace thc
 {
 class ChessRules;
@@ -42,38 +44,38 @@ public:
                                 // blows sizeof(Move) out to 64 bits if
                                 // capture is defined as char instead of int
 
-    bool operator ==(const Move &other) const
+    bool operator==(const Move& other) const
     {
-        return( *((int32_t *)this) == *((int32_t *)(&other)) );
+        return *reinterpret_cast<const std::int32_t*>(this) == *reinterpret_cast<const std::int32_t*>(&other);
     }
 
-    bool operator !=(const Move &other) const
+    bool operator!=(const Move& other) const
     {
-        return( *((int32_t *)this) != *((int32_t *)(&other)) );
+        return *reinterpret_cast<const std::int32_t*>(this) != *reinterpret_cast<const std::int32_t*>(&other);
     }
 
     // Use these sparingly when you need to specifically mark
     //  a move as not yet set up (defined when we got rid of
     //  16 bit FMOVEs, we could always set and test 0 with those)
-    void Invalid()  { src=a8; dst=a8; }
-    bool Valid()    { return src!=a8 || dst!=a8; }
+    void Invalid() { src=a8; dst=a8; }
+    bool Valid()   { return src!=a8 || dst!=a8; }
 
     // Read natural string move eg "Nf3"
     //  return bool okay
-    bool NaturalIn( ChessRules *cr, const char *natural_in );
+    bool NaturalIn(ChessRules* cr, const char* natural_in);
 
     // Read natural string move eg "Nf3"
     //  return bool okay
     // Fast alternative for known good input
-    bool NaturalInFast( ChessRules *cr, const char *natural_in );
+    bool NaturalInFast(ChessRules* cr, const char* natural_in);
 
     // Read terse string move eg "g1f3"
     //  return bool okay
-    bool TerseIn( ChessRules *cr, const char *tmove );
+    bool TerseIn(ChessRules* cr, const char* tmove);
 
     // Convert to natural string
     //  eg "Nf3"
-    std::string NaturalOut( ChessRules *cr );
+    std::string NaturalOut(ChessRules* cr);
 
     // Convert to terse string eg "e7e8q"
     std::string TerseOut();
@@ -86,6 +88,6 @@ struct MOVELIST
     Move moves[MAXMOVES];
 };
 
-} //namespace thc
+}
 
-#endif //MOVE_H
+#endif

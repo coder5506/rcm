@@ -4,8 +4,11 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef PRIVATE_CHESS_DEFS_H_INCLUDED
 #define PRIVATE_CHESS_DEFS_H_INCLUDED
+
 #include "ChessDefs.h"
 
 // TripleHappyChess
@@ -19,13 +22,12 @@ namespace thc
 #define IsWhite(p) ((p)<'a' && (p)!=' ')  // all upper case pieces, and not empty
 
 // Allow easy iteration through squares
-inline Square& operator++ ( Square& sq )
+inline Square operator++(Square sq)
 {
-    sq = (Square)(sq+1);
-    return sq;
+    return static_cast<Square>(sq+1);
 }
 
-// Macro to convert chess notation to Square convention,   
+// Macro to convert chess notation to Square convention,
 //  eg SQ('c','5') -> c5
 //  (We didn't always have such a sensible Square convention. SQ() remains
 //  useful for cases like SQ(file,rank), but you may actually see examples
@@ -84,9 +86,9 @@ inline Square& operator++ ( Square& sq )
 
 // Bits corresponding to detail bits wking, wqueen, bking, bqueen for
 //  DETAIL_CASTLING
-#define WKING   0x01    
-#define WQUEEN  0x02    
-#define BKING   0x04    
+#define WKING   0x01
+#define WQUEEN  0x02
+#define BKING   0x04
 #define BQUEEN  0x08
 
 
@@ -96,41 +98,41 @@ inline Square& operator++ ( Square& sq )
 extern lte to_mask[];
 
 // Lookup squares a queen can move to
-extern const lte *queen_lookup[];
+extern const lte* queen_lookup[];
 
 // Lookup squares a rook can move to
-extern const lte *rook_lookup[];
+extern const lte* rook_lookup[];
 
 // Lookup squares a bishop can move to
-extern const lte *bishop_lookup[];
+extern const lte* bishop_lookup[];
 
 // Lookup squares a knight can move to
-extern const lte *knight_lookup[];
+extern const lte* knight_lookup[];
 
 // Lookup squares a king can move to
-extern const lte *king_lookup[];
+extern const lte* king_lookup[];
 
 // Lookup squares a white pawn can move to
-extern const lte *pawn_white_lookup[];
+extern const lte* pawn_white_lookup[];
 
 // Lookup squares a black pawn can move to
-extern const lte *pawn_black_lookup[];
+extern const lte* pawn_black_lookup[];
 
 // Lookup good squares for enemy king when a king is on a square in an endgame
-extern const lte *good_king_position_lookup[];
+extern const lte* good_king_position_lookup[];
 
 // Lookup squares from which an enemy pawn attacks white
-extern const lte *pawn_attacks_white_lookup[];
+extern const lte* pawn_attacks_white_lookup[];
 
 // Lookup squares from which an enemy pawn attacks black
-extern const lte *pawn_attacks_black_lookup[];
+extern const lte* pawn_attacks_black_lookup[];
 
 // Lookup squares from which enemy pieces attack white
-extern const lte *attacks_white_lookup[];
+extern const lte* attacks_white_lookup[];
 
 // Lookup squares from which enemy pieces attack black
-extern const lte *attacks_black_lookup[];
+extern const lte* attacks_black_lookup[];
 
 } //namespace thc
 
-#endif // PRIVATE_CHESS_DEFS_H_INCLUDED
+#endif

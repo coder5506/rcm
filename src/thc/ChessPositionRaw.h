@@ -4,12 +4,13 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef CHESSPOSITIONRAW_H
 #define CHESSPOSITIONRAW_H
 
 #include "ChessDefs.h"
 
-// TripleHappyChess
 namespace thc
 {
 
@@ -63,6 +64,6 @@ struct ChessPositionRaw
     //  == operator.
 };
 
-} //namespace thc
+}
 
-#endif //CHESSPOSITIONRAW_H
+#endif

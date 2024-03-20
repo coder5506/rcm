@@ -4,14 +4,13 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2014, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef THC_H
 #define THC_H
 
-#include "Portability.h"
-#include "Move.h"
 #include "ChessPosition.h"
 #include "ChessRules.h"
-#include "ChessEvaluation.h"
+#include "Move.h"
 
-#endif // THC_H
-
+#endif

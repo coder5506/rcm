@@ -4,23 +4,16 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef CHESSDEFS_H
 #define CHESSDEFS_H
 
 #include <cstdint>
 
 // Simple definition to aid platform portability (only remains of former Portability.h)
-int strcmp_ignore( const char *s, const char *t ); // return 0 if case-insensitive match
+int strcmp_ignore(const char* s, const char* t); // return 0 if case-insensitive match
 
-// Fast test for is square white or black. Intend to move this to namespace thc when convenient...
-inline bool is_dark( int sq )
-{
-    bool dark = (!(sq&8) &&  (sq&1))    // eg (a8,b8,c8...h8) && (b8|d8|f8|h8) odd rank + odd file
-             || ( (sq&8) && !(sq&1));   // eg (a7,b7,c7...h7) && (a7|c7|e7|g7) even rank + even file
-    return dark;
-}
-
-// TripleHappyChess
 namespace thc
 {
 
@@ -45,12 +38,12 @@ enum Square
 };
 
 // thc::Square utilities
-inline char get_file( Square sq )
-    { return static_cast<char> (  (static_cast<int>(sq)&0x07) + 'a' ); }           // eg c5->'c'
-inline char get_rank( Square sq )
-    { return static_cast<char> (  '8' - ((static_cast<int>(sq)>>3) & 0x07) ); }    // eg c5->'5'
-inline Square make_square( char file, char rank )
-    { return static_cast<Square> ( ('8'-(rank))*8 + ((file)-'a') );  }            // eg ('c','5') -> c5
+inline char get_file(Square sq)
+    { return static_cast<char>((static_cast<int>(sq) & 0x07) + 'a'); }           // eg c5->'c'
+inline char get_rank(Square sq)
+    { return static_cast<char>('8' - ((static_cast<int>(sq) >> 3) & 0x07)); }    // eg c5->'5'
+inline Square make_square(char file, char rank)
+    { return static_cast<Square>(('8' - rank) * 8 + (file-'a')); }               // eg ('c','5') -> c5
 
 // Special (i.e. not ordinary) move types
 enum SPECIAL
@@ -110,21 +103,12 @@ enum TERMINAL
                 //             ^                         ^
                 //[calculated practical maximum   ] + [margin]
 
-// We have developed an algorithm to compress any legal chess position,
-//  including who to move, castling allowed flags and enpassant_target
-//  into 24 bytes
-union CompressedPosition
-{
-    unsigned char storage[24];
-    unsigned int ints[ 24 / sizeof(unsigned int) ];
-};
-
 // Types we'd really rather have in PrivateChessDefs.h, but not possible
 //  at the moment, so we reluctantly expose them to users of the chess
 //  classes.
-typedef unsigned char lte;   // lte = lookup table element
-typedef std::int32_t DETAIL;
+using lte = unsigned char;   // lte = lookup table element
+using DETAIL = std::int32_t;
 
-} //namespace thc
+}
 
-#endif // CHESSDEFS_H
+#endif

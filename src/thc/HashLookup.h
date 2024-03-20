@@ -4,7 +4,8 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
-static uint32_t hash_lookup[64]['r'-'B'+1] =
+
+static std::uint32_t hash_lookup[64]['r'-'B'+1] =
 {  // B                          K              N            P          Q          R
     { 0x8c7f0aac,0,0,0,0,0,0,0,0,0x97c4aa2f,0,0,0xb716a675,0,0xd821ccc0,0x9a4eb343,0xdba252fb, // 'B'->'R'
       0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x8b7d76c3,             // 'S'->'a', where 'a' is a proxy for ' ' or '.'
@@ -651,5 +652,3 @@ static uint64_t hash64_lookup[64]['r'-'B'+1] =
         0x9b0ff04b389e0064,0,0xba2d0cdd9484d2b6,0x1d9c042840d1234d,0xa9cf3400c5661795  // 'n'->'r'
     }
 };
-
-

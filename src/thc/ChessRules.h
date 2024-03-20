@@ -4,13 +4,16 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+#pragma once
+
 #ifndef CHESSRULES_H
 #define CHESSRULES_H
+
 #include "ChessPosition.h"
 #include "Move.h"
+
 #include <vector>
 
-// TripleHappyChess
 namespace thc
 {
 
@@ -18,8 +21,8 @@ namespace thc
 class ChessRules: public ChessPosition
 {
 public:
-    // Default constructor
     ChessRules() : ChessPosition() { Init(); }
+
     void Init()    // TODO == ChessRules::Init() should call ChessPosition::Init() right ????!!!!
                    // Thoughts: Maybe - but can't do this casually. For example we would need to
                    // change the code that converts ChessPosition to ChessRules below, both the
@@ -34,14 +37,14 @@ public:
     }
 
     // Copy constructor
-    ChessRules( const ChessPosition& src ) : ChessPosition( src )
+    ChessRules(const ChessPosition& src) : ChessPosition(src)
     {
         Init();   // even if src is e.g. ChessRules or ChessEngine don't
                   //   copy stuff for repetition, 50 move rule
     }
 
     // Assignment operator
-    ChessRules& operator=( const ChessPosition& src )
+    ChessRules& operator=(const ChessPosition& src)
     {
         *((ChessPosition *)this) = src;
         Init();   // even if src is e.g. ChessRules or ChessEngine don't
@@ -50,70 +53,71 @@ public:
     }
 
     // Test internals, for porting to new environments etc
-    bool TestInternals( int (*log)(const char *,...) = NULL );
+    bool TestInternals(int (*log)(const char*, ...) = nullptr);
 
     // Initialise from Forsyth string
-    bool Forsyth( const char *txt )
+    bool Forsyth(const char* txt)
     {
         bool okay = ChessPosition::Forsyth(txt);
-        if( okay )
+        if (okay) {
             Init(); // clear stuff for repetition, 50 move rule
+        }
         return okay;
     }
 
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
-    bool IsLegal( ILLEGAL_REASON& reason );
+    bool IsLegal(ILLEGAL_REASON& reason);
 
     // Play a move
-    void PlayMove( Move imove );
+    void PlayMove(Move imove);
 
     // Check draw rules (50 move rule etc.)
-    bool IsDraw( bool white_asks, DRAWTYPE &result );
+    bool IsDraw(bool white_asks, DRAWTYPE& result);
 
     // Get number of times position has been repeated
     int GetRepetitionCount();
 
     // Check insufficient material draw rule
-    bool IsInsufficientDraw( bool white_asks, DRAWTYPE &result );
+    bool IsInsufficientDraw(bool white_asks, DRAWTYPE& result);
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
     bool Evaluate();
-    bool Evaluate( TERMINAL &score_terminal );
+    bool Evaluate(TERMINAL& score_terminal);
 
     // Is a square is attacked by enemy ?
-    bool AttackedSquare( Square square, bool enemy_is_white );
+    bool AttackedSquare(Square square, bool enemy_is_white);
 
     // Determine if an occupied square is attacked
-    bool AttackedPiece( Square square );
+    bool AttackedPiece(Square square);
 
     // Transform a position with W to move into an equivalent with B to move and vice-versa
     void Transform();
 
     // Transform a W move in a transformed position to a B one and vice-versa
-    Move Transform( Move m );
+    Move Transform(Move m);
 
     // Create a list of all legal moves in this position
-    void GenLegalMoveList( std::vector<Move> &moves );
+    void GenLegalMoveList(std::vector<Move>& moves);
 
     //  Create a list of all legal moves in this position, with extra info
-    void GenLegalMoveList(  std::vector<Move> &moves,
-                            std::vector<bool> &check,
-                            std::vector<bool> &mate,
-                            std::vector<bool> &stalemate );
+    void GenLegalMoveList(std::vector<Move>& moves,
+                          std::vector<bool>& check,
+                          std::vector<bool>& mate,
+                          std::vector<bool>& stalemate);
 
     // Create a list of all legal moves in this position
-    void GenLegalMoveList( MOVELIST *list );
+    void GenLegalMoveList(MOVELIST* list);
 
     // Create a list of all legal moves in this position, with extra info
-    void GenLegalMoveList( MOVELIST *list, bool check[MAXMOVES],
-                                           bool mate[MAXMOVES],
-                                           bool stalemate[MAXMOVES] );
+    void GenLegalMoveList(MOVELIST* list, bool check[MAXMOVES],
+                                          bool mate[MAXMOVES],
+                                          bool stalemate[MAXMOVES]);
 
     // Make a move (with the potential to undo)
-    void PushMove( Move& m );
+    void PushMove(Move& m);
 
     // Undo a move
-    void PopMove( Move& m );
+    void PopMove(Move& m);
 
     // Test fundamental internal assumptions and operations
     void TestInternals();
@@ -123,25 +127,25 @@ protected:
 
     // Generate a list of all possible moves in a position (including
     //  illegally "moving into check")
-    void GenMoveList( MOVELIST *l );
+    void GenMoveList(MOVELIST* l);
 
     // Generate moves for pieces that move along multi-move rays (B,R,Q)
-    void LongMoves( MOVELIST *l, Square square, const lte *ptr );
+    void LongMoves(MOVELIST* l, Square square, const lte* ptr);
 
     // Generate moves for pieces that move along single-move rays (K,N,P)
-    void ShortMoves( MOVELIST *l, Square square, const lte *ptr, SPECIAL special  );
+    void ShortMoves(MOVELIST* l, Square square, const lte* ptr, SPECIAL special);
 
     // Generate list of king moves
-    void KingMoves( MOVELIST *l, Square square );
+    void KingMoves(MOVELIST* l, Square square);
 
     // Generate list of white pawn moves
-    void WhitePawnMoves( MOVELIST *l, Square square );
+    void WhitePawnMoves(MOVELIST* l, Square square);
 
     // Generate list of black pawn moves
-    void BlackPawnMoves( MOVELIST *l, Square square );
+    void BlackPawnMoves(MOVELIST* l, Square square);
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
-    bool Evaluate( MOVELIST *list, TERMINAL &score_terminal );
+    bool Evaluate(MOVELIST* list, TERMINAL& score_terminal);
 
     //### Data
 
@@ -154,6 +158,6 @@ protected:
     unsigned char detail_idx;           // .. so this loops around naturally
 };
 
-} //namespace thc
+}
 
-#endif //CHESSRULES_H
+#endif

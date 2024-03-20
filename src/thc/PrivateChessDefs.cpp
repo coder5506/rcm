@@ -5,7 +5,9 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
+
 #include "PrivateChessDefs.h"
+
 namespace thc
 {
 

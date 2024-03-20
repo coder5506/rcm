@@ -4,16 +4,18 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
-#define _CRT_SECURE_NO_DEPRECATE
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <algorithm>
-#include <string>
-#include "PrivateChessDefs.h"
-#include "ChessRules.h"
+
 #include "Move.h"
+#include "ChessRules.h"
+#include "PrivateChessDefs.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
 using namespace std;
 using namespace thc;
 
@@ -21,7 +23,7 @@ using namespace thc;
  * Read natural string move eg "Nf3"
  *  return bool okay
  ****************************************************************************/
-bool Move::NaturalIn( ChessRules *cr, const char *natural_in )
+bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
 {
     MOVELIST list;
     int  i, len=0;
@@ -411,7 +413,7 @@ bool Move::NaturalIn( ChessRules *cr, const char *natural_in )
  *  return bool okay
  * Fast alternative for known good input
  ****************************************************************************/
-bool Move::NaturalInFast( ChessRules *cr, const char *natural_in )
+bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
 {
     bool err = false;
     bool found = false;
@@ -1165,7 +1167,7 @@ bool Move::NaturalInFast( ChessRules *cr, const char *natural_in )
  * Read terse string move eg "g1f3"
  *  return bool okay
  ****************************************************************************/
-bool Move::TerseIn( ChessRules *cr, const char *tmove )
+bool Move::TerseIn(ChessRules* cr, const char* tmove)
 {
     MOVELIST list;
     int i;
@@ -1234,7 +1236,7 @@ bool Move::TerseIn( ChessRules *cr, const char *tmove )
  * Convert to natural string
  *    eg "Nf3"
  ****************************************************************************/
-std::string Move::NaturalOut( ChessRules *cr )
+std::string Move::NaturalOut(ChessRules* cr)
 {
 
 // Improved algorithm
@@ -1466,4 +1468,3 @@ std::string Move::TerseOut()
     }
     return tmove;
 }
-

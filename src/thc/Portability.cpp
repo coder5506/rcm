@@ -4,11 +4,11 @@
  *  License: MIT license. Full text of license is in associated file LICENSE
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
-#define _CRT_SECURE_NO_DEPRECATE
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
+
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 // return 0 if case-insensitive match
 int strcmp_ignore( const char *s, const char *t )
@@ -24,4 +24,3 @@ int strcmp_ignore( const char *s, const char *t )
         same = false;
     return same?0:1;
 }
-
