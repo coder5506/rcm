@@ -5,7 +5,7 @@
 // and testing on Linux systems where board is not available.
 
 #include "../boardserial.h"
-#include <stdio.h>
+#include <cstdio>
 
 // Default: no pieces on board
 static uint64_t boardstate = 0llu;

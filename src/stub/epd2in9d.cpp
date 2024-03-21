@@ -7,7 +7,7 @@
 #include "../epd2in9d.h"
 #include "../utility/sleep.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 void epd2in9d_close(void) {
     printf("epd2in9d_close()\n");

@@ -4,10 +4,10 @@
 
 // API for serial communication with DGT Centaur board
 
-#ifndef RCM_BOARDSERIAL_H
-#define RCM_BOARDSERIAL_H
+#ifndef BOARDSERIAL_H
+#define BOARDSERIAL_H
 
-#include <stdint.h>
+#include <cstdint>
 
 enum Button {
     BUTTON_NONE = 0,

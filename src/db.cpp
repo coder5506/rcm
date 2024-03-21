@@ -5,10 +5,10 @@
 #include "cfg.h"
 #include "chess/chess.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <sqlite3.h>
 
@@ -45,8 +45,7 @@ int db_open(void) {
     return 0;
 }
 
-static int insert_game(struct Game *game) {
-    assert(game_valid(game));
+static int insert_game(Game* game) {
     assert(db);
 
     const char *sql =
@@ -59,26 +58,25 @@ static int insert_game(struct Game *game) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt,  1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  5, game_tag(game, "White"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game->settings,           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  1, game->tag("Event").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  2, game->tag("Site").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  3, game->tag("Date").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  4, game->tag("Round").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  5, game->tag("White").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  6, game->tag("Black").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  7, game->tag("Result").data(), -1, SQLITE_STATIC);
+    // sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
+    // sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game->settings.data(),      -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    game->id = sqlite3_last_insert_rowid(db);
+    game->rowid = sqlite3_last_insert_rowid(db);
     return rc != SQLITE_DONE;
 }
 
-static int update_game(struct Game *game) {
-    assert(game_valid(game));
+static int update_game(Game* game) {
     assert(db);
 
     const char *sql =
@@ -93,28 +91,28 @@ static int update_game(struct Game *game) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt,  1, game_tag(game, "Event"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  2, game_tag(game, "Site"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  3, game_tag(game, "Date"),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  4, game_tag(game, "Round"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  5, game_tag(game, "White"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  6, game_tag(game, "Black"),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  7, game_tag(game, "Result"), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game->settings,           -1, SQLITE_STATIC);
-    sqlite3_bind_int64(stmt, 11, game->id);
+    sqlite3_bind_text(stmt,  1, game->tag("Event").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  2, game->tag("Site").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  3, game->tag("Date").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  4, game->tag("Round").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  5, game->tag("White").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  6, game->tag("Black").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  7, game->tag("Result").data(), -1, SQLITE_STATIC);
+    // sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
+    // sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game->settings.data(),      -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 11, game->rowid);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     return rc != SQLITE_DONE;
 }
 
-int db_save_game(struct Game *game) {
-    return game->id ? update_game(game) : insert_game(game);
+int db_save_game(Game* game) {
+    return game->rowid ? update_game(game) : insert_game(game);
 }
 
-struct Game *db_load_game(int64_t rowid) {
+Game* db_load_game(int64_t rowid) {
     assert(rowid > 0);
     assert(db);
 
@@ -138,24 +136,24 @@ struct Game *db_load_game(int64_t rowid) {
 
     return NULL;
 
-    struct Game *game = game_from_pgn_and_fen(pgn, fen);
-    if (!game) {
-        sqlite3_finalize(stmt);
-        return NULL;
-    }
+    // Game* game = game_from_pgn_and_fen(pgn, fen);
+    // if (!game) {
+    //     sqlite3_finalize(stmt);
+    //     return NULL;
+    // }
 
-    game->id = rowid;
-    game->settings = NULL;
-    if (sqlite3_column_bytes(stmt, 2) > 0) {
-        game->settings = (const char*)malloc(sqlite3_column_bytes(stmt, 2) + 1);
-        strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
-    }
+    // game->id = rowid;
+    // game->settings = NULL;
+    // if (sqlite3_column_bytes(stmt, 2) > 0) {
+    //     game->settings = (const char*)malloc(sqlite3_column_bytes(stmt, 2) + 1);
+    //     strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
+    // }
 
-    sqlite3_finalize(stmt);
-    return game;
+    // sqlite3_finalize(stmt);
+    // return game;
 }
 
-struct Game *db_load_latest(void) {
+Game* db_load_latest(void) {
     assert(db);
 
     const char *sql = "SELECT MAX(rowid) FROM games";

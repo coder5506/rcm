@@ -4,89 +4,45 @@
 #include "chess_uci.h"
 #include "chess.h"
 #include "../utility/buffer.h"
-#include "../utility/list.h"
 
-#include <assert.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cassert>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <time.h>
 #include <unistd.h>
 
-#include <pthread.h>
-
-struct UCIEngine {
-    pthread_mutex_t mutex;  // Lock request and response queues
-    pthread_cond_t  cond;   // Signal new request
-    pthread_t       thread;
-    struct List    *request_queue;
-    struct List    *response_queue;
-    struct Buffer  *buffer;
-    int             read_fd;
-    int             write_fd;
-};
-
-static bool engine_valid(struct UCIEngine *engine) {
-    if (!engine) {
-        return false;
+std::unique_ptr<UCIMessage> UCIEngine::receive() {
+    const std::lock_guard<std::mutex> lock{mutex};
+    if (response_queue.empty()) {
+        return nullptr;
     }
-
-    pthread_mutex_lock(&engine->mutex);
-    const bool is_valid =
-        list_valid(engine->response_queue) &&
-        list_valid(engine->request_queue) &&
-        buffer_valid(engine->buffer) &&
-        engine->read_fd  >= -1 &&
-        engine->write_fd >= -1;
-    pthread_mutex_unlock(&engine->mutex);
-
-    return is_valid;
-}
-
-struct UCIMessage *uci_receive(struct UCIEngine *engine) {
-    assert(engine_valid(engine));
-
-    pthread_mutex_lock(&engine->mutex);
-    struct UCIMessage *response = (struct UCIMessage*)list_shift(engine->response_queue);
-    pthread_mutex_unlock(&engine->mutex);
+    auto response = std::move(response_queue.front());
+    response_queue.pop();
     return response;
 }
 
-void uci_send(struct UCIEngine *engine, struct UCIMessage *request) {
-    assert(engine_valid(engine));
-    assert(request);
-
-    pthread_mutex_lock(&engine->mutex);
-    list_push(engine->request_queue, request);
-    pthread_cond_signal(&engine->cond);
-    pthread_mutex_unlock(&engine->mutex);
+void UCIEngine::send(std::unique_ptr<UCIMessage> request) {
+    const std::lock_guard<std::mutex> lock{mutex};
+    request_queue.push(std::move(request));
+    cond.notify_one();
 }
 
-static char *uci_getline(struct UCIEngine *engine) {
-    assert(engine_valid(engine));
-
-    char *const line = buffer_getline(engine->buffer, 1000);
-    return line;
+char* UCIEngine::getline() {
+    return buffer.getline(1000 /* milliseconds */);
 }
 
-static char *uci_expect(struct UCIEngine *engine, const char *startswith) {
-    assert(engine_valid(engine));
-    assert(startswith);
-
-    char *const line = uci_getline(engine);
-    if (!line) {
-        return NULL;
+char* UCIEngine::expect(const char* startswith) {
+    auto line = getline();
+    if (line && strncmp(line, startswith, strlen(startswith)) == 0) {
+        return line;
     }
-    if (strncmp(line, startswith, strlen(startswith)) != 0) {
-        return NULL;
-    }
-    return line;
+    return nullptr;
 }
 
-static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
-    assert(engine_valid(engine));
+void UCIEngine::uci_printf(const char* format, ...) {
     assert(format);
 
     va_list args;
@@ -98,69 +54,66 @@ static int uci_printf(struct UCIEngine *engine, const char *format, ...) {
     vprintf(format, trace_args);
     va_end(trace_args);
 
-    const int n = vdprintf(engine->write_fd, format, args);
+    vdprintf(write_fd, format, args);
     va_end(args);
-
-    return n;
 }
 
-static struct UCIMessage *peek_request(struct UCIEngine *engine) {
-    assert(engine_valid(engine));
-
-    pthread_mutex_lock(&engine->mutex);
-    struct UCIMessage *request = (struct UCIMessage*)list_first(engine->request_queue);
-    pthread_mutex_unlock(&engine->mutex);
+std::unique_ptr<UCIMessage> UCIEngine::peek_request() {
+    const std::lock_guard<std::mutex> lock{mutex};
+    if (request_queue.empty()) {
+        return nullptr;
+    }
+    auto request = std::move(request_queue.front());
+    request_queue.pop();
     return request;
 }
 
-static void send_response(struct UCIEngine *engine, struct UCIMessage *response) {
-    assert(engine_valid(engine));
-    assert(response);
-
-    pthread_mutex_lock(&engine->mutex);
-    list_push(engine->response_queue, response);
-    pthread_mutex_unlock(&engine->mutex);
+void UCIEngine::send_response(std::unique_ptr<UCIMessage> response) {
+    const std::lock_guard<std::mutex> lock{mutex};
+    response_queue.push(std::move(response));
 }
 
-static int expect_bestmove(struct UCIEngine *engine, struct UCIPlayMessage *request) {
-    uci_printf(engine, "setoption MultiPV 1\n");
-    uci_printf(engine, "position fen %s\n", game_fen(request->game));
+int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
+    uci_printf("setoption MultiPV 1\n");
+    uci_printf("position fen %s\n", request->game->fen().data());
 
-    char color = game_current((struct Game*)request->game)->turn;
-    uci_printf(engine, "go %ctime 60000 %cinc 600\n", color, color);
+    char color = request->game->rules.white ? 'w' : 'b';
+    uci_printf("go %ctime 60000 %cinc 600\n", color, color);
 
-    while (1) {
-        if (peek_request(engine)) {
+    for (;;) {
+        if (peek_request()) {
             return 0;
         }
 
-        char *const line = uci_expect(engine, "bestmove ");
+        char *const line = expect("bestmove ");
         if (line) {
-            request->move = move_from_name(line + 9);
-            send_response(engine, (struct UCIMessage*)request);
+            thc::Move move;
+            move.TerseIn(const_cast<thc::ChessRules*>(&request->game->rules), line + 9);
+            request->move = std::move(move);
+            send_response(std::move(request));
             return 0;
         }
     }
 }
 
-static int handle_hint(struct UCIEngine *engine, struct UCIPlayMessage *request) {
-    uci_printf(engine, "setoption name UCI_LimitStrength value false\n");
-    return expect_bestmove(engine, request);
+int UCIEngine::handle_hint(std::unique_ptr<UCIPlayMessage> request) {
+    uci_printf("setoption name UCI_LimitStrength value false\n");
+    return expect_bestmove(std::move(request));
 }
 
-static int handle_play(struct UCIEngine *engine, struct UCIPlayMessage *request) {
-    uci_printf(engine, "setoption name UCI_Elo value %d\n", request->elo);
-    uci_printf(engine, "setoption name UCI_LimitStrength value true\n");
-    return expect_bestmove(engine, request);
+int UCIEngine::handle_play(std::unique_ptr<UCIPlayMessage> request) {
+    uci_printf("setoption name UCI_Elo value %d\n", request->elo);
+    uci_printf("setoption name UCI_LimitStrength value true\n");
+    return expect_bestmove(std::move(request));
 }
 
-static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
+int UCIEngine::handle_uci(std::unique_ptr<UCIMessage> request) {
     (void)request;
 
-    uci_printf(engine, "uci\n");
+    uci_printf("uci\n");
     const time_t timeout = time(NULL) + 5;
     while (time(NULL) < timeout) {
-        const char *line = uci_getline(engine);
+        const char *line = getline();
         if (line && strcmp(line, "uciok") == 0) {
             goto success;
         }
@@ -168,81 +121,61 @@ static int handle_uci(struct UCIEngine *engine, struct UCIMessage *request) {
     return 1;
 
 success:
-    uci_printf(engine, "setoption name Threads value 2\n");
-    uci_printf(engine, "setoption name Hash value 192\n");
+    uci_printf("setoption name Threads value 2\n");
+    uci_printf("setoption name Hash value 192\n");
     return 0;
 }
 
-static int handle_request(struct UCIEngine *engine, struct UCIMessage *request) {
-    assert(engine_valid(engine));
-    assert(request);
-
-    switch (request->type) {
-    case UCI_REQUEST_HINT:
-        return handle_hint(engine, (struct UCIPlayMessage*)request);
-    case UCI_REQUEST_PLAY:
-        return handle_play(engine, (struct UCIPlayMessage*)request);
-    case UCI_REQUEST_UCI:
-        return handle_uci(engine, request);
-    case UCI_REQUEST_QUIT:
-    default:
+int UCIEngine::handle_request(std::unique_ptr<UCIMessage> request) {
+    auto req = request.release();
+    if (auto hint = dynamic_cast<UCIHintMessage*>(req)) {
+        return handle_hint(std::unique_ptr<UCIHintMessage>(hint));
+    }
+    if (auto play = dynamic_cast<UCIPlayMessage*>(req)) {
+        return handle_play(std::unique_ptr<UCIPlayMessage>(play));
+    }
+    if (auto quit = dynamic_cast<UCIQuitMessage*>(req)) {
+        delete quit;
         return 1;
     }
+    return handle_uci(std::unique_ptr<UCIMessage>(req));
 }
 
-static void *engine_thread(void *arg) {
-    struct UCIEngine *const engine = (struct UCIEngine*)arg;
-    assert(engine_valid(engine));
-
-    while (1) {
-        pthread_mutex_lock(&engine->mutex);
-        struct UCIMessage *request = (struct UCIMessage*)list_shift(engine->request_queue);
-        while (!request) {
-            pthread_cond_wait(&engine->cond, &engine->mutex);
-            request = (struct UCIMessage*)list_shift(engine->request_queue);
+void UCIEngine::engine_thread() {
+    for (;;) {
+        std::unique_ptr<UCIMessage> request;
+        {
+            std::unique_lock<std::mutex> lock{mutex};
+            request = peek_request();
+            while (!request) {
+                cond.wait(lock);
+                request = peek_request();
+            }
         }
-        pthread_mutex_unlock(&engine->mutex);
-
-        if (handle_request(engine, request) != 0) {
+        if (handle_request(std::move(request)) != 0) {
             break;
         }
     }
 
-    close(engine->read_fd);
-    engine->read_fd = -1;
+    buffer.close();
 
-    uci_printf(engine, "quit\n");
-    close(engine->write_fd);
-    engine->write_fd = -1;
-
-    return NULL;
+    uci_printf("quit\n");
+    close(write_fd);
+    write_fd = -1;
 }
 
-static struct UCIEngine *uci_new(int read_fd, int write_fd) {
-    assert(read_fd >= 0);
+UCIEngine::UCIEngine(int read_fd, int write_fd)
+    : buffer{8192, read_fd},
+      write_fd{write_fd},
+      thread{&UCIEngine::engine_thread, this}
+{
+    assert(read_fd  >= 0);
     assert(write_fd >= 0);
 
-    struct UCIEngine *engine = (struct UCIEngine*)malloc(sizeof *engine);
-
-    engine->request_queue  = list_new();
-    engine->response_queue = list_new();
-    engine->buffer   = buffer_new(8192, read_fd);
-    engine->read_fd  = read_fd;
-    engine->write_fd = write_fd;
-
-    pthread_mutex_init(&engine->mutex, NULL);
-    pthread_cond_init(&engine->cond, NULL);
-    pthread_create(&engine->thread, NULL, engine_thread, engine);
-
-    struct UCIMessage *uci = (struct UCIMessage*)malloc(sizeof *uci);
-    uci->type = UCI_REQUEST_UCI;
-    uci_send(engine, uci);
-
-    assert(engine_valid(engine));
-    return engine;
+    send(std::make_unique<UCIMessage>());
 }
 
-struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
+std::unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
     assert(file && *file);
     assert(argv);
 
@@ -263,7 +196,7 @@ struct UCIEngine *uci_execvp(const char *file, char *const argv[]) {
     if (pid > 0) {
         close(read_pipe[1]);
         close(write_pipe[0]);
-        return uci_new(read_pipe[0], write_pipe[1]);
+        return std::make_unique<UCIEngine>(read_pipe[0], write_pipe[1]);
     }
 
     dup2(read_pipe[1], STDOUT_FILENO);
@@ -281,18 +214,12 @@ error:
             close(pipe_fds[i]);
         }
     }
-    return NULL;
+    return nullptr;
 }
 
-void uci_quit(struct UCIEngine *engine) {
-    assert(engine_valid(engine));
-
-    struct UCIMessage quit = {.type = UCI_REQUEST_QUIT};
-    uci_send(engine, &quit);
-
-    pthread_join(engine->thread, NULL);
-    pthread_mutex_destroy(&engine->mutex);
-    pthread_cond_destroy(&engine->cond);
+void UCIEngine::quit() {
+    send(std::make_unique<UCIQuitMessage>());
+    thread.join();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

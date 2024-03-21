@@ -82,6 +82,11 @@ public:
 
     // Convert to terse string eg "e7e8q"
     std::string TerseOut();
+
+    bool is_promotion() const
+    {
+        return SPECIAL_PROMOTION_QUEEN <= special && special <= SPECIAL_PROMOTION_KNIGHT;
+    }
 };
 
 }

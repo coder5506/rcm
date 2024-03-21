@@ -4,8 +4,8 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 
 enum PixelColor {
     PIXEL_BLACK =  0,

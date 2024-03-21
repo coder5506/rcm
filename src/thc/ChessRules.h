@@ -52,9 +52,6 @@ public:
         return *this;
     }
 
-    // Test internals, for porting to new environments etc
-    bool TestInternals(int (*log)(const char*, ...) = nullptr);
-
     // Initialise from Forsyth string
     bool Forsyth(const char* txt)
     {

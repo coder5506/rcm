@@ -3,7 +3,7 @@
 
 #include "sleep.h"
 
-#include <assert.h>
+#include <cassert>
 #include <time.h>
 
 void sleep_ms(int milliseconds) {

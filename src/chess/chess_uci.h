@@ -2,37 +2,76 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CHESS_UCI_H
-#define RCM_CHESS_UCI_H
+#ifndef CHESS_UCI_H
+#define CHESS_UCI_H
 
-struct Game;
-struct UCIEngine;
+#include "../thc/thc.h"
+#include "../utility/buffer.h"
 
-struct UCIEngine *uci_execvp(const char *file, char *const argv[]);
-void uci_quit(struct UCIEngine *engine);
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <thread>
 
-enum UCIRequest {
-    UCI_REQUEST_HINT,
-    UCI_REQUEST_PLAY,
-    UCI_REQUEST_QUIT,
-    UCI_REQUEST_UCI,
+class Game;
+class UCIMessage;
+class UCIPlayMessage;
+
+class UCIEngine {
+private:
+    std::mutex              mutex; // Lock request and response queues
+    std::condition_variable cond;  // Signal new request
+    std::thread             thread;
+    std::queue<std::unique_ptr<UCIMessage>> request_queue;
+    std::queue<std::unique_ptr<UCIMessage>> response_queue;
+    Buffer buffer;
+    int    write_fd;
+
+    char* getline();
+    char* expect(const char* startswith);
+    void uci_printf(const char* format, ...);
+    std::unique_ptr<UCIMessage> peek_request();
+    void send_response(std::unique_ptr<UCIMessage> response);
+
+    int expect_bestmove(std::unique_ptr<UCIPlayMessage> request);
+    int handle_hint(std::unique_ptr<UCIPlayMessage> request);
+    int handle_play(std::unique_ptr<UCIPlayMessage> request);
+
+    int handle_uci(std::unique_ptr<UCIMessage> request);
+    int handle_request(std::unique_ptr<UCIMessage> request);
+
+    void engine_thread();
+
+public:
+    static std::unique_ptr<UCIEngine> execvp(const char* file, char *const argv[]);
+
+    UCIEngine(int read_fd, int write_fd);
+
+    std::unique_ptr<UCIMessage> receive();
+    void send(std::unique_ptr<UCIMessage> request);
+
+    void quit();
 };
 
-struct UCIMessage {
-    enum UCIRequest type;
+class UCIMessage {
+public:
+    virtual ~UCIMessage() = default;
 };
 
-struct UCIPlayMessage {
-    struct UCIMessage  m;
-    const struct Game *game;
-    int                elo;
-    struct Move       *move;
+class UCIQuitMessage : public UCIMessage {};
+
+class UCIPlayMessage : public UCIMessage {
+public:
+    const Game* game;
+    int         elo;
+    std::optional<thc::Move> move;
+
+    UCIPlayMessage(const Game* game, int elo) : game{game}, elo{elo} {}
 };
 
-// First available response or NULL, does not block
-struct UCIMessage *uci_receive(struct UCIEngine *engine);
-
-void uci_send(struct UCIEngine *engine, struct UCIMessage *message);
+class UCIHintMessage : public UCIPlayMessage {};
 
 #endif
 

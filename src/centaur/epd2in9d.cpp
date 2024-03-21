@@ -14,9 +14,9 @@
 #include "../epd2in9d.h"
 
 #include <alloca.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdbool>
+#include <cstdio>
+#include <cstring>
 
 #include <pigpio.h>
 

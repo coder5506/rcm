@@ -2,50 +2,49 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CENTAUR_H
-#define RCM_CENTAUR_H
+#ifndef CENTAUR_H
+#define CENTAUR_H
 
 #include "board.h"
+
+#include <vector>
 
 struct Context;
 struct View;
 
-#define MAX_ACTIONS 16
-
 struct Centaur {
-    struct Game  *game;
-    struct View  *screen_view;
-    struct Action actions[MAX_ACTIONS];
-    int           num_actions;
+    Game *game;
+    View *screen_view;
+    std::vector<Action> actions;
 };
 
-extern struct Centaur centaur;
+extern Centaur centaur;
 
-void centaur_close(void);
-int centaur_open(void);
+void centaur_close();
+int centaur_open();
 
-void centaur_render(void);
-void centaur_set_game(struct Game *game);
+void centaur_render();
+void centaur_set_game(Game* game);
 
-int centaur_batterylevel(void);
-int centaur_charging(void);
-void centaur_led(int square);
-void centaur_led_from_to(int from, int to);
+int centaur_batterylevel();
+int centaur_charging();
+void centaur_led(thc::Square square);
+void centaur_led_from_to(thc::Square from, thc::Square to);
 
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t centaur_getstate(void);
+uint64_t centaur_getstate();
 
-void centaur_clear_actions(void);
-int centaur_update_actions(void);
-void centaur_purge_actions(void);
+void centaur_clear_actions();
+int centaur_update_actions();
+void centaur_purge_actions();
 
 bool
 centaur_read_move(
-    struct List  *candidates,
-    struct Move **takeback,
-    struct Game  *game,
-    uint64_t      boardstate);
+    Game&                     game,
+    std::uint64_t             boardstate,
+    std::vector<thc::Move>&   candidates,
+    std::optional<thc::Move>& takeback);
 
 #endif
 

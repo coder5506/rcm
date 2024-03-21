@@ -2,11 +2,11 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_HTTPD_H
-#define RCM_HTTPD_H
+#ifndef HTTPD_H
+#define HTTPD_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 
 #include <microhttpd.h>
 

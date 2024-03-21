@@ -2,17 +2,20 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CHESS_ENGINE_H
-#define RCM_CHESS_ENGINE_H
+#ifndef CHESS_ENGINE_H
+#define CHESS_ENGINE_H
 
-struct Game;
-struct Move;
+#include "../thc/thc.h"
+
+#include <optional>
+
+class Game;
 
 // Ask if engine has a move ready
-struct Move *engine_move(struct Game *game, const char *engine_name);
+std::optional<thc::Move> engine_move(const Game& game, const char* engine_name);
 
 // Request engine to select a move
-void engine_play(struct Game *game, const char *engine_name, int elo);
+void engine_play(const Game& game, const char* engine_name, int elo);
 
 #endif
 

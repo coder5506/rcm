@@ -2,71 +2,55 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CHESS_GAME_H
-#define RCM_CHESS_GAME_H
+#ifndef CHESS_GAME_H
+#define CHESS_GAME_H
 
+#include "../thc/thc.h"
 #include "../utility/model.h"
 
-#include <stdint.h>
+#include <cstdint>
+#include <map>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include <time.h>
 
-struct Action;
-struct KeyValue;
-struct Move;
-struct Position;
-
-// Game is graph of positions joined by moves
-struct Game {
-    struct Model     model;
-    struct List     *history;   // Path from start to current position
-    struct KeyValue *tags;
-    time_t           started;   // Timestamp of first move played
-    int64_t          id;        // SQLite ROWID
-    const char      *settings;  // Opaque
+struct Action {
+    thc::Square lift{thc::SQUARE_INVALID};
+    thc::Square place{thc::SQUARE_INVALID};
 };
 
-const char *game_tag(struct Game *game, const char *key);
-void game_set_tag(struct Game *game, const char *key, void *data);
+class Game : public Model {
+public:
+    thc::ChessRules rules;
+    time_t          started{0}; // Timestamp of first move played
+    std::int64_t    rowid{0};   // SQLite ROWID
+    std::string     settings;   // Opaque
+    std::map<std::string, std::string> tags;
 
-bool game_valid(const struct Game *game);
+    Game();
+    explicit Game(const char* txt);
 
-void game_set_start(struct Game *game, const struct Position *start);
-struct Game *game_from_position(const struct Position *start);
-struct Game *game_from_fen(const char *fen);
-struct Game *game_from_pgn_and_fen(const char *pgn, const char *fen);
+    std::string fen() const {
+        return const_cast<thc::ChessRules&>(rules).ForsythPublish();
+    }
 
-struct Position *game_position(struct Game *game, int index);
-const struct Position *game_start(const struct Game *game);
-struct Position *game_current(struct Game *game);
-struct Position *game_previous(struct Game *game);
+    std::string& tag(const std::string& key);
 
-// Not a dup, does not share history
-struct Game *game_fork(const struct Game *game);
+    void apply_move(thc::Move move);
+    void apply_takeback(thc::Move takeback);
 
-struct List *game_legal_moves(const struct Game *game);
+    bool read_move(
+        std::uint64_t              boardstate,
+        std::vector<Action>::const_iterator begin,
+        std::vector<Action>::const_iterator end,
+        std::vector<thc::Move>&    candidates,
+        std::optional<thc::Move>&  takeback);
 
-int game_takeback(struct Game *game);
-
-int game_apply_takeback(struct Game *game, const struct Move *takeback);
-int game_apply_move(struct Game *game, const struct Move *move);
-
-int game_apply_move_name(struct Game *game, const char *name);
-int game_move_san(struct Game *game, const char *san);
-
-int
-game_complete_move(
-    struct Game       *game,
-    const struct Move *takeback,
-    const struct Move *move);
-
-bool game_read_move(
-    struct List   *candidates,
-    struct Move  **takeback,
-    struct Game   *game,
-    uint64_t       boardstate,
-    struct Action *actions,
-    int            num_actions);
+    char at(thc::Square square) const { return rules.squares[square]; }
+    std::uint64_t bitmap() const;
+};
 
 #endif
 

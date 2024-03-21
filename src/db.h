@@ -2,10 +2,10 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_DB_H
-#define RCM_DB_H
+#ifndef DB_H
+#define DB_H
 
-#include <stdint.h>
+#include <cstdint>
 
 struct Game;
 

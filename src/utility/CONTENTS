@@ -1,12 +1,6 @@
 buffer.{c,h}
 : Buffered input from file descriptors, supporting timeouts
 
-kv.{c,h}
-: Key-value lists
-
-list.{c,h}
-: Simple linked-list
-
 model.{c,h}
 : Observables
 

@@ -3,111 +3,102 @@
 
 #include "buffer.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <errno.h>
 #include <sys/select.h>
 #include <unistd.h>
 
-struct Buffer {
-    char *read;
-    char *write;
-    char *end;
-    int   fd;
-    char  begin[];
-};
-
-bool buffer_valid(const struct Buffer *buf) {
-    return buf &&
-        buf->begin <= buf->read  &&
-        buf->read  <= buf->write &&
-        buf->write <= buf->end   &&
-        !*buf->write &&
-        buf->fd >= -1;
+bool Buffer::invariant() const {
+    return (
+        begin  <= read  &&
+        read   <= write &&
+        write  <= end   &&
+        *write == '\0'  &&
+        fd     >= -1
+    );
 }
 
-struct Buffer *buffer_new(size_t size, int fd) {
-    assert(fd >= 0);
-
-    struct Buffer *buf = (struct Buffer*)malloc(sizeof *buf + size + 1);
-    buf->read  = buf->begin;
-    buf->write = buf->begin;
-    buf->end   = buf->begin + size;
-    buf->fd    = fd;
-    memset(buf->begin, 0, size + 1);
-
-    assert(buffer_valid(buf));
-    return buf;
+Buffer::Buffer(std::size_t size, int fd) : fd{fd} {
+    data.resize(size + 1);
+    begin = data.data();
+    read  = begin;
+    write = begin;
+    end   = begin + size;
+    assert(invariant());
 }
 
-static char *try_getline(struct Buffer *buf) {
-    assert(buffer_valid(buf));
+void Buffer::close() {
+    assert(invariant());
+    if (fd >= 0) {
+        ::close(fd);
+        fd = -1;
+    }
+    assert(invariant());
+}
 
-    char *line = NULL;
-    char *eol  = strchr(buf->read, '\n');
-    if (eol) {
-        line = buf->read;
+Buffer::~Buffer() {
+    close();
+}
+
+char* Buffer::try_getline() {
+    assert(invariant());
+
+    char* line = NULL;
+    if (char *const eol = strchr(read, '\n')) {
+        line = read;
         *eol = 0;
-        buf->read = eol + 1;
+        read = eol + 1;
     }
 
-    assert(buffer_valid(buf));
+    assert(invariant());
     return line;
 }
 
-static void close_buffer(struct Buffer *buf) {
-    assert(buffer_valid(buf));
-    if (buf->fd >= 0) {
-        close(buf->fd);
-        buf->fd = -1;
-    }
-    assert(buffer_valid(buf));
-}
-
-static bool can_fill(struct Buffer *buf, long timeout_ms) {
-    assert(buffer_valid(buf));
+bool Buffer::can_fill(long timeout_ms) {
+    assert(invariant());
     assert(timeout_ms >= 0);
 
-    if (buf->fd < 0) {
-        assert(buf->fd == -1);
+    if (fd < 0) {
+        assert(fd == -1);
         return false;
     }
 
     const struct timespec timeout = {
-        .tv_sec =   timeout_ms / 1000,
+        .tv_sec  =  timeout_ms / 1000,
         .tv_nsec = (timeout_ms % 1000) * 1000000
     };
 
     fd_set read_fds;
     FD_ZERO(&read_fds);
-    FD_SET(buf->fd, &read_fds);
+    FD_SET(fd, &read_fds);
 
-    const int rc = pselect(buf->fd + 1, &read_fds, NULL, NULL, &timeout, NULL);
+    const int rc = pselect(fd + 1, &read_fds, NULL, NULL, &timeout, NULL);
     if (rc < 0 && errno != EINTR) {
-        close_buffer(buf);
+        close();
     }
 
-    assert(buffer_valid(buf));
+    assert(invariant());
     return rc == 1;
 }
 
-static void try_fill(struct Buffer *buf, long timeout_ms) {
-    if (!can_fill(buf, timeout_ms)) {
+void Buffer::try_fill(long timeout_ms) {
+    if (!can_fill(timeout_ms)) {
         return;
     }
 
-    char *const midpoint = buf->begin + (buf->end - buf->begin) / 2;
-    if (buf->write >= midpoint) {
-        memmove(buf->begin, buf->read, buf->write - buf->read);
-        buf->write -= buf->read - buf->begin;
-        buf->read   = buf->begin;
-        *buf->write = 0;
+    char *const midpoint = begin + (end - begin) / 2;
+    if (write >= midpoint) {
+        memmove(begin, read, write - read);
+        write -= read - begin;
+        read   = begin;
+        *write = '\0';
     }
 
-    ssize_t n_read = read(buf->fd, buf->write, buf->end - buf->write);
+    ssize_t n_read = ::read(fd, write, end - write);
     if (n_read < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
             n_read = 0;
@@ -115,23 +106,22 @@ static void try_fill(struct Buffer *buf, long timeout_ms) {
     }
 
     if (n_read >= 0) {
-        buf->write += n_read;
-        *buf->write = 0;
+        write += n_read;
+        *write = '\0';
     } else {
-        close_buffer(buf);
+        close();
     }
 
-    assert(buffer_valid(buf));
+    assert(invariant());
 }
 
-char *buffer_getline(struct Buffer *buf, long timeout_ms) {
-    char *const line = try_getline(buf);
-    if (line) {
+char* Buffer::getline(long timeout_ms) {
+    if (char* line = try_getline()) {
         return line;
     }
 
-    try_fill(buf, timeout_ms);
-    return try_getline(buf);
+    try_fill(timeout_ms);
+    return try_getline();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

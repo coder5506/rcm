@@ -4,10 +4,10 @@
 
 // API for communication with e-Paper display on DGT Centaur board
 
-#ifndef RCM_EPD2IN9D_H
-#define RCM_EPD2IN9D_H
+#ifndef EPD2IN9D_H
+#define EPD2IN9D_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 296

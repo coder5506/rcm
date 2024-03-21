@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_STANDARD_H
-#define RCM_STANDARD_H
+#ifndef STANDARD_H
+#define STANDARD_H
 
 // Standard gameplay module:
 // - Standard chess

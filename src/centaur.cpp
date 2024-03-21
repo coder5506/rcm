@@ -5,13 +5,12 @@
 #include "cfg.h"
 #include "graphics.h"
 #include "screen.h"
-#include "utility/list.h"
 #include "utility/model.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 struct Centaur centaur = {0};
 
@@ -19,84 +18,49 @@ struct Centaur centaur = {0};
 // Board view
 //
 
-static struct Image *load_pieces() {
-    static struct Image *pieces = NULL;
+static Image* load_pieces() {
+    static Image* pieces = NULL;
     if (!pieces) {
         pieces = image_readbmp("assets/pieces.bmp");
     }
     return pieces;
 }
 
-static void render_board(struct View *board_view, struct Context *context) {
-    const char *sprites     = " PRNBQKprnbqk?! ";
-    const int   square_size = 16;
+static void render_board(View* board_view, Context* context) {
+    const auto sprites     = " PRNBQKprnbqk?! ";
+    const auto square_size = 16;
 
-    const struct Image    *pieces   = load_pieces();
-    const struct Position *position = game_current(centaur.game);
-    if (!pieces || !position) {
+    const auto pieces = load_pieces();
+    if (!pieces) {
         return;
     }
 
-    const int left = board_view->bounds.left;
-    const int top  = board_view->bounds.top;
-    for (int r = 0; r != 8; ++r) {
-        const int y_dst = top + r * square_size;
+    const auto left = board_view->bounds.left;
+    const auto top  = board_view->bounds.top;
+    for (auto r = 0; r != 8; ++r) {
+        const auto y_dst = top + r * square_size;
 
-        for (int c = 0; c != 8; ++c) {
-            const int x_dst = left + c * square_size;
-            const int y_src = (r + c) % 2 ? square_size : 0; // Square color
+        for (auto c = 0; c != 8; ++c) {
+            const auto x_dst = left + c * square_size;
+            const auto y_src = (r + c) % 2 ? square_size : 0; // Square color
 
-            int square = 8 * r + c;
+            thc::Square square = static_cast<thc::Square>(8 * r + c);
             if (board_reversed) {
                 square = rotate_square(square);
             }
 
-            const char piece = position->mailbox.cells[mailbox_index[square]];
-            const char *sprite = strchr(sprites, piece);
-            const int   x_src  = (sprite - sprites) * square_size;
+            const auto piece  = centaur.game->at(square);
+            const auto sprite = strchr(sprites, piece);
+            const auto x_src  = (sprite - sprites) * square_size;
             graphics_drawimage(
                 context, x_dst, y_dst, pieces, x_src, y_src, square_size, square_size);
         }
     }
 }
 
-static struct View board_view = {
+static View board_view = {
     .render = render_board,
     .bounds = {.left = 0, .top = 0, .right = 128, .bottom = 128},
-};
-
-//
-// PGN view
-//
-
-static void render_pgn(struct View *pgn_view, struct Context *context) {
-    const int line_height = context->font->Height;
-    const int num_lines = (pgn_view->bounds.bottom - pgn_view->bounds.top) / line_height;
-
-    struct List *pgn_list = game_pgn_list(centaur.game);
-    if (!pgn_list) {
-        return;
-    }
-
-    // Keep only the last N lines
-    int num_items = list_length(pgn_list);
-    while (num_items > num_lines) {
-        list_shift(pgn_list);
-        --num_items;
-    }
-
-    int left = pgn_view->bounds.left;
-    int top  = pgn_view->bounds.top;
-    struct List *each = list_begin(pgn_list);
-    for (; each != list_end(pgn_list); each = each->next) {
-        graphics_drawstring(context, left, top, (const char*)each->data);
-        top += line_height;
-    }
-}
-
-static struct View pgn_view = {
-    .render = render_pgn,
-    .bounds = {.left = 0, .top = 128, .right = 128, .bottom = 296},
 };
 
 //
@@ -105,9 +69,7 @@ static struct View pgn_view = {
 
 static void render_centaur(struct View *centaur_view, struct Context *context) {
     (void)centaur_view;
-    (void)&pgn_view;
     board_view.render(&board_view, context);
-    // pgn_view.render(&pgn_view, context);
 }
 
 static struct View centaur_view = {
@@ -119,58 +81,44 @@ static struct View centaur_view = {
 // Centaur
 //
 
-void centaur_close(void) {
+void centaur_close() {
     board_close();
     screen_close();
 }
 
-void centaur_render(void) {
+void centaur_render() {
     screen_render(centaur.screen_view);
 }
 
-static void game_changed(struct Game *game, void *data) {
+static void game_changed(Game* game, void* data) {
     (void)game;
     (void)data;
     centaur_render();
 }
 
-void centaur_set_game(struct Game *game) {
+void centaur_set_game(Game* game) {
     if (centaur.game) {
-        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+        centaur.game->unobserve((ModelChanged)game_changed, NULL);
     }
     centaur.game = game;
-    MODEL_OBSERVE(centaur.game, game_changed, NULL);
+    centaur.game->observe((ModelChanged)game_changed, NULL);
 }
 
 static void remove_actions(int begin, int end) {
-    assert(0 <= begin && begin <= end && end <= centaur.num_actions);
-
-    memcpy(
-        centaur.actions + begin,
-        centaur.actions + end,
-        (MAX_ACTIONS - end) * sizeof *centaur.actions);
-
-    centaur.num_actions -= end - begin;
-    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
-
-    for (int i = centaur.num_actions; i != MAX_ACTIONS; ++i) {
-        centaur.actions[i] = EMPTY_ACTION;
-    }
+    assert(0 <= begin && begin <= end && end <= centaur.actions.size());
+    centaur.actions.erase(centaur.actions.begin() + begin, centaur.actions.begin() + end);
 }
 
 static void consume_actions(int num_consume) {
-    const int num_actions = centaur.num_actions;
     remove_actions(0, num_consume);
-    assert(centaur.num_actions == num_actions - num_consume);
 }
 
-void centaur_clear_actions(void) {
-    consume_actions(centaur.num_actions);
-    assert(centaur.num_actions == 0);
+void centaur_clear_actions() {
+    centaur.actions.clear();
 }
 
 // Initialize both field array and screen
-int centaur_open(void) {
+int centaur_open() {
     if (board_open() != 0) {
         return 1;
     }
@@ -179,89 +127,70 @@ int centaur_open(void) {
         return 1;
     }
 
-    centaur.num_actions = MAX_ACTIONS;
     centaur_clear_actions();
 
     centaur.screen_view = &centaur_view;
-    centaur_set_game(game_from_fen(NULL));
+    centaur_set_game(new Game);
 
     return 0;
 }
 
-int centaur_batterylevel(void) {
+int centaur_batterylevel() {
     return board_batterylevel();
 }
 
-int centaur_charging(void) {
+int centaur_charging() {
     return board_charging();
 }
 
-uint64_t centaur_getstate(void) {
+uint64_t centaur_getstate() {
     return board_getstate();
 }
 
-int centaur_update_actions(void) {
-    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
-
-    // Ensure space in buffer, preserving newest actions
-    const int high_water = MAX_ACTIONS - MAX_ACTIONS / 4;
-    if (centaur.num_actions > high_water) {
-        consume_actions(centaur.num_actions - high_water);
-        assert(centaur.num_actions == high_water);
-    }
-
-    // Read newest actions
-    const int num_new = board_read_actions(
-        centaur.actions + centaur.num_actions,
-        MAX_ACTIONS - centaur.num_actions);
-    assert(0 <= num_new && num_new <= MAX_ACTIONS - centaur.num_actions);
-
-    centaur.num_actions += num_new;
-    assert(0 <= centaur.num_actions && centaur.num_actions <= MAX_ACTIONS);
-
-    return num_new;
+int centaur_update_actions() {
+    return board_read_actions(centaur.actions);
 }
 
-void centaur_purge_actions(void) {
+void centaur_purge_actions() {
     while (centaur_update_actions() > 0) {
         // loop
     }
     centaur_clear_actions();
 }
 
-static void clear_feedback(void) {
+static void clear_feedback() {
     board_leds_off();
 }
 
-void centaur_led(int square) {
+void centaur_led(thc::Square square) {
     board_led(square);
 }
 
-void centaur_led_from_to(int from, int to) {
+void centaur_led_from_to(thc::Square from, thc::Square to) {
     board_led_from_to(from, to);
 }
 
-static void show_feedback(uint64_t diff) {
-    static int old_square1 = INVALID_SQUARE;
-    static int old_square2 = INVALID_SQUARE;
+static void show_feedback(std::uint64_t diff) {
+    static auto old_square1 = thc::SQUARE_INVALID;
+    static auto old_square2 = thc::SQUARE_INVALID;
 
-    int square1 = INVALID_SQUARE;
-    int square2 = INVALID_SQUARE;
+    auto square1 = thc::SQUARE_INVALID;
+    auto square2 = thc::SQUARE_INVALID;
 
     switch (__builtin_popcountll(diff)) {
     case 1:
-        square1 = __builtin_ctzll(diff);
-        if (old_square1 == square1 && old_square2 == INVALID_SQUARE) {
+        square1 = static_cast<thc::Square>(__builtin_ctzll(diff));
+        if (old_square1 == square1 && old_square2 == thc::SQUARE_INVALID) {
             board_led_flash();
         } else {
             old_square1 = square1;
-            old_square2 = INVALID_SQUARE;
+            old_square2 = thc::SQUARE_INVALID;
             board_led(square1);
         }
         break;
     case 2:
-        square1 = __builtin_ctzll(diff);
-        square2 = __builtin_ctzll(diff & ~(1ull << square1));
+        square1 = static_cast<thc::Square>(__builtin_ctzll(diff));
+        square2 = static_cast<thc::Square>(__builtin_ctzll(diff & ~(1ull << square1)));
         if (old_square1 != square1 || old_square2 != square2) {
             old_square1 = square1;
             old_square2 = square2;
@@ -270,8 +199,8 @@ static void show_feedback(uint64_t diff) {
         break;
     case 0:  // No change
     default: // Too many changes
-        old_square1 = INVALID_SQUARE;
-        old_square2 = INVALID_SQUARE;
+        old_square1 = thc::SQUARE_INVALID;
+        old_square2 = thc::SQUARE_INVALID;
         board_leds_off();
         break;
     }
@@ -279,76 +208,64 @@ static void show_feedback(uint64_t diff) {
 
 static bool
 history_read_move(
-    struct List  *candidates, // Passed to game_read_move
-    struct Move **takeback,   // ...
-    struct Game  *game,       // ...
-    uint64_t      boardstate, // Current boardstate for comparison
-    int          *begin,      // in/out: Next unused action
-    int           end)        // Limit of unused actions
+    Game&         game,
+    std::uint64_t boardstate,
+    std::vector<Action>::const_iterator& begin, // in/out: Next unused action
+    std::vector<Action>::const_iterator  end,   // Limit of unused actions
+    std::vector<thc::Move>&   candidates,
+    std::optional<thc::Move>& takeback)
 {
-    assert(candidates && takeback && game && begin);
-    assert(0 <= *begin && *begin <= end && end <= centaur.num_actions);
-
-    // Replay actions, ignoring transient errors
-    struct Position *current = game_current(game);
-
     // Reconstruct boardstate from last known position
-    uint64_t state = current->bitmap;
-    for (int i = *begin; i != end; ++i) {
-        if (centaur.actions[i].lift != INVALID_SQUARE) {
-            state &= ~(1ull << centaur.actions[i].lift);
+    std::uint64_t state = game.bitmap();
+    for (; begin != end; ++begin) {
+        if (begin->lift != thc::SQUARE_INVALID) {
+            state &= ~(1ull << begin->lift);
         }
-        if (centaur.actions[i].place != INVALID_SQUARE) {
-            state |= 1ull << centaur.actions[i].place;
+        if (begin->place != thc::SQUARE_INVALID) {
+            state |= 1ull << begin->place;
         }
 
-        bool maybe_valid = game_read_move(
-            candidates,
-            takeback,
-            game,
+        bool maybe_valid = game.read_move(
             state,
-            centaur.actions + *begin,
-            (i + 1) - *begin);
+            begin,
+            end,
+            candidates,
+            takeback);
 
-        if (list_length(candidates) > 0) {
+        if (!candidates.empty()) {
             // We got a move, great!
-            *begin = i + 1;
+            ++begin;
             return true;
         }
 
         // We can accept an incomplete move only at the very end
-        if (maybe_valid && i == end - 1 && state == boardstate) {
-            *begin = i + 1;
+        if (maybe_valid && begin + 1 == end && state == boardstate) {
+            ++begin;
             return true;
         }
     }
 
     // Yeah, we got nuthin'
-    *begin = end;
+    begin = end;
     return false;
 }
 
 bool
 centaur_read_move(
-    struct List  *candidates,
-    struct Move **takeback,
-    struct Game  *game,
-    uint64_t      boardstate)
+    Game&                     game,
+    std::uint64_t             boardstate,
+    std::vector<thc::Move>&   candidates,
+    std::optional<thc::Move>& takeback)
 {
-    assert(candidates && list_empty(candidates));
-    assert(takeback && !*takeback);
-    assert(game);
-
     // Try to read a move
-    bool maybe_valid = game_read_move(
-        candidates,
-        takeback,
-        game,
+    bool maybe_valid = game.read_move(
         boardstate,
-        centaur.actions,
-        centaur.num_actions);
+        centaur.actions.cbegin(),
+        centaur.actions.cend(),
+        candidates,
+        takeback);
 
-    if (list_length(candidates) > 0) {
+    if (!candidates.empty()) {
         // 5x5, we won't need to review actions history
         centaur_clear_actions();
         clear_feedback();
@@ -360,46 +277,40 @@ centaur_read_move(
     }
 
     // Looks like an illegal move, but we'll try to recover
-    assert(!maybe_valid && list_length(candidates) == 0);
-    assert(!*takeback);
+    assert(!maybe_valid && candidates.empty());
+    assert(!takeback);
 
     // Assume we missed a move.  Revisit actions history to reconstruct.
-    int begin = 0; // Want to collect longest tail of usable actions
-    int end   = centaur.num_actions;
+    auto begin = centaur.actions.cbegin();
+    auto end   = centaur.actions.cend();
     for (; begin != end; ++begin) {
-        // Replay actions, ignoring transient errors
-        struct Game *copy = game_fork(game);
+        // TODO save/restore game state!
         bool step_valid = true;
-        for (int i = begin; i != end;) {
-            struct List *local_candidates = list_new();
-            struct Move *local_takeback   = NULL;
+        for (auto i = begin; i != end; ++i) {
+            std::vector<thc::Move>   local_candidates;
+            std::optional<thc::Move> local_takeback;
             step_valid = history_read_move(
-                local_candidates, &local_takeback, copy, boardstate, &i, end);
+                game, boardstate, i, end, local_candidates, local_takeback);
             if (!step_valid) {
                 // This is going nowhere
                 break;
             }
-            if (!local_takeback && list_empty(local_candidates)) {
+            if (!local_takeback && local_candidates.empty()) {
                 // Should only happen at end of actions history
                 assert(i == end);
                 break;
             }
 
             // Simulate move
-            int err = 0;
             if (local_takeback) {
-                err = game_apply_takeback(copy, local_takeback);
+                game.apply_takeback(local_takeback.value());
             }
-            if (!err && !list_empty(local_candidates)) {
-                err = game_apply_move(copy, (const struct Move*)list_first(local_candidates));
-            }
-            if (err) {
-                step_valid = false;
-                break;
+            if (!local_candidates.empty()) {
+                game.apply_move(local_candidates.front());
             }
         }
 
-        if (step_valid && game_current(copy)->bitmap == boardstate) {
+        if (step_valid && game.bitmap() == boardstate) {
             // OK, reconstruction makes some kind of sense
             break;
         }
@@ -408,11 +319,11 @@ centaur_read_move(
     // Reconstruction succeeded, now read the first move.
     if (begin != end) {
         maybe_valid = history_read_move(
-            candidates, takeback, game, boardstate, &begin, end);
+            game, boardstate, begin, end, candidates, takeback);
 
-        if (*takeback || !list_empty(candidates)) {
+        if (takeback || !candidates.empty()) {
             // Got reconstructed move from actions history
-            consume_actions(begin);
+            consume_actions(begin - centaur.actions.cbegin());
             clear_feedback();
             return true;
         }
@@ -429,8 +340,8 @@ centaur_read_move(
     // We're out of options and must wait for the board to be restored.  If
     // the boardstate does not differ too much from the last known position,
     // we can provide some feedback.
-    show_feedback(game_current(game)->bitmap ^ boardstate);
-    return NULL;
+    show_feedback(game.bitmap() ^ boardstate);
+    return false;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

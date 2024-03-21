@@ -6,31 +6,34 @@
 
 #include "utility/model.h"
 
-#include <stddef.h>
-#include <stdint.h>
-
-#include <pthread.h>
+#include <condition_variable>
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
 struct Context;
 struct View;
 
-struct Screen {
-    struct Model    model;
+class Screen : public Model {
+public:
     struct Image   *image[2];
     struct Context *context;
-    pthread_cond_t  cond;
-    pthread_mutex_t mutex;
-    pthread_t       thread;
+    std::condition_variable cond;
+    std::mutex      mutex;
+    std::thread     thread;
     bool            shutdown;
+
+    Screen();
 };
 
 extern struct Screen screen;
 
 // Shutdown display
-void screen_close(void);
+void screen_close();
 
 // Initialize display
-int screen_open(void);
+int screen_open();
 
 // Render UI to display
 void screen_render(struct View *view);

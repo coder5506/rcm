@@ -24,8 +24,6 @@ namespace thc
 class ChessPosition : public ChessPositionRaw
 {
 public:
-
-    // Default constructor
     ChessPosition()  { Init(); }
     virtual ~ChessPosition()  {}    // destructor not actually needed now as
                                     //  we don't allocate resources in ctor.

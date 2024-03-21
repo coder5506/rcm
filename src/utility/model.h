@@ -2,38 +2,30 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_MODEL_H
-#define RCM_MODEL_H
+#ifndef MODEL_H
+#define MODEL_H
 
-struct List;
-struct Model;
+#include <vector>
 
-typedef void (*ModelChanged)(struct Model *model, void *data);
+class Model;
 
-struct Model {
-    struct List *observers;
+typedef void (*ModelChanged)(Model* model, void* data);
+
+struct Observer {
+    ModelChanged  model_changed;
+    void*         data;
 };
 
-void model_init(struct Model *model);
+class Model {
+private:
+    std::vector<Observer> observers;
 
-void model_observe(struct Model *model, ModelChanged model_changed, void *data);
-void model_unobserve(struct Model *model, ModelChanged model_changed, void *data);
+public:
+    void observe(ModelChanged model_changed, void* data);
+    void unobserve(ModelChanged model_changed, void* data);
 
-void model_changed(struct Model *model);
-
-//
-// Convenience macros
-//
-
-#define MODEL_INIT(model) model_init((struct Model*)model)
-
-#define MODEL_OBSERVE(model, model_changed, data) \
-model_observe((struct Model*)model, (ModelChanged)model_changed, data)
-
-#define MODEL_UNOBSERVE(model, model_changed, data) \
-model_unobserve((struct Model*)model, (ModelChanged)model_changed, data)
-
-#define MODEL_CHANGED(model) model_changed((struct Model*)model)
+    void changed();
+};
 
 #endif
 

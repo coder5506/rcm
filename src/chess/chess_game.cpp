@@ -3,59 +3,19 @@
 
 #include "chess_game.h"
 #include "chess.h"
-#include "../utility/kv.h"
-#include "../utility/list.h"
+#include "../thc/PrivateChessDefs.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 
-const char *game_tag(struct Game *game, const char *key) {
-    assert(game && kv_valid(game->tags));
-    assert(key && *key);
-    const struct KeyValue *tag = kv_find(game->tags, key);
-    return tag ? (const char*)tag->data : NULL;
+std::string& Game::tag(const std::string& key) {
+    return tags[key];
 }
 
-void game_set_tag(struct Game *game, const char *key, void *data) {
-    assert(game && kv_valid(game->tags));
-    assert(key && *key);
-    assert(data);
-
-    struct KeyValue *tag = kv_find(game->tags, key);
-    if (tag) {
-        tag->data = data;
-    } else {
-        kv_push(game->tags, key, data);
-    }
-}
-
-static void game_reset(struct Game *game) {
-    assert(game);
-    assert(list_valid(game->history));
-    assert(kv_valid(game->tags));
-
-    list_clear(game->history);
-    kv_clear(game->tags);
-    game->started = 0;
-    game->id = 0;
-    game->settings = NULL;
-
-    // Reset default metadata
-    game_set_tag(game, "Event",  (void*)"?");
-    game_set_tag(game, "Site",   (void*)"?");
-    game_set_tag(game, "Date",   (void*)"????.??.??");
-    game_set_tag(game, "Round",  (void*)"-");
-    game_set_tag(game, "White",  (void*)"?");
-    game_set_tag(game, "Black",  (void*)"?");
-    game_set_tag(game, "Result", (void*)"*");
-}
-
-static void game_changed(struct Game *game, void *data) {
+static void game_changed(Game* game, void* data) {
     (void)data;
-
-    if (list_length(game->history) <= 1 || game->started > 0) {
-        // Either not started, or bookkeeping already done
+    if (game->started > 0) {
         return;
     }
 
@@ -63,295 +23,338 @@ static void game_changed(struct Game *game, void *data) {
     struct tm timestamp;
     localtime_r(&game->started, &timestamp);
 
-    char *date = (char*)malloc(11);
+    char date[11];
     strftime(date, 11, "%Y.%m.%d", &timestamp);
-    game_set_tag(game, "Date", date);
+    game->tag("Date") = date;
 }
 
-static struct Game *game_alloc(void) {
-    struct Game *game = (struct Game*)malloc(sizeof *game);
+static void game_reset(Game* game) {
+    game->started  = 0;
+    game->rowid    = 0;
+    game->settings = "";
 
-    MODEL_INIT(game);
-    game->history = list_new();
-    game->tags = kv_new();
-    game_reset(game);
-
-    MODEL_OBSERVE(game, game_changed, NULL);
-    return game;
+    game->tags.clear();
+    game->tag("Event")  = "?";
+    game->tag("Site")   = "?";
+    game->tag("Date")   = "????.??.??";
+    game->tag("Round")  = "-";
+    game->tag("White")  = "?";
+    game->tag("Black")  = "?";
+    game->tag("Result") = "*";
 }
 
-bool game_valid(const struct Game *game) {
-    return game &&
-        list_valid(game->history) && !list_empty(game->history) &&
-        kv_valid(game->tags) &&
-        game->id >= 0;
+Game::Game() {
+    game_reset(this);
+    observe((ModelChanged)game_changed, nullptr);
 }
 
-void game_set_start(struct Game *game, const struct Position *start) {
-    assert(game);
-    assert(position_valid(start));
-
-    game_reset(game);
-    list_push(game->history, position_dup(start));
-
-    assert(game_valid(game));
-    MODEL_CHANGED(game);
+Game::Game(const char* txt) : Game() {
+    rules.Forsyth(txt);
 }
 
-struct Game *game_from_position(const struct Position *start) {
-    assert(position_valid(start));
-    struct Game *game = game_alloc();
-    game_set_start(game, start);
-    return game;
+void Game::apply_move(thc::Move move) {
+    rules.PlayMove(move);
 }
 
-struct Game *game_from_fen(const char *fen) {
-    struct Position *start = position_from_fen(fen);
-    return game_from_position(start);
+void Game::apply_takeback(thc::Move takeback) {
+    rules.PopMove(takeback);
 }
 
-struct Position *game_position(struct Game *game, int index) {
-    assert(game_valid(game));
-    struct Position *position = (struct Position*)list_index(game->history, index);
-    assert(!position || position_valid(position));
-    return position;
-}
-
-const struct Position *game_start(const struct Game *game) {
-    return game_position((struct Game*)game, 0);
-}
-
-struct Position *game_current(struct Game *game) {
-    return game_position(game, -1);
-}
-
-struct Position *game_previous(struct Game *game) {
-    return game_position(game, -2);
-}
-
-struct Game *game_fork(const struct Game *game) {
-    assert(game_valid(game));
-    return game_from_position(game_current((struct Game*)game));
-}
-
-static int game_recover_history(struct Game *game, const struct Position *target) {
-    assert(game_valid(game));
-    assert(position_valid(target));
-
-    struct Position *current = game_current(game);
-    if (position_equal(current, target)) {
-        return 0;
-    }
-
-    struct List *begin = list_begin(current->moves_played);
-    for (; begin != list_end(current->moves_played); begin = begin->next) {
-        struct Move *move = (struct Move*)begin->data;
-        list_push(game->history, (struct Position*)move->after);
-        if (game_recover_history(game, target) == 0) {
-            return 0;
+static std::uint64_t white_bitmap(const thc::ChessRules& position) {
+    std::uint64_t bitmap{0};
+    std::uint64_t mask{1};
+    for (thc::Square sq = thc::a8; sq <= thc::h1; ++sq) {
+        switch (position.squares[sq]) {
+        case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
+            bitmap |= mask;
+            break;
+        default:
+            break;
         }
-        list_pop(game->history);
+        mask <<= 1;
     }
-
-    return 1;
+    return bitmap;
 }
 
-static int game_recover_position(struct Game *game, const struct Position *target) {
-    assert(game_valid(game));
-    assert(position_valid(target));
-
-    const struct Position *start = game_start(game);
-    list_clear(game->history);
-    list_push(game->history, (struct Position*)start);
-    assert(game_valid(game));
-
-    return game_recover_history(game, target);
-}
-
-struct Game *game_from_pgn_and_fen(const char *pgn, const char *fen) {
-    struct Game *game = game_from_pgn(pgn);
-    struct Position *target = position_from_fen(fen);
-    const int err = game_recover_position(game, target);
-    if (err) {
-        return NULL;
+static std::uint64_t black_bitmap(const thc::ChessRules& position) {
+    std::uint64_t bitmap{0};
+    std::uint64_t mask{1};
+    for (thc::Square sq = thc::a8; sq <= thc::h1; ++sq) {
+        switch (position.squares[sq]) {
+        case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
+            bitmap |= mask;
+            break;
+        default:
+            break;
+        }
+        mask <<= 1;
     }
-
-    assert(game_valid(game));
-    return game;
+    return bitmap;
 }
 
-struct List *game_legal_moves(const struct Game *game) {
-    assert(game_valid(game));
-    return position_legal_moves(game_current((struct Game*)game));
+static std::uint64_t position_bitmap(const thc::ChessRules& position) {
+    return white_bitmap(position) | black_bitmap(position);
 }
 
-// Undo last move, whatever it was
-int game_takeback(struct Game *game) {
-    assert(game_valid(game));
-    if (list_length(game->history) <= 1) {
-        // No takeback available
-        return 1;
-    }
-
-    list_pop(game->history);
-    assert(game_valid(game));
-    MODEL_CHANGED(game);
-    return 0;
+std::uint64_t Game::bitmap() const {
+    return position_bitmap(rules);
 }
 
-// Undo last move, only if it can be validated
-int game_apply_takeback(struct Game *game, const struct Move *takeback) {
-    assert(game_valid(game));
-    assert(move_valid(takeback));
-
-    struct Position *current  = game_current(game);
-    struct Position *previous = game_previous(game);
-    if (!previous) {
-        // No takeback available
-        return 1;
-    }
-
-    struct Move *matching = movelist_find_equal(previous->moves_played, takeback);
-    if (!matching) {
-        // Not a legal takeback
-        return 1;
-    }
-
-    assert(matching->after == current);
-    return game_takeback(game);
-}
-
-int game_apply_move(struct Game *game, const struct Move *move) {
-    assert(game_valid(game));
-    assert(move_valid(move));
-
-    struct Position *current = game_current(game);
-    struct Move *matching = movelist_find_equal(current->moves_played, move);
-    if (matching) {
-        // Move already in graph
-        list_push(game->history, (struct Position*)matching->after);
-        MODEL_CHANGED(game);
-        return 0;
-    }
-
-    struct Move *candidate = movelist_find_equal(position_legal_moves(current), move);
-    if (!candidate) {
-        // Not a legal move
-        return 1;
-    }
-
-    list_push(current->moves_played, candidate);
-    list_push(game->history, (struct Position*)candidate->after);
-    assert(position_valid(candidate->after));
-    assert(game_valid(game));
-
-    MODEL_CHANGED(game);
-    return 0;
-}
-
-int game_apply_move_name(struct Game *game, const char *name) {
-    return game_apply_move(game, move_from_name(name));
-}
-
-int game_move_san(struct Game *game, const char *san) {
-    return game_apply_move(game, move_from_san(game_current(game), san));
-}
-
-int
-game_complete_move(
-    struct Game       *game,
-    const struct Move *takeback,
-    const struct Move *move)
+// True if boardstate might represent a transition into this position
+static bool position_incomplete(
+    const thc::ChessRules& position, std::uint64_t boardstate)
 {
-    assert(game_valid(game));
-    assert(move_valid(takeback));
-    assert(move_valid(move));
+    // The boardstate for a move in-progress can differ only in small ways from
+    // the boardstate of the completed move:
+    // - It can be missing up-to two pieces of the same color, but only when
+    //   castling.
+    // - It can be missing up-to one piece of each color, but only when capturing.
+    // - It can have up-to one extra piece of the opposite color, but only when
+    //   capturing en-passant.
 
-    // Unlike takeback, prior move was not a variation, just a transitional
-    // arrangement of pieces.  So we erase it completely.
-    list_pop(game->history);
-    list_pop(game_current(game)->moves_played);
-    return game_apply_move(game, move);
+    // Present in position but not on board
+    const std::uint64_t removed_bmp = position_bitmap(position) & ~boardstate;
+    const int removed = __builtin_popcountll(removed_bmp);
+
+    // Present on board but not in position
+    const int added   = __builtin_popcountll(boardstate & ~position_bitmap(position));
+
+    // First check: just count the differences
+    if (removed > 2 || added > 1 || removed + added > 2) {
+        return false;
+    }
+
+    // Second check: look at the colors involved
+    const int white_removed = __builtin_popcountll(white_bitmap(position) & ~boardstate);
+    const int black_removed = __builtin_popcountll(black_bitmap(position) & ~boardstate);
+    assert(removed == white_removed + black_removed);
+
+    if ( position.white && black_removed > 1) {
+        return false;
+    }
+    if (!position.white && white_removed > 1) {
+        return false;
+    }
+
+    if (white_removed == 2) {
+        if (position.wking_allowed()  && removed_bmp == (1ull << thc::e1 | 1ull << thc::h1)) {
+            return true;
+        }
+        if (position.wqueen_allowed() && removed_bmp == (1ull << thc::e1 | 1ull << thc::a1)) {
+            return true;
+        }
+        return false;
+    }
+    if (black_removed == 2) {
+        if (position.bking_allowed()  && removed_bmp == (1ull << thc::e8 | 1ull << thc::h8)) {
+            return true;
+        }
+        if (position.bqueen_allowed() && removed_bmp == (1ull << thc::e8 | 1ull << thc::a8)) {
+            return true;
+        }
+        return false;
+    }
+
+    // Third check: consider the possibility of en passant
+    if (added == 0) {
+        // i.e., we're unable to reject the possibility
+        return true;
+    }
+
+    assert(added == 1);
+    if (position.groomed_enpassant_target() == thc::SQUARE_INVALID) {
+        return false;
+    }
+
+    // // In mailbox coordinates...
+    // const int direction = position->turn == 'w' ? -10 : 10;
+    // const int captured  = mailbox_index[position->en_passant] - direction;
+
+    // uint64_t mask = 1 << position->en_passant | 1 << board_index[captured];
+    // if (board_index[captured-1] != thc::SQUARE_INVALID) {
+    //     mask |= 1 << board_index[captured-1];
+    // }
+    // if (board_index[captured+1] != thc::SQUARE_INVALID) {
+    //     mask |= 1 << board_index[captured+1];
+    // }
+
+    // const uint64_t diff = position->bitmap ^ boardstate;
+    // return (diff & ~mask) == 0;
+
+    return true;
+}
+
+// Construct a list of candidate moves in this position that match the given
+// boardstate.  The return indicates if there are any viable candidates:
+// - true if any candidates are found OR if the boardstate could be in
+//   transition to a valid move,
+// - false if the boardstate is incompatible with all legal moves in this
+//   position.
+static bool position_read_moves(
+    thc::ChessRules&        before,
+    std::uint64_t           boardstate,
+    std::vector<thc::Move>& candidates)
+{
+    bool maybe_valid{false};
+
+    std::vector<thc::Move> legal_moves;
+    before.GenLegalMoveList(legal_moves);
+
+    candidates.clear();
+    for (auto move : legal_moves) {
+        before.PushMove(move);
+        if (position_bitmap(before) == boardstate) {
+            candidates.push_back(move);
+            maybe_valid = true;
+        } else {
+            maybe_valid = maybe_valid || position_incomplete(before, boardstate);
+        }
+        before.PopMove(move);
+    }
+
+    assert(maybe_valid || candidates.empty());
+    return maybe_valid;
+}
+
+// The boardstate alone can be ambiguous in the case of piece captures.  Here
+// we use the actions history to disambiguate the move.  Note that we still
+// generate a list, because (a) the candidates might be promotions which cannot
+// be resolved here and (b) the actions history might be incomplete.
+bool position_read_move(
+    thc::ChessRules&           before,
+    std::uint64_t              boardstate,
+    std::vector<Action>::const_iterator begin,
+    std::vector<Action>::const_iterator end,
+    std::vector<thc::Move>&    candidates)
+{
+    const bool maybe_valid = position_read_moves(before, boardstate, candidates);
+    if (candidates.empty()) {
+        return maybe_valid;
+    }
+
+    assert(maybe_valid);
+
+    // This is a check.  When we're done, the list should contain either moves
+    // or promotions, but not both.
+    int num_moves{0};
+    int num_promotions{0};
+
+    const auto old_candidates{std::move(candidates)};
+    for (const auto move : old_candidates) {
+        if (move.is_promotion()) {
+            // Can't resolve promotion here
+            candidates.push_back(move);
+            ++num_promotions;
+            continue;
+        }
+
+        if (move.capture == ' ') {
+            // No capture, not ambiguous
+            candidates.push_back(move);
+            ++num_moves;
+            continue;
+        }
+
+        // History should show a lift followed by a place on the capture square
+        bool got_lift  = false;
+        bool got_place = false;
+        for (auto p = end; p != begin;) {
+            --p;
+            if (!got_place) {
+                got_place = p->place == move.capture;
+            }
+            else if (!got_lift) {
+                got_lift = p->lift == move.capture;
+            }
+        }
+        if (got_lift && got_place) {
+            candidates.push_back(move);
+            ++num_moves;
+        }
+    }
+
+    assert(num_moves == 0 || num_promotions == 0);
+    assert(num_moves == 0 || num_moves == 1);
+    assert(0 <= num_promotions && num_promotions <= 4);
+    assert(candidates.size() == num_moves + num_promotions);
+    return maybe_valid;
 }
 
 // Here we try to interpret the move at a higher-level than the position,
 // taking into account the context of the game.  So yes, the boardstate
 // might represent a move or a move in-progress, but it could also be the
 // completion of a two-part move (i.e., castling rook first) or a takeback.
-bool game_read_move(
-    struct List   *candidates,
-    struct Move  **takeback,
-    struct Game   *game,
-    uint64_t       boardstate,
-    struct Action *actions,
-    int            num_actions)
+bool Game::read_move(
+    std::uint64_t              boardstate,
+    std::vector<Action>::const_iterator begin,
+    std::vector<Action>::const_iterator end,
+    std::vector<thc::Move>&    candidates,
+    std::optional<thc::Move>&  takeback)
 {
-    assert(list_valid(candidates) && list_empty(candidates));
-    assert(takeback && !*takeback);
-    assert(game_valid(game));
-    assert(actions && num_actions >= 0);
+    candidates.clear();
+    takeback.reset();
 
     // If boardstate matches current position, there's no move to read.
-    struct Position *current = game_current(game);
-    if (current->bitmap == boardstate) {
+    if (position_bitmap(rules) == boardstate) {
         // i.e., not an error
         return true;
     }
 
     // Can boardstate be reached by a legal move?
-    bool maybe_valid = position_read_move(
-        candidates, current, boardstate, actions, num_actions);
+    bool maybe_valid = position_read_move(rules, boardstate, begin, end, candidates);
     if (maybe_valid) {
         return true;
     }
 
-    // Is this the completion of a castling move?
-    struct List     *castling = list_new();
-    struct Position *previous = game_previous(game);
-    if (previous) {
-        generate_castle_moves(castling, previous);
-    }
-    for (struct List *each = castling->next; each != castling; each = each->next) {
-        struct Position *after = position_apply_move(previous, (struct Move*)each->data);
-        if (!position_legal(after)) {
-            continue;
-        }
-        if (after->bitmap != boardstate) {
-            maybe_valid = maybe_valid || position_incomplete(after, boardstate);
-            continue;
-        }
+    // // Is this the completion of a castling move?
+    // struct List     *castling = list_new();
+    // struct Position *previous = game_previous(game);
+    // if (previous) {
+    //     generate_castle_moves(castling, previous);
+    // }
+    // for (struct List *each = castling->next; each != castling; each = each->next) {
+    //     struct Position *after = position_apply_move(previous, (struct Move*)each->data);
+    //     if (!position_legal(after)) {
+    //         continue;
+    //     }
+    //     if (after->bitmap != boardstate) {
+    //         maybe_valid = maybe_valid || position_incomplete(after, boardstate);
+    //         continue;
+    //     }
 
-        // Find takeback move
-        struct List *it = list_begin(previous->moves_played);
-        for (; it != list_end(previous->moves_played); it = it->next) {
-            struct Move *move = (struct Move*)it->data;
-            if (position_equal(move->after, current)) {
-                *takeback = move;
-                break;
-            }
-        }
-        assert(*takeback);
+    //     // Find takeback move
+    //     struct List *it = list_begin(previous->moves_played);
+    //     for (; it != list_end(previous->moves_played); it = it->next) {
+    //         struct Move *move = (struct Move*)it->data;
+    //         if (position_equal(move->after, current)) {
+    //             *takeback = move;
+    //             break;
+    //         }
+    //     }
+    //     assert(*takeback);
 
-        // Undo previous move and apply castling move
-        list_push(candidates, each->data);
+    //     // Undo previous move and apply castling move
+    //     list_push(candidates, each->data);
 
-        return true;
-    }
+    //     return true;
+    // }
 
-    // Is this a takeback?
-    if (previous && previous->bitmap == boardstate) {
-        struct List *each = previous->moves_played->next;
-        for (; each != previous->moves_played; each = each->next) {
-            struct Move *move = (struct Move*)each->data;
-            if (position_equal(move->after, current)) {
-                *takeback = move;
-                return true;
-            }
-        }
-    }
+    // // Is this a takeback?
+    // if (previous && previous->bitmap == boardstate) {
+    //     struct List *each = previous->moves_played->next;
+    //     for (; each != previous->moves_played; each = each->next) {
+    //         struct Move *move = (struct Move*)each->data;
+    //         if (position_equal(move->after, current)) {
+    //             *takeback = move;
+    //             return true;
+    //         }
+    //     }
+    // }
 
-    // Possibly a takeback in progress?
-    return previous && position_incomplete(previous, boardstate);
+    // // Possibly a takeback in progress?
+    // return previous && position_incomplete(previous, boardstate);
+
+    return false;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

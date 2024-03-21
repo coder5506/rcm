@@ -6,16 +6,22 @@
 #include "graphics.h"
 
 #include <alloca.h>
-#include <stdio.h>
-#include <string.h>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
 
-struct Screen screen = {0};
+struct Screen screen;
+
+Screen::Screen() {
+    image[0] = nullptr;
+    image[1] = nullptr;
+    context = nullptr;
+    shutdown = false;
+}
 
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
-static void *update_epd2in9d(void *data) {
-    (void)data;
-
+static void update_epd2in9d() {
     const int width_bytes = (SCREEN_WIDTH + 7) / 8;
     const int size_bytes  = width_bytes * SCREEN_HEIGHT;
 
@@ -26,9 +32,10 @@ static void *update_epd2in9d(void *data) {
 
     epd2in9d_init();
 
-    pthread_mutex_lock(&screen.mutex);
-    memcpy(new_image, screen.image[0]->data, size_bytes);
-    pthread_mutex_unlock(&screen.mutex);
+    {
+        std::lock_guard<std::mutex> lock(screen.mutex);
+        memcpy(new_image, screen.image[0]->data, size_bytes);
+    }
     memcpy(old_image, new_image, size_bytes);
     epd2in9d_display(old_image);
 
@@ -36,18 +43,14 @@ static void *update_epd2in9d(void *data) {
     clock_gettime(CLOCK_REALTIME, &last_render);
 
     while (!screen.shutdown) {
-        struct timespec timeout;
-        clock_gettime(CLOCK_REALTIME, &timeout);
-        timeout.tv_sec += 100;
-
-        pthread_mutex_lock(&screen.mutex);
-        const int err = pthread_cond_timedwait(&screen.cond, &screen.mutex, &timeout);
-        if (!err && !screen.shutdown) {
+        auto timeout = std::chrono::system_clock::now() + std::chrono::seconds(100);
+        {
+            std::unique_lock<std::mutex> lock(screen.mutex);
+            screen.cond.wait_until(lock, timeout);
+            if (screen.shutdown) {
+                break;
+            }
             memcpy(new_image, screen.image[0]->data, size_bytes);
-        }
-        pthread_mutex_unlock(&screen.mutex);
-        if (err || screen.shutdown) {
-            continue;
         }
 
         const bool dirty = memcmp(new_image, old_image, size_bytes) != 0;
@@ -61,26 +64,16 @@ static void *update_epd2in9d(void *data) {
         // Eventually we'll want to sleep if nothing is happening.
         clock_gettime(CLOCK_REALTIME, &last_render);
     }
-
-    // Try to ensure no one is holding lock while we cleanup.
-    pthread_mutex_lock(&screen.mutex);
-    pthread_mutex_unlock(&screen.mutex);
-
-    pthread_mutex_destroy(&screen.mutex);
-    pthread_cond_destroy(&screen.cond);
-    return NULL;
 }
 
 static void signal_thread(void) {
-    pthread_mutex_lock(&screen.mutex);
-    pthread_cond_signal(&screen.cond);
-    pthread_mutex_unlock(&screen.mutex);
+    screen.cond.notify_one();
 }
 
 static void shutdown_thread(void) {
     screen.shutdown = true;
     signal_thread();
-    pthread_join(screen.thread, NULL);
+    screen.thread.join();
 }
 
 void screen_close(void) {
@@ -91,9 +84,7 @@ void screen_close(void) {
 
 static void start_thread(void) {
     screen.shutdown = false;
-    pthread_cond_init(&screen.cond, NULL);
-    pthread_mutex_init(&screen.mutex, NULL);
-    pthread_create(&screen.thread, NULL, update_epd2in9d, NULL);
+    screen.thread = std::thread(update_epd2in9d);
 }
 
 int screen_open(void) {
@@ -107,37 +98,34 @@ int screen_open(void) {
     screen.context = context_alloc();
     screen.context->rotate = ROTATE_180;
 
-    model_init(&screen.model);
     start_thread();
     return 0;
 }
 
 void screen_render(struct View *view) {
-    pthread_mutex_lock(&screen.mutex);
+    {
+        std::lock_guard<std::mutex> lock(screen.mutex);
 
-    struct Image *image = screen.image[1];
-    screen.image[1] = screen.image[0];
-    screen.image[0] = image;
+        struct Image *image = screen.image[1];
+        screen.image[1] = screen.image[0];
+        screen.image[0] = image;
 
-    screen.context->image = screen.image[0];
-    graphics_clear(screen.context);
-    if (view) {
-        view->render(view, screen.context);
+        screen.context->image = screen.image[0];
+        graphics_clear(screen.context);
+        if (view) {
+            view->render(view, screen.context);
+        }
     }
-
-    pthread_mutex_unlock(&screen.mutex);
 
     if (!image_equal(screen.image[0], screen.image[1])) {
         signal_thread();
-        model_changed(&screen.model);
+        screen.changed();
     }
 }
 
 int screen_png(uint8_t **png, size_t *size) {
-    pthread_mutex_lock(&screen.mutex);
-    const int err = image_png(screen.image[0], png, size);
-    pthread_mutex_unlock(&screen.mutex);
-    return err;
+    std::lock_guard<std::mutex> lock(screen.mutex);
+    return image_png(screen.image[0], png, size);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

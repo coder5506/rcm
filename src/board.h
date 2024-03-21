@@ -2,40 +2,43 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_BOARD_H
-#define RCM_BOARD_H
+#ifndef BOARD_H
+#define BOARD_H
 
 #include "chess/chess.h"
 
+#include <cstdint>
+#include <vector>
+
 // 0xffff00000000ffff
-extern const uint64_t STARTING_POSITION;
+extern const std::uint64_t STARTING_POSITION;
 
 extern bool board_reversed;
 
 // Shutdown connection to board
-void board_close(void);
+void board_close();
 
 // Initialize connection to board
-int board_open(void);
+int board_open();
 
 // Read current state of board fields
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t board_getstate(void);
+std::uint64_t board_getstate();
 
 // Return battery and charging status
-int board_batterylevel(void);
-int board_charging(void);
+int board_batterylevel();
+int board_charging();
 
-int board_leds_off(void);
-int board_led_flash(void);
-int board_led(int square);
-int board_led_array(const int *squares, int num_squares);
-int board_led_from_to(int from, int to);
+int board_leds_off();
+int board_led_flash();
+int board_led(thc::Square square);
+int board_led_array(const std::vector<thc::Square>& squares);
+int board_led_from_to(thc::Square from, thc::Square to);
 
 // Return number of actions read
-int board_read_actions(struct Action *actions, int max_actions);
+int board_read_actions(std::vector<Action>& actions);
 
-static inline int rotate_square(int square) {
+inline thc::Square rotate_square(thc::Square square) {
     // square  == 8 * (7 - row) + col
     //         == 56 - 8 * row + col
     //         == 56 - (8 * row - col)
@@ -43,7 +46,7 @@ static inline int rotate_square(int square) {
     //         == 7 + (8 * row - col)
     // square + rotated == 63
     // et voila
-    return 63 - square;
+    return static_cast<thc::Square>(63 - square);
 }
 
 #endif

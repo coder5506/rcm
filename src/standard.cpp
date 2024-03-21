@@ -6,11 +6,10 @@
 #include "centaur.h"
 #include "chess/chess.h"
 #include "db.h"
-#include "utility/list.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cstdio>
+#include <cstring>
 
 #include <sys/select.h>
 
@@ -168,15 +167,15 @@ static void game_changed(struct Game *game, void *data) {
     }
 
     if (standard.white.type == COMPUTER) {
-        game_set_tag(game, "White", (char*)standard.white.computer.engine);
+        game->tag("White") = standard.white.computer.engine;
     } else {
-        game_set_tag(game, "White", (void*)"Human");
+        game->tag("White") = "Human";
     }
 
     if (standard.black.type == COMPUTER) {
-        game_set_tag(game, "Black", (char*)standard.black.computer.engine);
+        game->tag("Black") = standard.black.computer.engine;
     } else {
-        game_set_tag(game, "Black", (void*)"Human");
+        game->tag("Black") = "Human";
     }
 
     game->settings = settings_to_json();
@@ -185,16 +184,16 @@ static void game_changed(struct Game *game, void *data) {
 
 static void standard_stop(void) {
     if (centaur.game) {
-        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+        centaur.game->unobserve((ModelChanged)game_changed, NULL);
     }
 }
 
 static void standard_set_game(struct Game *game) {
     if (centaur.game) {
-        MODEL_UNOBSERVE(centaur.game, game_changed, NULL);
+        centaur.game->unobserve((ModelChanged)game_changed, NULL);
     }
     centaur_set_game(game);
-    MODEL_OBSERVE(centaur.game, game_changed, NULL);
+    centaur.game->observe((ModelChanged)game_changed, NULL);
 }
 
 // When running in the console, we can hit "Enter" to exit cleanly.  Otherwise
@@ -213,12 +212,12 @@ static int poll_for_keypress(int timeout_ms) {
 }
 
 static void standard_start(void) {
-    struct Game *game = db_load_latest();
-    if (game && game->settings) {
-        settings_from_json(game->settings);
-    }
+    Game* game = db_load_latest();
+    // if (game && game->settings) {
+    //     settings_from_json(game->settings);
+    // }
     if (!game) {
-        game = game_from_fen(NULL);
+        game = new Game();
     }
 
     // Switch pieces around if human is playing black against computer
@@ -227,10 +226,9 @@ static void standard_start(void) {
     standard_set_game(game);
     centaur_render();
 
-    struct Position *current = game_current(centaur.game);
     while (1) {
         const uint64_t boardstate = centaur_getstate();
-        if (boardstate == current->bitmap) {
+        if (boardstate == game->bitmap()) {
             // Resume last game
             centaur.game->started = time(NULL);
             break;
@@ -252,39 +250,38 @@ static void standard_start(void) {
 
 // Gameplay loop: Read and interpret user actions to update game state
 static void standard_run(void) {
-    struct List *candidates  = list_new();
-    struct Move *takeback    = NULL;
+    std::vector<thc::Move>   candidates;
+    std::optional<thc::Move> takeback;
 
-    const struct Position *current = game_current(centaur.game);
-    const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
+    // const struct Position *current = game_current(centaur.game);
+    // const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
+    auto player = centaur.game->rules.white ? &standard.white : &standard.black;
 
     // If camputer has first move, see what it wants to do
-    current = game_current(centaur.game);
-    player  = current->turn == 'w' ? &standard.white : &standard.black;
     if (player->type == COMPUTER) {
         // In case human played for computer and something is left in the queue
-        (void)engine_move(centaur.game, player->computer.engine);
+        (void)engine_move(*centaur.game, player->computer.engine);
         // Ask for new move
-        engine_play(centaur.game, player->computer.engine, player->computer.elo);
+        engine_play(*centaur.game, player->computer.engine, player->computer.elo);
     }
 
     while (1) {
-        current = game_current(centaur.game);
-        player  = current->turn == 'w' ? &standard.white : &standard.black;
+        // current = game_current(centaur.game);
+        // player  = current->turn == 'w' ? &standard.white : &standard.black;
+        player = centaur.game->rules.white ? &standard.white : &standard.black;
 
         // Check if computer has move to play
-        struct Move *move = NULL;
+        std::optional<thc::Move> move;
         if (player->type == COMPUTER) {
-            move = engine_move(centaur.game, player->computer.engine);
+            move = engine_move(*centaur.game, player->computer.engine);
         }
         if (move) {
             // Prompt user to move piece
-            centaur_led_from_to(move->from, move->to);
+            centaur_led_from_to(move->src, move->dst);
         }
 
         uint64_t boardstate = 0;
         bool maybe_valid = false;
-        int err = 0;
 
         // Check if there are user actions to process
         if (centaur_update_actions() == 0) {
@@ -298,49 +295,42 @@ static void standard_run(void) {
             centaur_clear_actions();
             if (centaur.game->started) {
                 // Replace in-progress game with new game
-                standard_set_game(game_from_fen(NULL));
+                standard_set_game(new Game);
             }
             goto next;
         }
 
         // Interpret player actions
-        list_clear(candidates);
-        takeback = NULL;
         maybe_valid =
-            centaur_read_move(candidates, &takeback, centaur.game, boardstate);
+            centaur_read_move(*centaur.game, boardstate, candidates, takeback);
         if (!maybe_valid) {
             goto next;
         }
 
         // Execute player actions
         // TODO promotions menu
-        move = (struct Move*)list_first(candidates);
-        err = 0;
-        if (takeback && move) {
-            err = game_complete_move(centaur.game, takeback, move);
-            centaur_led(move->to);
-        } else  if (takeback) {
-            err = game_apply_takeback(centaur.game, takeback);
-            centaur_led(takeback->from);
+        if (!candidates.empty()) {
+            move = candidates.front();
+        }
+        // if (takeback && move) {
+        //     err = game_complete_move(centaur.game, takeback, move);
+        //     centaur_led(move->dst);
+        // } else  if (takeback) {
+        if (takeback) {
+            centaur.game->apply_takeback(*takeback);
+            centaur_led(takeback->src);
         } else if (move) {
-            err = game_apply_move(centaur.game, move);
-            centaur_led(move->to);
+            centaur.game->apply_move(*move);
+            centaur_led(move->dst);
         }
 
-        // This really shouldn't happen.  If we read a move, we should be able
-        // to apply it.
-        assert(err == 0);
-
         // If is now computer's turn, ask for its move
-        current = game_current(centaur.game);
-        player  = current->turn == 'w' ? &standard.white : &standard.black;
-        printf("turn %c player %d\n", current->turn, player->type);
+        player = centaur.game->rules.white ? &standard.white : &standard.black;
         if (player->type == COMPUTER) {
             // In case human played for computer and something is left in the queue
-            (void)engine_move(centaur.game, player->computer.engine);
+            (void)engine_move(*centaur.game, player->computer.engine);
             // Ask for new move
-            printf("requesting engine move\n");
-            engine_play(centaur.game, player->computer.engine, player->computer.elo);
+            engine_play(*centaur.game, player->computer.engine, player->computer.elo);
         }
 
     next:

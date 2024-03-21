@@ -13,9 +13,9 @@
 #include "../boardserial.h"
 #include "../utility/sleep.h"
 
-#include <assert.h>
-#include <stdbool.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstdbool>
+#include <cstdio>
 
 #include <errno.h>
 #include <sys/file.h>

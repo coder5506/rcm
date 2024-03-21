@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_CFG_H
-#define RCM_CFG_H
+#ifndef CFG_H
+#define CFG_H
 
 const char *cfg_data_dir(void);
 int cfg_port(void);

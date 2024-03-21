@@ -2,8 +2,8 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_SLEEP_H
-#define RCM_SLEEP_H
+#ifndef SLEEP_H
+#define SLEEP_H
 
 void sleep_ms(int milliseconds);
 

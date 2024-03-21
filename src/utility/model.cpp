@@ -2,56 +2,25 @@
 // See license at end of file
 
 #include "model.h"
-#include "list.h"
 
-#include <assert.h>
-#include <stdlib.h>
+#include <algorithm>
 
-struct Observer {
-    ModelChanged  model_changed;
-    void         *data;
-};
-
-void model_init(struct Model *model) {
-    assert(model);
-    model->observers = list_new();
+bool operator==(const Observer& a, const Observer& b) {
+    return a.model_changed == b.model_changed && a.data == b.data;
 }
 
-void model_observe(struct Model *model, ModelChanged model_changed, void *data) {
-    assert(model && list_valid(model->observers));
-    assert(model_changed);
-
-    struct Observer *observer = (struct Observer*)malloc(sizeof *observer);
-    observer->model_changed = model_changed;
-    observer->data          = data;
-    list_push(model->observers, observer);
+void Model::observe(ModelChanged model_changed, void* data) {
+    observers.push_back({model_changed, data});
 }
 
-void model_unobserve(struct Model *model, ModelChanged model_changed, void *data) {
-    assert(!model || list_valid(model->observers));
-    assert(model_changed);
-
-    if (!model) {
-        return;
-    }
-
-    struct List *begin = list_begin(model->observers);
-    for (; begin != list_end(model->observers); begin = begin->next) {
-        struct Observer *observer = (struct Observer*)begin->data;
-        if (observer->model_changed == model_changed && observer->data == data) {
-            list_unlink(begin);
-            return;
-        }
-    }
+void Model::unobserve(ModelChanged model_changed, void* data) {
+    Observer unobserve{model_changed, data};
+    std::remove(observers.begin(), observers.end(), unobserve);
 }
 
-void model_changed(struct Model *model) {
-    assert(model && list_valid(model->observers));
-
-    struct List *begin = list_begin(model->observers);
-    for (; begin != list_end(model->observers); begin = begin->next) {
-        struct Observer *observer = (struct Observer*)begin->data;
-        observer->model_changed(model, observer->data);
+void Model::changed() {
+    for (auto observer : observers) {
+        observer.model_changed(this, observer.data);
     }
 }
 

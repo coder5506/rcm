@@ -4,52 +4,45 @@
 #include "chess_engine.h"
 #include "chess.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
-static struct UCIEngine *engine = NULL;
+static std::unique_ptr<UCIEngine> engine;
 
-static struct UCIEngine *start_engine(void) {
+static UCIEngine* start_engine() {
     if (!engine) {
         char *argv[] = {(char*)"stockfish", NULL};
-        engine = uci_execvp("/usr/games/stockfish", argv);
+        engine = UCIEngine::execvp("/usr/games/stockfish", argv);
     }
-    return engine;
+    return engine.get();
 }
 
-static struct UCIEngine *get_engine(const char *name) {
+static UCIEngine* get_engine(const char* name) {
     (void)name;
     return start_engine();
 }
 
-struct Move *engine_move(struct Game *game, const char *engine_name) {
+std::optional<thc::Move> engine_move(const Game& game, const char* engine_name) {
     (void)game;
 
-    struct UCIEngine *engine = get_engine(engine_name);
+    auto engine = get_engine(engine_name);
     if (!engine) {
-        return NULL;
+        return {};
     }
 
-    struct UCIMessage *response = uci_receive(engine);
-    if (!response || response->type != UCI_REQUEST_PLAY) {
-        return NULL;
+    auto response = engine->receive();
+    if (auto play = dynamic_cast<UCIPlayMessage*>(response.get())) {
+        return play->move;
     }
-
-    return ((struct UCIPlayMessage*)response)->move;
+    return {};
 }
 
-void engine_play(struct Game *game, const char *engine_name, int elo) {
-    struct UCIEngine *engine = get_engine(engine_name);
+void engine_play(const Game& game, const char* engine_name, int elo) {
+    auto engine = get_engine(engine_name);
     if (!engine) {
         return;
     }
 
-    struct UCIPlayMessage *request = (struct UCIPlayMessage*)malloc(sizeof *request);
-    request->m.type = UCI_REQUEST_PLAY;
-    request->game = game;
-    request->elo = elo;
-    request->move = NULL;
-
-    uci_send(engine, (struct UCIMessage*)request);
+    engine->send(std::make_unique<UCIPlayMessage>(&game, elo));
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

@@ -2,21 +2,11 @@
 // See license at end of file
 #pragma once
 
-// Inspired by Tripplehappy Chess library, MIT-licensed:
-// - https://github.com/billforsternz/thc-chess-library
+#ifndef CHESS_H
+#define CHESS_H
 
-#ifndef RCM_CHESS_H
-#define RCM_CHESS_H
-
-#include "chess_board.h"
 #include "chess_engine.h"
-#include "chess_fen.h"
 #include "chess_game.h"
-#include "chess_generate.h"
-#include "chess_move.h"
-#include "chess_pgn.h"
-#include "chess_position.h"
-#include "chess_san.h"
 #include "chess_uci.h"
 
 #endif

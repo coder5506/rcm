@@ -2,16 +2,33 @@
 // See license at end of file
 #pragma once
 
-#ifndef RCM_BUFFER_H
-#define RCM_BUFFER_H
+#ifndef BUFFER_H
+#define BUFFER_H
 
-#include <stddef.h>
+#include <cstddef>
+#include <string>
 
-struct Buffer;
+class Buffer {
+private:
+    std::string data;
+    char *begin;
+    char *read;
+    char *write;
+    char *end;
+    int   fd;
 
-bool buffer_valid(const struct Buffer *buf);
-struct Buffer *buffer_new(size_t size, int fd);
-char *buffer_getline(struct Buffer *buf, long timeout_ms);
+    bool  invariant() const;
+    char* try_getline();
+    bool  can_fill(long timeout_ms);
+    void  try_fill(long timeout_ms);
+
+public:
+    Buffer(std::size_t size, int fd);
+    ~Buffer();
+
+    void close();
+    char* getline(long timeout_ms);
+};
 
 #endif
 

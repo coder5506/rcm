@@ -36,8 +36,8 @@
  *******************************************************************************
  */
 
-#ifndef RCM_FONTS_H
-#define RCM_FONTS_H
+#ifndef FONTS_H
+#define FONTS_H
 
 struct sFONT {
     const unsigned char *table;

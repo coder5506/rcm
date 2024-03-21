@@ -6,7 +6,7 @@
 #include "httpd.h"
 #include "standard.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
 int main() {
     if (db_open() != 0) {

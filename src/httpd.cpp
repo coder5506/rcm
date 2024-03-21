@@ -6,12 +6,10 @@
 #include "cfg.h"
 #include "chess/chess.h"
 #include "screen.h"
-#include "utility/kv.h"
-#include "utility/list.h"
 
-#include <assert.h>
-#include <string.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstring>
+#include <cstdio>
 
 #include <pcre2.h>
 #include <pthread.h>
@@ -28,7 +26,6 @@ struct HttpdRequest {
     uint8_t               *body;
     size_t                 body_allocated;
     size_t                 body_used;
-    struct KeyValue       *post_vars;
     void                  *userdata;
 };
 
@@ -64,7 +61,6 @@ httpd_request_new(
     request->body           = NULL;
     request->body_allocated = 0;
     request->body_used      = 0;
-    request->post_vars      = NULL;
     request->userdata       = NULL;
     return request;
 }
@@ -197,36 +193,6 @@ MHD_unescape_plus(char *arg)
     }
 }
 
-static void
-parse_post_vars(struct HttpdRequest *request)
-{
-    if (!request->post_vars && is_urlencoded(request)) {
-        char *kvs = (char*)request->body;
-
-        request->post_vars = kv_new();
-
-        for (char *kv = strsep(&kvs, "&"); kv; kv = strsep(&kvs, "&")) {
-            char *key = strsep(&kv, "=");
-            MHD_http_unescape((char*)key);
-
-            char *value = kv;
-            if (value != NULL) {
-                MHD_unescape_plus((char*)value);
-                MHD_http_unescape((char*)value);
-            }
-
-            kv_push(request->post_vars, key, value);
-        }
-    }
-}
-
-const char*
-httpd_request_post_var(const struct HttpdRequest *request, const char *name) {
-    parse_post_vars((struct HttpdRequest*)request);
-    struct KeyValue *var = kv_find(request->post_vars, name);
-    return var ? (const char*)var->data : NULL;
-}
-
 //
 // Response
 //
@@ -255,35 +221,38 @@ httpd_response_new(struct MHD_Response *mhd_response, int status_code) {
 //
 
 struct EventStream {
-    pthread_cond_t  cond;
-    pthread_mutex_t mutex;
-    struct List    *events;
+    std::condition_variable cond;
+    std::mutex              mutex;
+    std::queue<std::string> events;
+
+    ~EventStream();
+    EventStream();
 };
 
 static void observe_game(struct Model *model, struct EventStream *stream) {
     (void)model;
-    pthread_mutex_lock(&stream->mutex);
-    list_push(stream->events, (void*)"game_changed");
-    pthread_cond_signal(&stream->cond);
-    pthread_mutex_unlock(&stream->mutex);
+    std::lock_guard<std::mutex> lock(stream->mutex);
+    stream->events.push("game_changed");
+    stream->cond.notify_one();
 }
 
 static void observe_screen(struct Model *model, struct EventStream *stream) {
     (void)model;
-    pthread_mutex_lock(&stream->mutex);
-    list_push(stream->events, (void*)"screen_changed");
-    pthread_cond_signal(&stream->cond);
-    pthread_mutex_unlock(&stream->mutex);
+    std::lock_guard<std::mutex> lock(stream->mutex);
+    stream->events.push("screen_changed");
+    stream->cond.notify_one();
 }
 
-void stream_free(struct EventStream *stream) {
-    pthread_mutex_lock(&stream->mutex);
-    MODEL_UNOBSERVE(centaur.game, observe_game, stream);
-    MODEL_UNOBSERVE(&screen, observe_screen, stream);
-    pthread_mutex_unlock(&stream->mutex);
-    pthread_mutex_destroy(&stream->mutex);
+EventStream::~EventStream() {
+    std::lock_guard<std::mutex> lock(mutex);
+    centaur.game->unobserve((ModelChanged)observe_game, this);
+    screen.unobserve((ModelChanged)observe_screen, this);
+}
 
-    pthread_cond_destroy(&stream->cond);
+EventStream::EventStream() {
+    std::lock_guard<std::mutex> lock(mutex);
+    centaur.game->observe((ModelChanged)observe_game, this);
+    screen.observe((ModelChanged)observe_screen, this);
 }
 
 static ssize_t
@@ -294,35 +263,34 @@ stream_events(struct EventStream *stream, uint64_t pos, char *buf, size_t max)
     // Keepalive
     int rc = snprintf(buf, max, ":\n\n");
 
+    auto to = std::chrono::system_clock::now() + std::chrono::seconds(25);
+
+    std::unique_lock<std::mutex> lock(stream->mutex);
+    stream->cond.wait_until(lock, to);
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += 25;
-
-    pthread_mutex_lock(&stream->mutex);
-    int err = pthread_cond_timedwait(&stream->cond, &stream->mutex, &ts);
-    if (!err) {
-        clock_gettime(CLOCK_REALTIME, &ts);
-        const char *event = (const char*)list_shift(stream->events);
-        if (event) {
-            rc = snprintf(
-                buf, max, "event: %s\ndata: {\"timestamp\": %ld}\n\n", event, ts.tv_sec);
-        }
+    if (stream->events.empty()) {
+        rc = snprintf(buf, max, "event: keepalive\ndata: {\"timestamp\": %ld}\n\n", ts.tv_sec);
     }
-    pthread_mutex_unlock(&stream->mutex);
+    else {
+        std::string event = stream->events.front();
+        stream->events.pop();
+        rc = snprintf(
+            buf, max, "event: %s\ndata: {\"timestamp\": %ld}\n\n", event.data(), ts.tv_sec);
+    }
 
     return rc;
+}
+
+static void stream_free(struct EventStream *stream) {
+    delete stream;
 }
 
 static struct HttpdResponse*
 get_events(struct HttpdRequest *request) {
     (void)request;
 
-    struct EventStream *stream = (struct EventStream*)malloc(sizeof *stream);
-    pthread_cond_init(&stream->cond, NULL);
-    pthread_mutex_init(&stream->mutex, NULL);
-
-    MODEL_OBSERVE(centaur.game, observe_game, stream);
-    MODEL_OBSERVE(&screen, observe_screen, stream);
+    auto stream = new EventStream();
 
     struct MHD_Response *mhd_response = MHD_create_response_from_callback(
         MHD_SIZE_UNKNOWN,
@@ -339,7 +307,7 @@ static struct HttpdResponse*
 get_fen(struct HttpdRequest *request) {
     (void)request;
 
-    const char *fen = position_fen(game_current(centaur.game));
+    const char *fen = ""; // position_fen(game_current(centaur.game));
     size_t      len = strlen(fen);
 
     struct MHD_Response *mhd_response =
@@ -353,7 +321,7 @@ static struct HttpdResponse*
 get_pgn(struct HttpdRequest *request) {
     (void)request;
 
-    const char *pgn = game_pgn(centaur.game);
+    const char *pgn = ""; // game_pgn(centaur.game);
     size_t      len = strlen(pgn);
 
     struct MHD_Response *mhd_response =

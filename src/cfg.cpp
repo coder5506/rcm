@@ -3,8 +3,8 @@
 
 #include "cfg.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <errno.h>
 #include <sys/stat.h>
