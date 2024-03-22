@@ -18,11 +18,6 @@
 using namespace std;
 using namespace thc;
 
-ChessRules::ChessRules() {
-    history_idx = 1;             // prevent bogus repetition draws
-    history[0]  = Move(a8, a8);  // (look backwards through history stops when src==dst)
-}
-
 // Play a move
 void ChessRules::PlayMove(Move imove) {
     // Legal move - save it in history
@@ -149,11 +144,11 @@ int ChessRules::GetRepetitionCount() {
 
     // Search backwards ....
     auto nbr_half_moves = (full_move_count-1)*2 + (!white?1:0);
-    if (nbr_half_moves > nbrof(history)-1) {
-        nbr_half_moves = nbrof(history)-1;
+    if (nbr_half_moves > history.size()-1) {
+        nbr_half_moves = history.size()-1;
     }
-    if (nbr_half_moves > nbrof(detail_stack)-1) {
-        nbr_half_moves = nbrof(detail_stack)-1;
+    if (nbr_half_moves > detail_stack.size()-1) {
+        nbr_half_moves = detail_stack.size()-1;
     }
     for (auto i = 0; i < nbr_half_moves; i++) {
         Move m = history[--idx];
@@ -163,12 +158,13 @@ int ChessRules::GetRepetitionCount() {
         PopMove(m);
 
         // ... looking for matching positions
-        if (white    == save_white      && // quick ones first!
-            d.eq_king_positions(tmp)    &&
+        if (white          == save_white       &&  // quick ones first!
+            d.wking_square == tmp.wking_square &&
+            d.bking_square == tmp.bking_square &&
             memcmp(squares, save_squares, sizeof squares) == 0)
         {
             matches++;
-            if (d.eq_all(tmp)) {  // Castling flags and/or enpassant target different?
+            if (d == tmp) {  // Castling flags and/or enpassant target different?
                 continue;
             }
 
@@ -178,7 +174,7 @@ int ChessRules::GetRepetitionCount() {
 
             // Revoke match if different value of en-passant target square means different
             //  en passant possibilities
-            if (!d.eq_enpassant(tmp)) {
+            if (d.enpassant_target != tmp.enpassant_target) {
                 int ep_saved = tmp.enpassant_target;
                 int ep_now   = d.enpassant_target;
 
@@ -189,36 +185,30 @@ int ChessRules::GetRepetitionCount() {
                 auto ep = ep_saved;
                 char const *squ = save_squares;
                 for (auto j = 0; j < 2; j++) {
-                    if (ep == 0x10)    // 0x10 = a6
-                    {
+                    if (ep == a6) {
                             real = (squ[SE(ep)] == 'P');
                     }
-                    else if (0x10<ep && ep<0x17)   // 0x10 = h6
-                    {
+                    else if (b6 <= ep && ep <= g6) {
                             real = (squ[SW(ep)] == 'P' || squ[SE(ep)] == 'P');
                     }
-                    else if (ep==0x17)
-                    {
+                    else if (ep == h6) {
                             real = (squ[SW(ep)] == 'P');
                     }
-                    else if (0x28==ep)   // 0x28 = a3
-                    {
+                    else if (ep == a3) {
                             real = (squ[NE(ep)] == 'p');
                     }
-                    else if (0x28<ep && ep<0x2f)   // 0x2f = h3
-                    {
+                    else if (b3 <= ep && ep <= g3) {
                             real = (squ[NE(ep)] == 'p' || squ[NW(ep)] == 'p');
                     }
-                    else if (ep==0x2f)
-                    {
+                    else if (ep == h3) {
                             real = (squ[NW(ep)] == 'p' );
                     }
                     if (j > 0) {
-                        ep_now = real?ep:0x40;      // evaluate second time through
+                        ep_now = real ? ep : SQUARE_INVALID;    // evaluate second time through
                     }
                     else {
-                        ep_saved = real?ep:0x40;    // evaluate first time through
-                        ep = ep_now;                // setup second time through
+                        ep_saved = real ? ep : SQUARE_INVALID;  // evaluate first time through
+                        ep = ep_now;                            // setup second time through
                         squ = squares;
                         real = false;
                     }
@@ -232,7 +222,7 @@ int ChessRules::GetRepetitionCount() {
 
             // Revoke match if different value of castling flags means different
             //  castling possibilities
-            if (!revoke_match && !d.eq_castling(tmp)) {
+            if (!revoke_match && !eq_castling(d, tmp)) {
                 bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && tmp.wking;
                 bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && d.wking;
                 bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && tmp.bking;
@@ -285,21 +275,17 @@ bool ChessRules::IsInsufficientDraw(bool white_asks, DRAWTYPE& result) {
         piece = squares[square];
         switch( piece )
         {
-            case 'B':
-            case 'b':
-            case 'N':
-            case 'n':       bishop_or_knight=true;  // and fall through
-            case 'Q':
-            case 'q':
-            case 'R':
-            case 'r':
-            case 'P':
-            case 'p':       piece_count++;
-                            if( isupper(piece) )
-                                lone_wking = false;
-                            else
-                                lone_bking = false;
-                            break;
+            case 'B': case 'b':
+            case 'N': case 'n': bishop_or_knight = true;  // and fall through
+            case 'Q': case 'q':
+            case 'R': case 'r':
+            case 'P': case 'p':
+                piece_count++;
+                if( isupper(piece) )
+                    lone_wking = false;
+                else
+                    lone_bking = false;
+                break;
         }
         if( !lone_wking && !lone_bking )
             break;  // quit early for performance
@@ -315,9 +301,7 @@ bool ChessRules::IsInsufficientDraw(bool white_asks, DRAWTYPE& result) {
         draw = true;
         result = DRAWTYPE_INSUFFICIENT_AUTO;
     }
-    else
-    {
-
+    else {
         // Otherwise side playing against lone K can claim a draw
         if( white_asks && lone_bking )
         {

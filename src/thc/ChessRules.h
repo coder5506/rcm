@@ -22,15 +22,14 @@ class ChessRules: public ChessPosition {
 private:
     // Move history is a ring array
     std::array<Move, 256> history;        // must be 256 ..
-    unsigned char history_idx{0};         // .. so this loops around naturally
+    unsigned char history_idx{1};         // .. so this loops around naturally
+    // 1 => prevent bogus repetition draws
 
     // Detail stack is a ring array
     std::array<DETAIL, 256> detail_stack;  // must be 256 ..
     unsigned char detail_idx{0};           // .. so this loops around naturally
 
 public:
-    ChessRules();
-
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
     bool IsLegal(ILLEGAL_REASON& reason);
 

@@ -24,16 +24,9 @@ Move::Move(Square src, Square dst, SPECIAL special, int capture)
 {
 }
 
-Move::Move(Square src, Square dst) : Move{src, dst, NOT_SPECIAL, ' '} {}
-
-Move::Move() : Move{a8, a8} {}
-
-/****************************************************************************
- * Read natural string move eg "Nf3"
- *  return bool okay
- ****************************************************************************/
-bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
-{
+// Read natural string move eg "Nf3"
+//  return bool okay
+bool Move::NaturalIn(ChessRules* cr, const char* natural_in) {
     vector<Move> list;
     int  i, len=0;
     char src_file='\0', src_rank='\0', dst_file='\0', dst_rank='\0';
@@ -405,13 +398,9 @@ bool Move::NaturalIn(ChessRules* cr, const char* natural_in)
     return okay;
 }
 
-/****************************************************************************
- * Read natural string move eg "Nf3"
- *  return bool okay
- * Fast alternative for known good input
- ****************************************************************************/
-bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
-{
+// Read natural string move eg "Nf3"
+//  return bool okay
+bool Move::NaturalInFast(ChessRules* cr, const char* natural_in) {
     bool err = false;
     bool found = false;
     bool capture_ = false;
@@ -435,7 +424,6 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
      O-O-O
      */
 
-//
     mv.special = NOT_SPECIAL;
     mv.capture = ' ';
     char f = *natural_in++;
@@ -1160,12 +1148,9 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
     return found;
 }
 
-/****************************************************************************
- * Read terse string move eg "g1f3"
- *  return bool okay
- ****************************************************************************/
-bool Move::TerseIn(ChessRules* cr, const char* tmove)
-{
+// Read terse string move eg "g1f3"
+//  return bool okay
+bool Move::TerseIn(ChessRules* cr, const char* tmove) {
     vector<Move> list;
     int i;
     bool okay=false;
@@ -1228,13 +1213,8 @@ bool Move::TerseIn(ChessRules* cr, const char* tmove)
     return okay;
 }
 
-/****************************************************************************
- * Convert to natural string
- *    eg "Nf3"
- ****************************************************************************/
-std::string Move::NaturalOut(ChessRules* cr)
-{
-
+// Convert to natural string, eg "Nf3"
+std::string Move::NaturalOut(ChessRules* cr) {
 // Improved algorithm
 
     /* basic procedure is run the following algorithms in turn:
@@ -1428,11 +1408,8 @@ std::string Move::NaturalOut(ChessRules* cr)
     return nmove;
 }
 
-/****************************************************************************
- * Convert to terse string eg "e7e8q"
- ****************************************************************************/
-std::string Move::TerseOut()
-{
+// Convert to terse string eg "e7e8q"
+std::string Move::TerseOut() {
     char tmove[6];
     if( src == dst )   // null move should be "0000" according to UCI spec
     {

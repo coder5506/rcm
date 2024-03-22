@@ -25,40 +25,25 @@ struct DETAIL {
             Square enpassant_target : 8;
             Square wking_square     : 8;
             Square bking_square     : 8;
-            unsigned int  wking     : 1;    // Castling still allowed flags
-            unsigned int  wqueen    : 1;    //  unfortunately if the castling
-            unsigned int  bking     : 1;    //  flags are declared as bool,
-            unsigned int  bqueen    : 1;    //  with Visual C++ at least,
-                                            //  the details blow out and use
-                                            //  another 32 bits (??!!)
-            // Note that for say white king side castling to be allowed in
-            //  the same sense as the Forsyth representation, not only
-            //  must wking be true, but the  white king and king rook must
-            //  be present and in position, see the wking_allowed() etc.
-            //  methods in class ChessPosition, these are used for the ChessPosition
-            //  == operator.
+            unsigned int  wking     : 1;  // Castling still allowed flags
+            unsigned int  wqueen    : 1;
+            unsigned int  bking     : 1;
+            unsigned int  bqueen    : 1;
         };
-        std::uint32_t detail;
+        std::uint32_t raw;
     };
 
     DETAIL();
-
-    bool eq_all(const DETAIL& other) const {
-        return detail == other.detail;
-    }
-
-    bool eq_castling(const DETAIL& other) const {
-        return (detail & 0xff000000) == (other.detail & 0xff000000);
-    }
-
-    bool eq_king_positions(const DETAIL& other) const {
-        return (detail & 0x00ffff00) == (other.detail & 0x00ffff00);
-    }
-
-    bool eq_enpassant(const DETAIL& other) const {
-        return enpassant_target == other.enpassant_target;
-    }
 };
+
+inline bool eq_castling(const DETAIL& lhs, const DETAIL& rhs) {
+    // i.e., little-endian
+    return (lhs.raw & 0x0f000000) == (rhs.raw & 0x0f000000);
+}
+
+inline bool operator==(const DETAIL& lhs, const DETAIL& rhs) {
+    return lhs.raw == rhs.raw;
+}
 
 class ChessPosition {
 public:
@@ -75,7 +60,7 @@ public:
     //     "PPPPPPPP"
     //     "RNBQKBNR"
     //  (represents starting position)
-    char squares[64 +1]; // +1 allows a trailing '\0'
+    char squares[64 +1];  // +1 allows a trailing '\0'
     // note indexed according to Square convention, a8=0 etc.
 
     // Half moves since pawn move or capture (for 50 move rule)
@@ -87,10 +72,6 @@ public:
     //  e.g. after 1... d6 it's 2
     int  full_move_count{1};
 
-    // The following are deemed "details", and must be stored at the
-    //  end of the structure. Search for DETAIL for, ahem, details.
-    //  For performance reasons we want the details to be able to fit
-    //  into 32 bits.
     DETAIL d;
 
     ChessPosition();
@@ -101,7 +82,7 @@ public:
     //  unless there is an opposition pawn in position to make the capture
     Square groomed_enpassant_target() const;
 
-    char at( Square sq ) const { return squares[sq]; }
+    char at(Square sq) const { return squares[sq]; }
 
     // Castling allowed ?
     bool wking_allowed()  const { return d.wking  && at(e1)=='K' && at(h1)=='R'; }

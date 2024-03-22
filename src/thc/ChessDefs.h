@@ -41,19 +41,44 @@ inline Square operator++(Square sq) {
     return static_cast<Square>(sq+1);
 }
 
-// thc::Square utilities
-inline char get_file(Square sq)
-    { return static_cast<char>((static_cast<int>(sq) & 0x07) + 'a'); }           // eg c5->'c'
-inline char get_rank(Square sq)
-    { return static_cast<char>('8' - ((static_cast<int>(sq) >> 3) & 0x07)); }    // eg c5->'5'
-inline Square make_square(char file, char rank)
-    { return static_cast<Square>(('8' - rank) * 8 + (file-'a')); }               // eg ('c','5') -> c5
-
 // Check whether a piece is black, white or an empty square, should really make
 //  these and most other macros into inline functions
 inline bool IsEmptySquare(char p) { return p == ' '; }
 inline bool IsBlack(char p) { return std::islower(p); }
 inline bool IsWhite(char p) { return std::isupper(p); }
+
+//  eg SQ('c','5') -> c5
+//  (We didn't always have such a sensible Square convention. SQ() remains
+//  useful for cases like SQ(file,rank), but you may actually see examples
+//  like the hardwired SQ('c','5') which can safely be changed to simply
+//  c5).
+inline Square SQ(char f, char r) { return static_cast<Square>(('8'-r)*8 + (f-'a')); }
+
+inline int IFILE(Square sq) { return sq % 8; }                          // eg c5->2
+inline int IRANK(Square sq) { return 7 - sq / 8; }                      // eg c5->4
+
+inline char FILE(Square sq) { return 'a' + IFILE(sq); }                 // eg c5->'c'
+inline char RANK(Square sq) { return '1' + IRANK(sq); }                 // eg c5->'5'
+
+inline Square SOUTH(Square sq) { return static_cast<Square>(sq + 8); }  // eg c5->c4
+inline Square NORTH(Square sq) { return static_cast<Square>(sq - 8); }  // eg c5->c6
+
+inline Square SW(Square sq) { return static_cast<Square>(sq + 7); }     // eg c5->b4
+inline Square SE(Square sq) { return static_cast<Square>(sq + 9); }     // eg c5->d4
+inline Square NW(Square sq) { return static_cast<Square>(sq - 9); }     // eg c5->b6
+inline Square NE(Square sq) { return static_cast<Square>(sq - 7); }     // eg c5->d6
+
+inline int SW(int sq) { return sq + 7; }     // eg c5->b4
+inline int SE(int sq) { return sq + 9; }     // eg c5->d4
+inline int NW(int sq) { return sq - 9; }     // eg c5->b6
+inline int NE(int sq) { return sq - 7; }     // eg c5->d6
+
+// thc::Square utilities
+inline char get_file(Square sq) { return FILE(sq); }  // eg c5->'c'
+inline char get_rank(Square sq) { return RANK(sq); }  // eg c5->'5'
+inline Square make_square(char file, char rank) {     // eg ('c','5') -> c5
+    return SQ(file, rank);
+}
 
 // Special (i.e. not ordinary) move types
 enum SPECIAL {

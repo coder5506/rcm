@@ -13,24 +13,9 @@
 #include <string>
 
 namespace thc {
+
 class ChessRules;
 
-// Our representation of a chess move
-//
-// Note this is really an old school C struct, designed for speed
-// There is no constructor on purpose, we don't want unnecessary
-// construction of an array of Moves in a MOVELIST when we are running
-// the fast move generator.
-// The default assignment operator (bitwise copy) is ideal.
-// We define bitwise == and != operators
-// At one time we had 4 (count em, 4) move representations, but this
-// was always the primary and main representation. The others were
-// FMOVE (16 bit moves), NMOVE (natural string representation, eg
-// "Nf3") and TMOVE (terse string representation eg "g1f3"). When I
-// realised I could streamline an IMOVE (the old name for Move =
-// internal move) to only 32 bits, I realised I could live without
-// FMOVEs and that sparked a large simplification exercise.
-//
 class Move {
 public:
     // Move is a lightweight type, it is accommodated in only 32 bits
@@ -39,25 +24,12 @@ public:
             Square  src       : 8;
             Square  dst       : 8;
             SPECIAL special   : 8;
-            int     capture   : 8;      // ' ' (empty) if move not a capture
-                                        // for some reason Visual C++ 2005 (at least)
-                                        // blows sizeof(Move) out to 64 bits if
-                                        // capture is defined as char instead of int
+            int     capture   : 8;  // ' ' (empty) if move not a capture
         };
         std::uint32_t raw;
     };
 
-    Move(Square src, Square dst, SPECIAL special, int capture);
-    Move(Square src, Square dst);
-    Move();
-
-    bool operator==(const Move& other) const {
-        return raw == other.raw;
-    }
-
-    bool operator!=(const Move& other) const {
-        return raw != other.raw;
-    }
+    Move(Square src = a8, Square dst = a8, SPECIAL special = NOT_SPECIAL, int capture = ' ');
 
     // Use these sparingly when you need to specifically mark
     //  a move as not yet set up (defined when we got rid of
@@ -89,6 +61,14 @@ public:
         return SPECIAL_PROMOTION_QUEEN <= special && special <= SPECIAL_PROMOTION_KNIGHT;
     }
 };
+
+inline bool operator==(const Move& lhs, const Move& rhs) {
+    return lhs.raw == rhs.raw;
+}
+
+inline bool operator!=(const Move& lhs, const Move& rhs) {
+    return lhs.raw != rhs.raw;
+}
 
 }
 
