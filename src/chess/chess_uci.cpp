@@ -77,7 +77,7 @@ int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
     uci_printf("setoption MultiPV 1\n");
     uci_printf("position fen %s\n", request->game->fen().data());
 
-    char color = request->game->rules.white ? 'w' : 'b';
+    char color = request->game->WhiteToPlay() ? 'w' : 'b';
     uci_printf("go %ctime 60000 %cinc 600\n", color, color);
 
     for (;;) {
@@ -88,7 +88,8 @@ int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
         char *const line = expect("bestmove ");
         if (line) {
             thc::Move move;
-            move.TerseIn(const_cast<thc::ChessRules*>(&request->game->rules), line + 9);
+            auto current = request->game->current();
+            move.TerseIn(const_cast<Position*>(current.get()), line + 9);
             request->move = std::move(move);
             send_response(std::move(request));
             return 0;

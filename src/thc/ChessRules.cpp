@@ -42,6 +42,11 @@ static unsigned char castling_prohibited_table[] = {
     (unsigned char)(~(WQUEEN+WKING)),  0xff, 0xff, (unsigned char)(~WKING)  // e1-h1
 };
 
+ChessRules::ChessRules() {
+    history_idx = 1;             // prevent bogus repetition draws
+    history[0]  = Move(a8, a8);  // (look backwards through history stops when src==dst)
+}
+
 // Play a move
 void ChessRules::PlayMove(Move imove) {
     // Legal move - save it in history
@@ -627,7 +632,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
 #define DETAIL_CASTLING(sq) *(3 + reinterpret_cast<unsigned char*>(&detail)) &= castling_prohibited_table[sq]
 
 // Make a move (with the potential to undo)
-void ChessRules::PushMove(Move& m) {
+void ChessRules::PushMove(Move m) {
     // Push old details onto stack
     detail_stack[detail_idx++] = detail;
 
@@ -751,7 +756,7 @@ void ChessRules::PushMove(Move& m) {
 }
 
 // Undo a move
-void ChessRules::PopMove(Move& m) {
+void ChessRules::PopMove(Move m) {
     // Previous detail field
     detail = detail_stack[--detail_idx];
 

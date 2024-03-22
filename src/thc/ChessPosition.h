@@ -93,7 +93,6 @@ public:
     };
 
     ChessPosition();
-    virtual ~ChessPosition() = default;
 
     // Groomed enpassant target is enpassant target qualified by the possibility to
     //  take enpassant. For example any double square pawn push creates an
@@ -109,10 +108,10 @@ public:
 
     // Set up position on board from Forsyth string with extensions
     //  return bool okay
-    virtual bool Forsyth(const char* txt);
+    bool Forsyth(const char* txt);
 
     // Publish chess position and supplementary info in forsyth notation
-    std::string ForsythPublish();
+    std::string fen() const;
 
     // Who's turn is it anyway
     inline bool WhiteToPlay() const { return white; }

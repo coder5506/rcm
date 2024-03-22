@@ -5,51 +5,47 @@
 #ifndef CHESS_GAME_H
 #define CHESS_GAME_H
 
-#include "../thc/thc.h"
+#include "chess_position.h"
 #include "../utility/model.h"
 
 #include <cstdint>
+#include <ctime>
 #include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include <time.h>
-
-struct Action {
-    thc::Square lift{thc::SQUARE_INVALID};
-    thc::Square place{thc::SQUARE_INVALID};
-};
-
 class Game : public Model {
 public:
-    thc::ChessRules rules;
-    time_t          started{0}; // Timestamp of first move played
-    std::int64_t    rowid{0};   // SQLite ROWID
-    std::string     settings;   // Opaque
+    std::vector<PositionPtr> history;
+    std::time_t  started{0};
+    std::int64_t rowid{0};  // SQLite ROWID
+    std::string  settings;  // Opaque
     std::map<std::string, std::string> tags;
 
-    Game();
-    explicit Game(const char* txt);
-
-    std::string fen() const {
-        return const_cast<thc::ChessRules&>(rules).ForsythPublish();
-    }
+    explicit Game(const char* txt = nullptr);
 
     std::string& tag(const std::string& key);
+
+    PositionPtr current() const;
+    PositionPtr previous() const;
+
+    inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
+
+    std::string fen() const;
+
+    char at(thc::Square square) const;
 
     void apply_move(thc::Move move);
     void apply_takeback(thc::Move takeback);
 
     bool read_move(
-        std::uint64_t              boardstate,
-        std::vector<Action>::const_iterator begin,
-        std::vector<Action>::const_iterator end,
-        std::vector<thc::Move>&    candidates,
-        std::optional<thc::Move>&  takeback);
+        Bitmap            boardstate,
+        const ActionList& actions,
+        MoveList&         candidates,
+        std::optional<thc::Move>& takeback);
 
-    char at(thc::Square square) const { return rules.squares[square]; }
-    std::uint64_t bitmap() const;
+    Bitmap bitmap() const { return current()->bitmap(); }
 };
 
 #endif

@@ -12,48 +12,24 @@
 #include "ChessPosition.h"
 #include "Move.h"
 
+#include <array>
 #include <vector>
 
 namespace thc {
 
 // Class encapsulates state of game and operations available
 class ChessRules: public ChessPosition {
+private:
+    // Move history is a ring array
+    std::array<Move, 256> history;        // must be 256 ..
+    unsigned char history_idx{0};         // .. so this loops around naturally
+
+    // Detail stack is a ring array
+    std::array<DETAIL, 256> detail_stack;  // must be 256 ..
+    unsigned char detail_idx{0};           // .. so this loops around naturally
+
 public:
-    ChessRules() : ChessPosition() { Init(); }
-
-    void Init()    // TODO == ChessRules::Init() should call ChessPosition::Init() right ????!!!!
-                   // Thoughts: Maybe - but can't do this casually. For example we would need to
-                   // change the code that converts ChessPosition to ChessRules below, both the
-                   // copy constructor and assignment operator use ChessRules::Init() at a time
-                   // when it would be disastrous to set the initial position (because
-                   // we have carefully copied a position into the ChessRules object)
-    {
-        history_idx    = 1;    // prevent bogus repetition draws
-        history[0].src = a8;   // (look backwards through history stops when src==dst)
-        history[0].dst = a8;
-        detail_idx =0;
-    }
-
-    ChessRules(const ChessPosition& src) : ChessPosition(src) {
-        Init();   // even if src is e.g. ChessRules or ChessEngine don't
-                  //   copy stuff for repetition, 50 move rule
-    }
-
-    ChessRules& operator=(const ChessPosition& src) {
-        *((ChessPosition*)this) = src;
-        Init();   // even if src is e.g. ChessRules or ChessEngine don't
-                  //   copy stuff for repetition, 50 move rule
-        return *this;
-    }
-
-    // Initialise from Forsyth string
-    bool Forsyth(const char* txt) {
-        const auto okay = ChessPosition::Forsyth(txt);
-        if (okay) {
-            Init(); // clear stuff for repetition, 50 move rule
-        }
-        return okay;
-    }
+    ChessRules();
 
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
     bool IsLegal(ILLEGAL_REASON& reason);
@@ -90,15 +66,15 @@ public:
                           std::vector<bool>& stalemate);
 
     // Make a move (with the potential to undo)
-    void PushMove(Move& m);
+    void PushMove(Move m);
 
     // Undo a move
-    void PopMove(Move& m);
+    void PopMove(Move m);
 
     // Test fundamental internal assumptions and operations
     void TestInternals();
 
-protected:
+private:
     // Generate a list of all possible moves in a position (including
     //  illegally "moving into check")
     void GenMoveList(std::vector<Move>& moves);
@@ -120,14 +96,6 @@ protected:
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
     bool Evaluate(std::vector<Move> *p, TERMINAL& score_terminal);
-
-    // Move history is a ring array
-    Move history[256];                 // must be 256 ..
-    unsigned char history_idx;          // .. so this loops around naturally
-
-    // Detail stack is a ring array
-    DETAIL detail_stack[256];           // must be 256 ..
-    unsigned char detail_idx;           // .. so this loops around naturally
 };
 
 }

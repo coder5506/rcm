@@ -48,6 +48,7 @@ public:
     };
 
     Move(Square src, Square dst, SPECIAL special, int capture);
+    Move(Square src, Square dst);
     Move();
 
     bool operator==(const Move& other) const {

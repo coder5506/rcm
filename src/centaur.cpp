@@ -225,12 +225,8 @@ history_read_move(
             state |= 1ull << begin->place;
         }
 
-        bool maybe_valid = game.read_move(
-            state,
-            begin,
-            end,
-            candidates,
-            takeback);
+        ActionList local_actions{begin, end};
+        bool maybe_valid = game.read_move(state, local_actions, candidates, takeback);
 
         if (!candidates.empty()) {
             // We got a move, great!
@@ -258,12 +254,7 @@ centaur_read_move(
     std::optional<thc::Move>& takeback)
 {
     // Try to read a move
-    bool maybe_valid = game.read_move(
-        boardstate,
-        centaur.actions.cbegin(),
-        centaur.actions.cend(),
-        candidates,
-        takeback);
+    bool maybe_valid = game.read_move(boardstate, centaur.actions, candidates, takeback);
 
     if (!candidates.empty()) {
         // 5x5, we won't need to review actions history

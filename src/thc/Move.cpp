@@ -24,9 +24,9 @@ Move::Move(Square src, Square dst, SPECIAL special, int capture)
 {
 }
 
-Move::Move() : Move{a1, a1, NOT_SPECIAL, ' '}
-{
-}
+Move::Move(Square src, Square dst) : Move{src, dst, NOT_SPECIAL, ' '} {}
+
+Move::Move() : Move{a8, a8} {}
 
 /****************************************************************************
  * Read natural string move eg "Nf3"

@@ -255,7 +255,7 @@ static void standard_run(void) {
 
     // const struct Position *current = game_current(centaur.game);
     // const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
-    auto player = centaur.game->rules.white ? &standard.white : &standard.black;
+    auto player = centaur.game->WhiteToPlay() ? &standard.white : &standard.black;
 
     // If camputer has first move, see what it wants to do
     if (player->type == COMPUTER) {
@@ -268,7 +268,7 @@ static void standard_run(void) {
     while (1) {
         // current = game_current(centaur.game);
         // player  = current->turn == 'w' ? &standard.white : &standard.black;
-        player = centaur.game->rules.white ? &standard.white : &standard.black;
+        player = centaur.game->WhiteToPlay() ? &standard.white : &standard.black;
 
         // Check if computer has move to play
         std::optional<thc::Move> move;
@@ -325,7 +325,7 @@ static void standard_run(void) {
         }
 
         // If is now computer's turn, ask for its move
-        player = centaur.game->rules.white ? &standard.white : &standard.black;
+        player = centaur.game->WhiteToPlay() ? &standard.white : &standard.black;
         if (player->type == COMPUTER) {
             // In case human played for computer and something is left in the queue
             (void)engine_move(*centaur.game, player->computer.engine);
