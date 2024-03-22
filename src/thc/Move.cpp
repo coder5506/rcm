@@ -530,7 +530,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                             mv.capture = cr->squares[mv.dst];
                             found = true;
                         }
-                        else if( r=='6' && cr->squares[mv.src]=='P' && cr->squares[mv.dst]==' '  && mv.dst==cr->enpassant_target && cr->squares[SOUTH(mv.dst)]=='p' )
+                        else if( r=='6' && cr->squares[mv.src]=='P' && cr->squares[mv.dst]==' '  && mv.dst==cr->d.enpassant_target && cr->squares[SOUTH(mv.dst)]=='p' )
                         {
                             mv.capture = 'p';
                             mv.special = SPECIAL_WEN_PASSANT;
@@ -632,7 +632,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                         char r = *natural_in++;
                         if( '1'<=r && r<='8' )
                         {
-                            mv.src = cr->wking_square;
+                            mv.src = cr->d.wking_square;
                             mv.dst = SQ(f,r);
                             mv.special = SPECIAL_KING_MOVE;
                             mv.capture = cr->squares[mv.dst];
@@ -730,7 +730,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                                                         char temp = cr->squares[mv.dst];
                                                         cr->squares[mv.dst] = 'N';  // temporarily make move
                                                         cr->squares[src_] = ' ';
-                                                        found = !cr->AttackedSquare( cr->wking_square, false ); //bool AttackedSquare( Square square, bool enemy_is_white );
+                                                        found = !cr->AttackedSquare( cr->d.wking_square, false ); //bool AttackedSquare( Square square, bool enemy_is_white );
                                                         cr->squares[mv.dst] = temp;  // now undo move
                                                         cr->squares[src_] = 'N';
                                                     }
@@ -774,7 +774,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                                                                 char temp = cr->squares[mv.dst];
                                                                 cr->squares[mv.dst] = piece;  // temporarily make move
                                                                 cr->squares[mv.src] = ' ';
-                                                                found = !cr->AttackedSquare( cr->wking_square, false ); //bool AttackedSquare( Square square, bool enemy_is_white );
+                                                                found = !cr->AttackedSquare( cr->d.wking_square, false ); //bool AttackedSquare( Square square, bool enemy_is_white );
                                                                 cr->squares[mv.dst] = temp;  // now undo move
                                                                 cr->squares[mv.src] = piece;
                                                             }
@@ -884,7 +884,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                             mv.capture = cr->squares[mv.dst];
                             found = true;
                         }
-                        else if( r=='3' && cr->squares[mv.src]=='p' && cr->squares[mv.dst]==' '  && mv.dst==cr->enpassant_target && cr->squares[NORTH(mv.dst)]=='P' )
+                        else if( r=='3' && cr->squares[mv.src]=='p' && cr->squares[mv.dst]==' '  && mv.dst==cr->d.enpassant_target && cr->squares[NORTH(mv.dst)]=='P' )
                         {
                             mv.capture = 'P';
                             mv.special = SPECIAL_BEN_PASSANT;
@@ -986,7 +986,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                         char r = *natural_in++;
                         if( '1'<=r && r<='8' )
                         {
-                            mv.src = cr->bking_square;
+                            mv.src = cr->d.bking_square;
                             mv.dst = SQ(f,r);
                             mv.special = SPECIAL_KING_MOVE;
                             mv.capture = cr->squares[mv.dst];
@@ -1084,7 +1084,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                                                         char temp = cr->squares[mv.dst];
                                                         cr->squares[mv.dst] = 'n';  // temporarily make move
                                                         cr->squares[mv.src] = ' ';
-                                                        found = !cr->AttackedSquare( cr->bking_square, true ); //bool AttackedSquare( Square square, bool enemy_is_white );
+                                                        found = !cr->AttackedSquare( cr->d.bking_square, true ); //bool AttackedSquare( Square square, bool enemy_is_white );
                                                         cr->squares[mv.dst] = temp;  // now undo move
                                                         cr->squares[mv.src] = 'n';
                                                     }
@@ -1128,7 +1128,7 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in)
                                                                 char temp = cr->squares[mv.dst];
                                                                 cr->squares[mv.dst] = piece;  // temporarily make move
                                                                 cr->squares[mv.src] = ' ';
-                                                                found = !cr->AttackedSquare( cr->bking_square, true ); //bool AttackedSquare( Square square, bool enemy_is_white );
+                                                                found = !cr->AttackedSquare( cr->d.bking_square, true ); //bool AttackedSquare( Square square, bool enemy_is_white );
                                                                 cr->squares[mv.dst] = temp;  // now undo move
                                                                 cr->squares[mv.src] = piece;
                                                             }

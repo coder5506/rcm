@@ -16,29 +16,49 @@
 #include <string>
 
 namespace thc {
-    class Move;
 
-/* DETAIL is shorthand for the section of type ChessPosition that looks
-   like this;
+class Move;
 
-    Square enpassant_target : 8;
-    Square wking_square     : 8;
-    Square bking_square     : 8;
-    int  wking              : 1;
-    int  wqueen             : 1;
-    int  bking              : 1;
-    int  bqueen             : 1;
+struct DETAIL {
+    union {
+        struct {
+            Square enpassant_target : 8;
+            Square wking_square     : 8;
+            Square bking_square     : 8;
+            unsigned int  wking     : 1;    // Castling still allowed flags
+            unsigned int  wqueen    : 1;    //  unfortunately if the castling
+            unsigned int  bking     : 1;    //  flags are declared as bool,
+            unsigned int  bqueen    : 1;    //  with Visual C++ at least,
+                                            //  the details blow out and use
+                                            //  another 32 bits (??!!)
+            // Note that for say white king side castling to be allowed in
+            //  the same sense as the Forsyth representation, not only
+            //  must wking be true, but the  white king and king rook must
+            //  be present and in position, see the wking_allowed() etc.
+            //  methods in class ChessPosition, these are used for the ChessPosition
+            //  == operator.
+        };
+        std::uint32_t detail;
+    };
 
-  We assume it is located in the last 4 bytes of ChessPosition,
-  hence the definition of typedef DETAIL as unsigned long, and
-  of DETAIL_ADDR below. We assume that ANDing the unsigned
-  character at this address + 3, with ~WKING, where WKING
-  is defined as unsigned char 0x01, will clear wking. See the
-  definition of DETAIL_CASTLING and castling_prohibited_table[].
-  These assumptions are likely not portable and are tested in
-  TestInternals(). If porting this code, step through that code
-  first and make any adjustments necessary */
-using DETAIL = std::uint32_t;
+    DETAIL();
+
+    bool eq_all(const DETAIL& other) const {
+        return detail == other.detail;
+    }
+
+    bool eq_castling(const DETAIL& other) const {
+        return (detail & 0xff000000) == (other.detail & 0xff000000);
+    }
+
+    bool eq_king_positions(const DETAIL& other) const {
+        return (detail & 0x00ffff00) == (other.detail & 0x00ffff00);
+    }
+
+    bool eq_enpassant(const DETAIL& other) const {
+        return enpassant_target == other.enpassant_target;
+    }
+};
 
 class ChessPosition {
 public:
@@ -71,26 +91,7 @@ public:
     //  end of the structure. Search for DETAIL for, ahem, details.
     //  For performance reasons we want the details to be able to fit
     //  into 32 bits.
-    union {
-        struct {
-            Square enpassant_target : 8;
-            Square wking_square     : 8;
-            Square bking_square     : 8;
-            unsigned int  wking     : 1;    // Castling still allowed flags
-            unsigned int  wqueen    : 1;    //  unfortunately if the castling
-            unsigned int  bking     : 1;    //  flags are declared as bool,
-            unsigned int  bqueen    : 1;    //  with Visual C++ at least,
-                                            //  the details blow out and use
-                                            //  another 32 bits (??!!)
-            // Note that for say white king side castling to be allowed in
-            //  the same sense as the Forsyth representation, not only
-            //  must wking be true, but the  white king and king rook must
-            //  be present and in position, see the wking_allowed() etc.
-            //  methods in class ChessPosition, these are used for the ChessPosition
-            //  == operator.
-        };
-        DETAIL detail;
-    };
+    DETAIL d;
 
     ChessPosition();
 
@@ -100,11 +101,13 @@ public:
     //  unless there is an opposition pawn in position to make the capture
     Square groomed_enpassant_target() const;
 
+    char at( Square sq ) const { return squares[sq]; }
+
     // Castling allowed ?
-    bool wking_allowed()  const { return wking  && squares[e1]=='K' && squares[h1]=='R'; }
-    bool wqueen_allowed() const { return wqueen && squares[e1]=='K' && squares[a1]=='R'; }
-    bool bking_allowed()  const { return bking  && squares[e8]=='k' && squares[h8]=='r'; }
-    bool bqueen_allowed() const { return bqueen && squares[e8]=='k' && squares[a8]=='r'; }
+    bool wking_allowed()  const { return d.wking  && at(e1)=='K' && at(h1)=='R'; }
+    bool wqueen_allowed() const { return d.wqueen && at(e1)=='K' && at(a1)=='R'; }
+    bool bking_allowed()  const { return d.bking  && at(e8)=='k' && at(h8)=='r'; }
+    bool bqueen_allowed() const { return d.bqueen && at(e8)=='k' && at(a8)=='r'; }
 
     // Set up position on board from Forsyth string with extensions
     //  return bool okay

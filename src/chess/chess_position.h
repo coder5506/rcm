@@ -38,8 +38,6 @@ public:
     PositionPtr move_played(thc::Move move) const;
     PositionPtr apply_move(thc::Move move) const;
 
-    char at(thc::Square square) const;
-
     Bitmap white_bitmap() const;
     Bitmap black_bitmap() const;
     Bitmap bitmap() const;

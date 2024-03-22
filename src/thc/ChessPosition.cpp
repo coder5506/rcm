@@ -67,7 +67,7 @@
 using namespace std;
 using namespace thc;
 
-ChessPosition::ChessPosition()
+DETAIL::DETAIL()
     : enpassant_target{SQUARE_INVALID},
       wking_square{e1},
       bking_square{e8},
@@ -75,6 +75,10 @@ ChessPosition::ChessPosition()
       wqueen{1},
       bking{1},
       bqueen{1}
+{
+}
+
+ChessPosition::ChessPosition()
 {
     memcpy(squares,
         "rnbqkbnr"
@@ -89,30 +93,30 @@ ChessPosition::ChessPosition()
 
 Square ChessPosition::groomed_enpassant_target() const {
     auto ret = SQUARE_INVALID;
-    if (white && a6 <= enpassant_target && enpassant_target <= h6) {
+    if (white && a6 <= d.enpassant_target && d.enpassant_target <= h6) {
         auto zap = true;  // zap unless there is a 'P' in place
-        auto idx = enpassant_target + 8; //idx = SOUTH(enpassant_target)
-        if (enpassant_target > a6 && squares[idx-1] == 'P') {
+        auto idx = d.enpassant_target + 8; //idx = SOUTH(d.enpassant_target)
+        if (d.enpassant_target > a6 && squares[idx-1] == 'P') {
             zap = false;    // eg a5xb6 ep, through g5xh6 ep
         }
-        if (enpassant_target < h6 && squares[idx+1] == 'P') {
+        if (d.enpassant_target < h6 && squares[idx+1] == 'P') {
             zap = false;    // eg b5xa6 ep, through h5xg6 ep
         }
         if (!zap) {
-            ret = enpassant_target;
+            ret = d.enpassant_target;
         }
     }
-    else if (!white && a3 <= enpassant_target && enpassant_target <= h3) {
+    else if (!white && a3 <= d.enpassant_target && d.enpassant_target <= h3) {
         bool zap = true;  // zap unless there is a 'p' in place
-        auto idx = enpassant_target - 8; //idx = NORTH(enpassant_target)
-        if (enpassant_target > a3 && squares[idx-1] == 'p') {
+        auto idx = d.enpassant_target - 8; //idx = NORTH(d.enpassant_target)
+        if (d.enpassant_target > a3 && squares[idx-1] == 'p') {
             zap = false;    // eg a4xb3 ep, through g4xh3 ep
         }
-        if (enpassant_target < h3 && squares[idx+1] == 'p') {
+        if (d.enpassant_target < h3 && squares[idx+1] == 'p') {
             zap = false;    // eg b4xa3 ep, through h4xg3 ep
         }
         if (!zap) {
-            ret = enpassant_target;
+            ret = d.enpassant_target;
         }
     }
     return ret;
@@ -144,11 +148,11 @@ bool ChessPosition::Forsyth(const char* txt) {
             }
 
             // Clear the extension fields
-            wking  = false;
-            wqueen = false;
-            bking  = false;
-            bqueen = false;
-            enpassant_target = SQUARE_INVALID;
+            d.wking  = false;
+            d.wqueen = false;
+            d.bking  = false;
+            d.bqueen = false;
+            d.enpassant_target = SQUARE_INVALID;
             half_move_clock = 0;
             full_move_count = 1;
         }
@@ -212,9 +216,9 @@ bool ChessPosition::Forsyth(const char* txt) {
                 {
                     squares[sq] = p;
                     if( p == 'K' )
-                        wking_square = sq;
+                        d.wking_square = sq;
                     else if( p == 'k' )
-                        bking_square = sq;
+                        d.bking_square = sq;
                 }
                 file++;
                 if( file == 8 )
@@ -294,22 +298,22 @@ bool ChessPosition::Forsyth(const char* txt) {
                     if( *txt == 'K' )
                     {
                         if( store )
-                            wking = true;
+                            d.wking = true;
                     }
                     else if( *txt == 'Q' )
                     {
                         if( store )
-                            wqueen = true;
+                            d.wqueen = true;
                     }
                     else if( *txt == 'k' )
                     {
                         if( store )
-                            bking = true;
+                            d.bking = true;
                     }
                     else if( *txt == 'q' )
                     {
                         if( store )
-                            bqueen = true;
+                            d.bqueen = true;
                     }
                     else if( *txt == '-' )               // allow say "KQ-q "
                         ;
@@ -348,7 +352,7 @@ bool ChessPosition::Forsyth(const char* txt) {
                         okay = false;
                 }
                 if( okay && store )
-                    enpassant_target = SQ(f,r);
+                    d.enpassant_target = SQ(f,r);
             }
         }
 
@@ -397,7 +401,7 @@ std::string ChessPosition::fen() const {
     for( i=0; i<64; i++ )
     {
         sq = SQ('a'+file,'1'+rank);
-        if( sq == enpassant_target )
+        if( sq == d.enpassant_target )
         {
             save_file = file;
             save_rank = rank;
@@ -453,7 +457,7 @@ std::string ChessPosition::fen() const {
 
     // Enpassant target square
     str += ' ';
-    if( enpassant_target==SQUARE_INVALID || save_rank==0 )
+    if( d.enpassant_target==SQUARE_INVALID || save_rank==0 )
         str += '-';
     else
     {

@@ -33,10 +33,6 @@ PositionPtr Position::apply_move(thc::Move move) const {
     return after;
 }
 
-char Position::at(thc::Square square) const {
-    return squares[square];
-}
-
 Bitmap Position::white_bitmap() const {
     Bitmap bitmap{0};
     Bitmap mask{1};

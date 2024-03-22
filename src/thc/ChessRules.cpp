@@ -18,30 +18,6 @@
 using namespace std;
 using namespace thc;
 
-// Bits corresponding to detail bits wking, wqueen, bking, bqueen for
-//  DETAIL_CASTLING
-#define WKING   0x01
-#define WQUEEN  0x02
-#define BKING   0x04
-#define BQUEEN  0x08
-
-// Table indexed by Square, gives mask for DETAIL_CASTLING, such that a move
-//  to (or from) that square results in castling being prohibited, eg a move
-//  to e8 means that subsequently black kingside and black queenside castling
-//  is prohibited
-static unsigned char castling_prohibited_table[] = {
-    (unsigned char)(~BQUEEN), 0xff, 0xff, 0xff,                             // a8-d8
-    (unsigned char)(~(BQUEEN+BKING)), 0xff, 0xff, (unsigned char)(~BKING),  // e8-h8
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a7-h7
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a6-h6
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a5-h5
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a4-h4
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a3-h3
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a2-h2
-    (unsigned char)(~WQUEEN), 0xff, 0xff, 0xff,                             // a1-d1
-    (unsigned char)(~(WQUEEN+WKING)),  0xff, 0xff, (unsigned char)(~WKING)  // e1-h1
-};
-
 ChessRules::ChessRules() {
     history_idx = 1;             // prevent bogus repetition draws
     history[0]  = Move(a8, a8);  // (look backwards through history stops when src==dst)
@@ -113,7 +89,7 @@ void ChessRules::GenLegalMoveList(vector<Move>& moves,
         TERMINAL terminal_score;
         const bool okay = Evaluate(terminal_score);
 
-        const Square king_to_move = static_cast<Square>(white ? wking_square : bking_square);
+        const Square king_to_move = static_cast<Square>(white ? d.wking_square : d.bking_square);
         const bool bcheck = AttackedPiece(king_to_move);
         PopMove(move);
 
@@ -157,132 +133,128 @@ bool ChessRules::IsDraw(bool white_asks, DRAWTYPE& result) {
     return( draw );
 }
 
-#define DETAIL_SAVE     DETAIL tmp = detail
-#define DETAIL_RESTORE  detail = tmp
-#define DETAIL_EQ_ALL             ((detail & 0x0fffffff) == (tmp & 0x0fffffff))
-#define DETAIL_EQ_CASTLING        ((detail & 0x0f000000) == (tmp & 0x0f000000))
-#define DETAIL_EQ_KING_POSITIONS  ((detail & 0x00ffff00) == (tmp & 0x00ffff00))
-#define DETAIL_EQ_EN_PASSANT      ((detail & 0x000000ff) == (tmp & 0x000000ff))
-
 // Get number of times position has been repeated
 int ChessRules::GetRepetitionCount() {
-    int matches=0;
+    auto matches = 0;
 
     //  Save those aspects of current position that are changed by multiple
     //  PopMove() calls as we search backwards (i.e. squares, white,
     //  detail, detail_idx)
     char save_squares[sizeof(squares)];
-    memcpy( save_squares, squares, sizeof(save_squares) );
+    memcpy(save_squares, squares, sizeof save_squares);
     unsigned char save_detail_idx = detail_idx;  // must be unsigned char
     bool          save_white      = white;
     unsigned char idx             = history_idx; // must be unsigned char
-    DETAIL_SAVE;
+    DETAIL tmp{d};
 
     // Search backwards ....
-    int nbr_half_moves = (full_move_count-1)*2 + (!white?1:0);
-    if( nbr_half_moves > nbrof(history)-1 )
+    auto nbr_half_moves = (full_move_count-1)*2 + (!white?1:0);
+    if (nbr_half_moves > nbrof(history)-1) {
         nbr_half_moves = nbrof(history)-1;
-    if( nbr_half_moves > nbrof(detail_stack)-1 )
+    }
+    if (nbr_half_moves > nbrof(detail_stack)-1) {
         nbr_half_moves = nbrof(detail_stack)-1;
-    for( int i=0; i<nbr_half_moves; i++ )
-    {
+    }
+    for (auto i = 0; i < nbr_half_moves; i++) {
         Move m = history[--idx];
-        if( m.src == m.dst )
+        if (m.src == m.dst) {
             break;  // unused history is set to zeroed memory
+        }
         PopMove(m);
 
         // ... looking for matching positions
-        if( white    == save_white      && // quick ones first!
-            DETAIL_EQ_KING_POSITIONS    &&
-            0 == memcmp(squares,save_squares,sizeof(squares) )
-            )
+        if (white    == save_white      && // quick ones first!
+            d.eq_king_positions(tmp)    &&
+            memcmp(squares, save_squares, sizeof squares) == 0)
         {
             matches++;
-            if( !DETAIL_EQ_ALL )    // Castling flags and/or enpassant target different?
-            {
-                // It might not be a match (but it could be - we have to unpack what the differences
-                //  really mean)
-                bool revoke_match = false;
+            if (d.eq_all(tmp)) {  // Castling flags and/or enpassant target different?
+                continue;
+            }
 
-                // Revoke match if different value of en-passant target square means different
-                //  en passant possibilities
-                if( !DETAIL_EQ_EN_PASSANT )
-                {
-                    int ep_saved = (int)(tmp & 0xff);
-                    int ep_now   = (int)(detail & 0xff);
+            // It might not be a match (but it could be - we have to unpack what the differences
+            //  really mean)
+            auto revoke_match = false;
 
-                    // Work out whether each en_passant is a real one, i.e. is there an opposition
-                    //  pawn in place to capture (if not it's just a double pawn advance with no
-                    //  actual enpassant consequences)
-                    bool real=false;
-                    int ep = ep_saved;
-                    char const *squ = save_squares;
-                    for( int j=0; j<2; j++ )
+            // Revoke match if different value of en-passant target square means different
+            //  en passant possibilities
+            if (!d.eq_enpassant(tmp)) {
+                int ep_saved = tmp.enpassant_target;
+                int ep_now   = d.enpassant_target;
+
+                // Work out whether each en_passant is a real one, i.e. is there an opposition
+                //  pawn in place to capture (if not it's just a double pawn advance with no
+                //  actual enpassant consequences)
+                auto real=false;
+                auto ep = ep_saved;
+                char const *squ = save_squares;
+                for (auto j = 0; j < 2; j++) {
+                    if (ep == 0x10)    // 0x10 = a6
                     {
-                        if( ep == 0x10 )    // 0x10 = a6
-                        {
-                             real = (squ[SE(ep)] == 'P');
-                        }
-                        else if( 0x10<ep && ep<0x17 )   // 0x10 = h6
-                        {
-                             real = (squ[SW(ep)] == 'P' || squ[SE(ep)] == 'P');
-                        }
-                        else if( ep==0x17 )
-                        {
-                             real = (squ[SW(ep)] == 'P');
-                        }
-                        else if( 0x28==ep )   // 0x28 = a3
-                        {
-                             real = (squ[NE(ep)] == 'p');
-                        }
-                        else if( 0x28<ep && ep<0x2f )   // 0x2f = h3
-                        {
-                             real = (squ[NE(ep)] == 'p' || squ[NW(ep)] == 'p');
-                        }
-                        else if( ep==0x2f )
-                        {
-                             real = (squ[NW(ep)] == 'p' );
-                        }
-                        if( j > 0 )
-                            ep_now = real?ep:0x40;      // evaluate second time through
-                        else
-                        {
-                            ep_saved = real?ep:0x40;    // evaluate first time through
-                            ep = ep_now;                // setup second time through
-                            squ = squares;
-                            real = false;
-                        }
+                            real = (squ[SE(ep)] == 'P');
                     }
-
-                    // If for example one en_passant is real and the other not, it's not a real match
-                    if( ep_saved != ep_now )
-                        revoke_match = true;
+                    else if (0x10<ep && ep<0x17)   // 0x10 = h6
+                    {
+                            real = (squ[SW(ep)] == 'P' || squ[SE(ep)] == 'P');
+                    }
+                    else if (ep==0x17)
+                    {
+                            real = (squ[SW(ep)] == 'P');
+                    }
+                    else if (0x28==ep)   // 0x28 = a3
+                    {
+                            real = (squ[NE(ep)] == 'p');
+                    }
+                    else if (0x28<ep && ep<0x2f)   // 0x2f = h3
+                    {
+                            real = (squ[NE(ep)] == 'p' || squ[NW(ep)] == 'p');
+                    }
+                    else if (ep==0x2f)
+                    {
+                            real = (squ[NW(ep)] == 'p' );
+                    }
+                    if (j > 0) {
+                        ep_now = real?ep:0x40;      // evaluate second time through
+                    }
+                    else {
+                        ep_saved = real?ep:0x40;    // evaluate first time through
+                        ep = ep_now;                // setup second time through
+                        squ = squares;
+                        real = false;
+                    }
                 }
 
-                // Revoke match if different value of castling flags means different
-                //  castling possibilities
-                if( !revoke_match && !DETAIL_EQ_CASTLING )
-                {
-                    bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && (int)(tmp&(WKING<<24));
-                    bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && (int)(detail&(WKING<<24));
-                    bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && (int)(tmp&(BKING<<24));
-                    bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && (int)(detail&(BKING<<24));
-                    bool wqueen_saved = save_squares[e1]=='K' && save_squares[a1]=='R' && (int)(tmp&(WQUEEN<<24));
-                    bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && (int)(detail&(WQUEEN<<24));
-                    bool bqueen_saved = save_squares[e8]=='k' && save_squares[a8]=='r' && (int)(tmp&(BQUEEN<<24));
-                    bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && (int)(detail&(BQUEEN<<24));
-                    revoke_match = ( wking_saved != wking_now ||
-                                     bking_saved != bking_now ||
-                                     wqueen_saved != wqueen_now ||
-                                     bqueen_saved != bqueen_now );
+                // If for example one en_passant is real and the other not, it's not a real match
+                if (ep_saved != ep_now) {
+                    revoke_match = true;
                 }
+            }
 
-                // If the real castling or enpassant possibilities differ, it's not a match
-                //  At one stage we just did a naive binary match of the details - not good enough. For example
-                //  a rook moving away from h1 doesn't affect the WKING flag, but does disallow white king side
-                //  castling
-                if( revoke_match )
-                     matches--;
+            // Revoke match if different value of castling flags means different
+            //  castling possibilities
+            if (!revoke_match && !d.eq_castling(tmp)) {
+                bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && tmp.wking;
+                bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && d.wking;
+                bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && tmp.bking;
+                bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && d.bking;
+                bool wqueen_saved = save_squares[e1]=='K' && save_squares[a1]=='R' && tmp.wqueen;
+                bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && d.wqueen;
+                bool bqueen_saved = save_squares[e8]=='k' && save_squares[a8]=='r' && tmp.bqueen;
+                bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && d.bqueen;
+                revoke_match = (
+                    wking_saved  != wking_now  ||
+                    bking_saved  != bking_now  ||
+                    wqueen_saved != wqueen_now ||
+                    bqueen_saved != bqueen_now
+                );
+            }
+
+            // If the real castling or enpassant possibilities differ, it's not a match
+            //  At one stage we just did a naive binary match of the details - not good enough. For example
+            //  a rook moving away from h1 doesn't affect the WKING flag, but does disallow white king side
+            //  castling
+            if (revoke_match) {
+                matches--;
             }
         }
 
@@ -293,11 +265,11 @@ int ChessRules::GetRepetitionCount() {
     }
 
     // Restore current position
-    memcpy( squares, save_squares, sizeof(squares) );
+    memcpy(squares, save_squares, sizeof squares);
     white      = save_white;
     detail_idx = save_detail_idx;
-    DETAIL_RESTORE;
-    return( matches+1 );  // +1 counts original position
+    d = tmp;
+    return matches+1;  // +1 counts original position
 }
 
 // Check insufficient material draw rule
@@ -471,7 +443,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
         if (squares[g1] == ' '        &&
             squares[f1] == ' '        &&
             squares[h1] == 'R'        &&
-            (wking)                   &&
+            (d.wking)                 &&
             !AttackedSquare(e1,false) &&
             !AttackedSquare(f1,false) &&
             !AttackedSquare(g1,false))
@@ -484,7 +456,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
             squares[c1] == ' '        &&
             squares[d1] == ' '        &&
             squares[a1] == 'R'        &&
-            (wqueen)                  &&
+            (d.wqueen)                &&
             !AttackedSquare(e1,false) &&
             !AttackedSquare(d1,false) &&
             !AttackedSquare(c1,false))
@@ -500,7 +472,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
         if (squares[g8] == ' '       &&
             squares[f8] == ' '       &&
             squares[h8] == 'r'       &&
-            (bking)                  &&
+            (d.bking)                &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(f8,true) &&
             !AttackedSquare(g8,true))
@@ -513,7 +485,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
             squares[c8] == ' '       &&
             squares[d8] == ' '       &&
             squares[a8] == 'r'       &&
-            (bqueen)                 &&
+            (d.bqueen)               &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(d8,true) &&
             !AttackedSquare(c8,true))
@@ -532,7 +504,7 @@ void ChessRules::WhitePawnMoves(vector<Move>& moves, Square square) {
     lte nbr_moves = *ptr++;
     while (--nbr_moves >= 0) {
         const Square dst = static_cast<Square>(*ptr++);
-        if (dst == enpassant_target) {
+        if (dst == d.enpassant_target) {
             moves.push_back({square, dst, SPECIAL_WEN_PASSANT, 'p'});
         }
         else if (IsBlack(squares[dst])) {
@@ -585,7 +557,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
     lte nbr_moves = *ptr++;
     while (--nbr_moves >= 0) {
         const Square dst = static_cast<Square>(*ptr++);
-        if (dst == enpassant_target) {
+        if (dst == d.enpassant_target) {
             moves.push_back({square, dst, SPECIAL_BEN_PASSANT, 'P'});
         }
         else if (IsWhite(squares[dst])) {
@@ -629,25 +601,29 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
     }
 }
 
-#define DETAIL_CASTLING(sq) *(3 + reinterpret_cast<unsigned char*>(&detail)) &= castling_prohibited_table[sq]
-
 // Make a move (with the potential to undo)
 void ChessRules::PushMove(Move m) {
     // Push old details onto stack
-    detail_stack[detail_idx++] = detail;
+    detail_stack[detail_idx++] = d;
 
     // Update castling prohibited flags for destination square, eg h8 -> bking
-    DETAIL_CASTLING(m.dst);
-                    // IMPORTANT - only dst is required since we also qualify
-                    //  castling with presence of rook and king on right squares.
-                    //  (I.E. if a rook or king leaves its original square, the
+    switch (m.dst) {
+    case a8: d.bqueen = 0; break;
+    case e8: d.bqueen = 0;
+    case h8: d.bking  = 0; break;
+    case a1: d.wqueen = 0; break;
+    case e1: d.wqueen = 0;
+    case h1: d.wking  = 0; break;
+    default:        // IMPORTANT - only dst is required since we also qualify
+        break;      //  castling with presence of rook and king on right squares.
+    }               //  (I.E. if a rook or king leaves its original square, the
                     //  castling prohibited flag is unaffected, but it doesn't
                     //  matter since we won't castle unless rook and king are
                     //  present on the right squares. If subsequently a king or
                     //  rook returns, that's okay too because the  castling flag
                     //  is cleared by its arrival on the m.dst square, so
                     //  castling remains prohibited).
-    enpassant_target = SQUARE_INVALID;
+    d.enpassant_target = SQUARE_INVALID;
 
     // Special handling might be required
     switch (m.special) {
@@ -661,10 +637,10 @@ void ChessRules::PushMove(Move m) {
         squares[m.dst] = squares[m.src];
         squares[m.src] = ' ';
         if (white) {
-            wking_square = m.dst;
+            d.wking_square = m.dst;
         }
         else {
-            bking_square = m.dst;
+            d.bking_square = m.dst;
         }
         break;
 
@@ -710,14 +686,14 @@ void ChessRules::PushMove(Move m) {
     case SPECIAL_WPAWN_2SQUARES:
         squares[m.src] = ' ';
         squares[m.dst] = 'P';
-        enpassant_target = SOUTH(m.dst);
+        d.enpassant_target = SOUTH(m.dst);
         break;
 
     // Black pawn advances 2 squares sets an enpassant target
     case SPECIAL_BPAWN_2SQUARES:
         squares[m.src] = ' ';
         squares[m.dst] = 'p';
-        enpassant_target = NORTH(m.dst);
+        d.enpassant_target = NORTH(m.dst);
         break;
 
     // Castling moves update 4 squares each
@@ -726,28 +702,28 @@ void ChessRules::PushMove(Move m) {
         squares[f1] = 'R';
         squares[g1] = 'K';
         squares[h1] = ' ';
-        wking_square = g1;
+        d.wking_square = g1;
         break;
     case SPECIAL_WQ_CASTLING:
         squares[e1] = ' ';
         squares[d1] = 'R';
         squares[c1] = 'K';
         squares[a1] = ' ';
-        wking_square = c1;
+        d.wking_square = c1;
         break;
     case SPECIAL_BK_CASTLING:
         squares[e8] = ' ';
         squares[f8] = 'r';
         squares[g8] = 'k';
         squares[h8] = ' ';
-        bking_square = g8;
+        d.bking_square = g8;
         break;
     case SPECIAL_BQ_CASTLING:
         squares[e8] = ' ';
         squares[d8] = 'r';
         squares[c8] = 'k';
         squares[a8] = ' ';
-        bking_square = c8;
+        d.bking_square = c8;
         break;
     }
 
@@ -758,7 +734,7 @@ void ChessRules::PushMove(Move m) {
 // Undo a move
 void ChessRules::PopMove(Move m) {
     // Previous detail field
-    detail = detail_stack[--detail_idx];
+    d = detail_stack[--detail_idx];
 
     // Toggle who-to-move
     Toggle();
@@ -885,7 +861,7 @@ bool ChessRules::AttackedSquare(Square square, bool enemy_is_white) {
 
 // Evaluate a position, returns bool okay (not okay means illegal position)
 bool ChessRules::Evaluate() {
-    Square enemy_king = (Square)(white ? bking_square : wking_square);
+    Square enemy_king = (Square)(white ? d.bking_square : d.wking_square);
     // Enemy king is attacked and our move, position is illegal
     return !AttackedPiece(enemy_king);
 }
@@ -903,7 +879,7 @@ bool ChessRules::Evaluate(vector<Move> *p, TERMINAL& score_terminal) {
     score_terminal=NOT_TERMINAL;
 
     // Enemy king is attacked and our move, position is illegal
-    enemy_king = (Square)(white ? bking_square : wking_square);
+    enemy_king = (Square)(white ? d.bking_square : d.wking_square);
     if( AttackedPiece(enemy_king) )
         okay = false;
 
@@ -916,7 +892,7 @@ bool ChessRules::Evaluate(vector<Move> *p, TERMINAL& score_terminal) {
         any = 0;
         for (auto move: list) {
             PushMove(move);
-            my_king = (Square)(white ? bking_square : wking_square);
+            my_king = (Square)(white ? d.bking_square : d.wking_square);
             if( !AttackedPiece(my_king) )
                 any++;
             PopMove(move);
@@ -924,7 +900,7 @@ bool ChessRules::Evaluate(vector<Move> *p, TERMINAL& score_terminal) {
 
         // If no legal moves, position is either checkmate or stalemate
         if( any == 0 ) {
-            my_king = (Square)(white ? wking_square : bking_square);
+            my_king = (Square)(white ? d.wking_square : d.bking_square);
             if( AttackedPiece(my_king) )
                 score_terminal = (white ? TERMINAL_WCHECKMATE
                                         : TERMINAL_BCHECKMATE);
