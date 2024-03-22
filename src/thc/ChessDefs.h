@@ -9,13 +9,13 @@
 #ifndef CHESSDEFS_H
 #define CHESSDEFS_H
 
+#include <cctype>
 #include <cstdint>
 
 // Simple definition to aid platform portability (only remains of former Portability.h)
 int strcmp_ignore(const char* s, const char* t); // return 0 if case-insensitive match
 
-namespace thc
-{
+namespace thc {
 
 // Use the most natural square convention possible; Define Square to
 //  correspond to a conventionally oriented chess diagram; Top left corner
@@ -23,8 +23,7 @@ namespace thc
 // Note that instead of defining a special piece type, we use the built-in
 //  char type, with 'N'=white knight, 'b'=black bishop etc. and ' '=an
 //  empty square.
-enum Square
-{
+enum Square {
     a8=0,
         b8, c8, d8, e8, f8, g8, h8,
     a7, b7, c7, d7, e7, f7, g7, h7,
@@ -37,6 +36,11 @@ enum Square
     SQUARE_INVALID
 };
 
+// Allow easy iteration through squares
+inline Square operator++(Square sq) {
+    return static_cast<Square>(sq+1);
+}
+
 // thc::Square utilities
 inline char get_file(Square sq)
     { return static_cast<char>((static_cast<int>(sq) & 0x07) + 'a'); }           // eg c5->'c'
@@ -45,9 +49,14 @@ inline char get_rank(Square sq)
 inline Square make_square(char file, char rank)
     { return static_cast<Square>(('8' - rank) * 8 + (file-'a')); }               // eg ('c','5') -> c5
 
+// Check whether a piece is black, white or an empty square, should really make
+//  these and most other macros into inline functions
+inline bool IsEmptySquare(char p) { return p == ' '; }
+inline bool IsBlack(char p) { return std::islower(p); }
+inline bool IsWhite(char p) { return std::isupper(p); }
+
 // Special (i.e. not ordinary) move types
-enum SPECIAL
-{
+enum SPECIAL {
     NOT_SPECIAL = 0,
     SPECIAL_KING_MOVE,     // special only because it changes wking_square, bking_square
     SPECIAL_WK_CASTLING,
@@ -66,17 +75,19 @@ enum SPECIAL
 
 // Results of a test for legal position, note that they are powers
 //  of 2, allowing a mask of reasons
-enum ILLEGAL_REASON
-{
-    IR_NULL=0, IR_PAWN_POSITION=1, //pawns on 1st or 8th rank
-    IR_NOT_ONE_KING_EACH=2, IR_CAN_TAKE_KING=4,
-    IR_WHITE_TOO_MANY_PIECES=8, IR_WHITE_TOO_MANY_PAWNS=16,
-    IR_BLACK_TOO_MANY_PIECES=32, IR_BLACK_TOO_MANY_PAWNS=64
+enum ILLEGAL_REASON {
+    IR_NULL                  = 0,
+    IR_PAWN_POSITION         = 1, //pawns on 1st or 8th rank
+    IR_NOT_ONE_KING_EACH     = 2,
+    IR_CAN_TAKE_KING         = 4,
+    IR_WHITE_TOO_MANY_PIECES = 8,
+    IR_WHITE_TOO_MANY_PAWNS  = 16,
+    IR_BLACK_TOO_MANY_PIECES = 32,
+    IR_BLACK_TOO_MANY_PAWNS  = 64,
 };
 
 // Types of draw checked by IsDraw()
-enum DRAWTYPE
-{
+enum DRAWTYPE {
     NOT_DRAW,
     DRAWTYPE_50MOVE,
     DRAWTYPE_INSUFFICIENT,      // draw if superior side wants it
@@ -88,13 +99,12 @@ enum DRAWTYPE
 };
 
 // Stalemate or checkmate game terminations
-enum TERMINAL
-{
-    NOT_TERMINAL = 0,
+enum TERMINAL {
+    NOT_TERMINAL        =  0,
     TERMINAL_WCHECKMATE = -1,   // White is checkmated
     TERMINAL_WSTALEMATE = -2,   // White is stalemated
-    TERMINAL_BCHECKMATE = 1,    // Black is checkmated
-    TERMINAL_BSTALEMATE = 2     // Black is stalemated
+    TERMINAL_BCHECKMATE =  1,   // Black is checkmated
+    TERMINAL_BSTALEMATE =  2    // Black is stalemated
 };
 
 // Calculate an upper limit to the length of a list of moves
@@ -107,7 +117,6 @@ enum TERMINAL
 //  at the moment, so we reluctantly expose them to users of the chess
 //  classes.
 using lte = unsigned char;   // lte = lookup table element
-using DETAIL = std::int32_t;
 
 }
 

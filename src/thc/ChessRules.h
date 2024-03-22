@@ -14,12 +14,10 @@
 
 #include <vector>
 
-namespace thc
-{
+namespace thc {
 
 // Class encapsulates state of game and operations available
-class ChessRules: public ChessPosition
-{
+class ChessRules: public ChessPosition {
 public:
     ChessRules() : ChessPosition() { Init(); }
 
@@ -36,26 +34,21 @@ public:
         detail_idx =0;
     }
 
-    // Copy constructor
-    ChessRules(const ChessPosition& src) : ChessPosition(src)
-    {
+    ChessRules(const ChessPosition& src) : ChessPosition(src) {
         Init();   // even if src is e.g. ChessRules or ChessEngine don't
                   //   copy stuff for repetition, 50 move rule
     }
 
-    // Assignment operator
-    ChessRules& operator=(const ChessPosition& src)
-    {
-        *((ChessPosition *)this) = src;
+    ChessRules& operator=(const ChessPosition& src) {
+        *((ChessPosition*)this) = src;
         Init();   // even if src is e.g. ChessRules or ChessEngine don't
                   //   copy stuff for repetition, 50 move rule
         return *this;
     }
 
     // Initialise from Forsyth string
-    bool Forsyth(const char* txt)
-    {
-        bool okay = ChessPosition::Forsyth(txt);
+    bool Forsyth(const char* txt) {
+        const auto okay = ChessPosition::Forsyth(txt);
         if (okay) {
             Init(); // clear stuff for repetition, 50 move rule
         }

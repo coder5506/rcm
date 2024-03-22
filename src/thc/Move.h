@@ -12,8 +12,7 @@
 #include "ChessDefs.h"
 #include <string>
 
-namespace thc
-{
+namespace thc {
 class ChessRules;
 
 // Our representation of a chess move
@@ -32,36 +31,38 @@ class ChessRules;
 // internal move) to only 32 bits, I realised I could live without
 // FMOVEs and that sparked a large simplification exercise.
 //
-class Move
-{
+class Move {
 public:
     // Move is a lightweight type, it is accommodated in only 32 bits
-    Square  src       : 8;
-    Square  dst       : 8;
-    SPECIAL special   : 8;
-    int     capture   : 8;      // ' ' (empty) if move not a capture
-                                // for some reason Visual C++ 2005 (at least)
-                                // blows sizeof(Move) out to 64 bits if
-                                // capture is defined as char instead of int
+    union {
+        struct {
+            Square  src       : 8;
+            Square  dst       : 8;
+            SPECIAL special   : 8;
+            int     capture   : 8;      // ' ' (empty) if move not a capture
+                                        // for some reason Visual C++ 2005 (at least)
+                                        // blows sizeof(Move) out to 64 bits if
+                                        // capture is defined as char instead of int
+        };
+        std::uint32_t raw;
+    };
 
     Move(Square src, Square dst, SPECIAL special, int capture);
     Move();
 
-    bool operator==(const Move& other) const
-    {
-        return *reinterpret_cast<const std::int32_t*>(this) == *reinterpret_cast<const std::int32_t*>(&other);
+    bool operator==(const Move& other) const {
+        return raw == other.raw;
     }
 
-    bool operator!=(const Move& other) const
-    {
-        return *reinterpret_cast<const std::int32_t*>(this) != *reinterpret_cast<const std::int32_t*>(&other);
+    bool operator!=(const Move& other) const {
+        return raw != other.raw;
     }
 
     // Use these sparingly when you need to specifically mark
     //  a move as not yet set up (defined when we got rid of
     //  16 bit FMOVEs, we could always set and test 0 with those)
-    void Invalid() { src=a8; dst=a8; }
-    bool Valid()   { return src!=a8 || dst!=a8; }
+    void Invalid() { src = a8; dst = a8; }
+    bool Valid()   { return src != a8 || dst != a8; }
 
     // Read natural string move eg "Nf3"
     //  return bool okay
@@ -83,8 +84,7 @@ public:
     // Convert to terse string eg "e7e8q"
     std::string TerseOut();
 
-    bool is_promotion() const
-    {
+    bool is_promotion() const {
         return SPECIAL_PROMOTION_QUEEN <= special && special <= SPECIAL_PROMOTION_KNIGHT;
     }
 };

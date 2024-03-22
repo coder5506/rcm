@@ -16,10 +16,8 @@
  *  of derived classes "extending" base classes.
  *
  *  So
- *    ChessPositionRaw
+ *    ChessPosition
  *      ;A simple C style structure that holds a chess position
- *    ChessPosition   extends ChessPositionRaw
- *      ;ChessPosition adds constructors, and other simple facilities
  *    ChessRules      extends ChessPosition
  *      ;ChessRules adds all the rules of standard chess
  ****************************************************************************/
@@ -60,7 +58,6 @@
 #include "ChessPosition.h"
 #include "Move.h"
 #include "PrivateChessDefs.h"
-#include "HashLookup.h"
 
 #include <cctype>
 #include <cstdio>
@@ -70,33 +67,62 @@
 using namespace std;
 using namespace thc;
 
-std::string ChessPosition::ToDebugStr(const char* label) const
+ChessPosition::ChessPosition()
+    : enpassant_target{SQUARE_INVALID},
+      wking_square{e1},
+      bking_square{e8},
+      wking{1},
+      wqueen{1},
+      bking{1},
+      bqueen{1}
 {
-    std::string s;
-    const char *p = squares;
-    if( label )
-        s = label;
-    s += (white ? "\nWhite to move\n" : "\nBlack to move\n");
-    for( int row=0; row<8; row++ )
-    {
-        for( int col=0; col<8; col++ )
-        {
-            char c = *p++;
-            if( c==' ' )
-                c = '.';
-           s += c;
+    memcpy(squares,
+        "rnbqkbnr"
+        "pppppppp"
+        "        "
+        "        "
+        "        "
+        "        "
+        "PPPPPPPP"
+        "RNBQKBNR", sizeof squares);
+}
+
+Square ChessPosition::groomed_enpassant_target() const {
+    auto ret = SQUARE_INVALID;
+    if (white && a6 <= enpassant_target && enpassant_target <= h6) {
+        auto zap = true;  // zap unless there is a 'P' in place
+        auto idx = enpassant_target + 8; //idx = SOUTH(enpassant_target)
+        if (enpassant_target > a6 && squares[idx-1] == 'P') {
+            zap = false;    // eg a5xb6 ep, through g5xh6 ep
         }
-        s +=  '\n';
+        if (enpassant_target < h6 && squares[idx+1] == 'P') {
+            zap = false;    // eg b5xa6 ep, through h5xg6 ep
+        }
+        if (!zap) {
+            ret = enpassant_target;
+        }
     }
-    return s;
+    else if (!white && a3 <= enpassant_target && enpassant_target <= h3) {
+        bool zap = true;  // zap unless there is a 'p' in place
+        auto idx = enpassant_target - 8; //idx = NORTH(enpassant_target)
+        if (enpassant_target > a3 && squares[idx-1] == 'p') {
+            zap = false;    // eg a4xb3 ep, through g4xh3 ep
+        }
+        if (enpassant_target < h3 && squares[idx+1] == 'p') {
+            zap = false;    // eg b4xa3 ep, through h4xg3 ep
+        }
+        if (!zap) {
+            ret = enpassant_target;
+        }
+    }
+    return ret;
 }
 
 /****************************************************************************
  * Set up position on board from Forsyth string with extensions
  *   return bool okay
  ****************************************************************************/
-bool ChessPosition::Forsyth(const char* txt)
-{
+bool ChessPosition::Forsyth(const char* txt) {
     int   file, rank, skip, store, temp;
     int   count_wking=0, count_bking=0;
     char  c, cross;
@@ -364,8 +390,7 @@ bool ChessPosition::Forsyth(const char* txt)
 /****************************************************************************
  * Publish chess position and supplementary info in forsyth notation
  ****************************************************************************/
-std::string ChessPosition::ForsythPublish()
-{
+std::string ChessPosition::ForsythPublish() {
     int i, empty=0, file=0, rank=7, save_file=0, save_rank=0;
     Square sq;
     char p;

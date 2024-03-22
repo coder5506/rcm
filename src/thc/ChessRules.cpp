@@ -18,12 +18,18 @@
 using namespace std;
 using namespace thc;
 
+// Bits corresponding to detail bits wking, wqueen, bking, bqueen for
+//  DETAIL_CASTLING
+#define WKING   0x01
+#define WQUEEN  0x02
+#define BKING   0x04
+#define BQUEEN  0x08
+
 // Table indexed by Square, gives mask for DETAIL_CASTLING, such that a move
 //  to (or from) that square results in castling being prohibited, eg a move
 //  to e8 means that subsequently black kingside and black queenside castling
 //  is prohibited
-static unsigned char castling_prohibited_table[] =
-{
+static unsigned char castling_prohibited_table[] = {
     (unsigned char)(~BQUEEN), 0xff, 0xff, 0xff,                             // a8-d8
     (unsigned char)(~(BQUEEN+BKING)), 0xff, 0xff, (unsigned char)(~BKING),  // e8-h8
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                         // a7-h7
@@ -36,9 +42,7 @@ static unsigned char castling_prohibited_table[] =
     (unsigned char)(~(WQUEEN+WKING)),  0xff, 0xff, (unsigned char)(~WKING)  // e1-h1
 };
 
-/****************************************************************************
- * Play a move
- ****************************************************************************/
+// Play a move
 void ChessRules::PlayMove(Move imove) {
     // Legal move - save it in history
     history[history_idx++] = imove; // ring array
@@ -74,7 +78,7 @@ void ChessRules::GenLegalMoveList(vector<Move>& moves) {
     // Loop copying the proven good ones
     for (auto move : list2) {
         PushMove(move);
-        const bool okay = Evaluate();
+        const auto okay = Evaluate();
         PopMove(move);
         if (okay) {
             moves.push_back(move);
@@ -122,9 +126,7 @@ void ChessRules::GenLegalMoveList(vector<Move>& moves,
     }
 }
 
-/****************************************************************************
- * Check draw rules (50 move rule etc.)
- ****************************************************************************/
+// Check draw rules (50 move rule etc.)
 bool ChessRules::IsDraw(bool white_asks, DRAWTYPE& result) {
     bool   draw=false;
 
@@ -150,9 +152,14 @@ bool ChessRules::IsDraw(bool white_asks, DRAWTYPE& result) {
     return( draw );
 }
 
-/****************************************************************************
- * Get number of times position has been repeated
- ****************************************************************************/
+#define DETAIL_SAVE     DETAIL tmp = detail
+#define DETAIL_RESTORE  detail = tmp
+#define DETAIL_EQ_ALL             ((detail & 0x0fffffff) == (tmp & 0x0fffffff))
+#define DETAIL_EQ_CASTLING        ((detail & 0x0f000000) == (tmp & 0x0f000000))
+#define DETAIL_EQ_KING_POSITIONS  ((detail & 0x00ffff00) == (tmp & 0x00ffff00))
+#define DETAIL_EQ_EN_PASSANT      ((detail & 0x000000ff) == (tmp & 0x000000ff))
+
+// Get number of times position has been repeated
 int ChessRules::GetRepetitionCount() {
     int matches=0;
 
@@ -196,8 +203,8 @@ int ChessRules::GetRepetitionCount() {
                 //  en passant possibilities
                 if( !DETAIL_EQ_EN_PASSANT )
                 {
-                    int ep_saved = (int)(tmp&0xff);
-                    int ep_now   = (int)(*DETAIL_ADDR&0xff);
+                    int ep_saved = (int)(tmp & 0xff);
+                    int ep_now   = (int)(detail & 0xff);
 
                     // Work out whether each en_passant is a real one, i.e. is there an opposition
                     //  pawn in place to capture (if not it's just a double pawn advance with no
@@ -252,13 +259,13 @@ int ChessRules::GetRepetitionCount() {
                 if( !revoke_match && !DETAIL_EQ_CASTLING )
                 {
                     bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && (int)(tmp&(WKING<<24));
-                    bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && (int)(*DETAIL_ADDR&(WKING<<24));
+                    bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && (int)(detail&(WKING<<24));
                     bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && (int)(tmp&(BKING<<24));
-                    bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && (int)(*DETAIL_ADDR&(BKING<<24));
+                    bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && (int)(detail&(BKING<<24));
                     bool wqueen_saved = save_squares[e1]=='K' && save_squares[a1]=='R' && (int)(tmp&(WQUEEN<<24));
-                    bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && (int)(*DETAIL_ADDR&(WQUEEN<<24));
+                    bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && (int)(detail&(WQUEEN<<24));
                     bool bqueen_saved = save_squares[e8]=='k' && save_squares[a8]=='r' && (int)(tmp&(BQUEEN<<24));
-                    bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && (int)(*DETAIL_ADDR&(BQUEEN<<24));
+                    bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && (int)(detail&(BQUEEN<<24));
                     revoke_match = ( wking_saved != wking_now ||
                                      bking_saved != bking_now ||
                                      wqueen_saved != wqueen_now ||
@@ -288,9 +295,7 @@ int ChessRules::GetRepetitionCount() {
     return( matches+1 );  // +1 counts original position
 }
 
-/****************************************************************************
- * Check insufficient material draw rule
- ****************************************************************************/
+// Check insufficient material draw rule
 bool ChessRules::IsInsufficientDraw(bool white_asks, DRAWTYPE& result) {
     char   piece;
     int    piece_count=0;
@@ -353,23 +358,8 @@ bool ChessRules::IsInsufficientDraw(bool white_asks, DRAWTYPE& result) {
 
 // Generate a list of all possible moves in a position
 void ChessRules::GenMoveList(vector<Move>& moves) {
-    // Convenient spot for some asserts
-    //  Have a look at TestInternals() for this,
-    //   A ChessPositionRaw should finish with 32 bits of detail information
-    //   (see DETAIL macros, this assert() checks that)
-    assert(
-        sizeof(ChessPositionRaw) ==
-               (offsetof(ChessPositionRaw,full_move_count) + sizeof(full_move_count) + sizeof(DETAIL))
-    );
-
-    // We also rely on Moves being 32 bits for the implementation of Move
-    //  bitwise == and != operators
-    assert(sizeof(Move) == sizeof(int32_t));
-
-    // Clear move list
     moves.clear();
 
-    // Loop through all squares
     for (Square square = a8; square <= h1; ++square) {
         // If square occupied by a piece of the right colour
         const char piece=squares[square];
@@ -634,12 +624,12 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
     }
 }
 
-/****************************************************************************
- * Make a move (with the potential to undo)
- ****************************************************************************/
+#define DETAIL_CASTLING(sq) *(3 + reinterpret_cast<unsigned char*>(&detail)) &= castling_prohibited_table[sq]
+
+// Make a move (with the potential to undo)
 void ChessRules::PushMove(Move& m) {
     // Push old details onto stack
-    DETAIL_PUSH;
+    detail_stack[detail_idx++] = detail;
 
     // Update castling prohibited flags for destination square, eg h8 -> bking
     DETAIL_CASTLING(m.dst);
@@ -665,10 +655,12 @@ void ChessRules::PushMove(Move& m) {
     case SPECIAL_KING_MOVE:
         squares[m.dst] = squares[m.src];
         squares[m.src] = ' ';
-        if( white )
+        if (white) {
             wking_square = m.dst;
-        else
+        }
+        else {
             bking_square = m.dst;
+        }
         break;
 
     // In promotion case, dst piece doesn't equal src piece
@@ -758,12 +750,10 @@ void ChessRules::PushMove(Move& m) {
     Toggle();
 }
 
-/****************************************************************************
- * Undo a move
- ****************************************************************************/
+// Undo a move
 void ChessRules::PopMove(Move& m) {
     // Previous detail field
-    DETAIL_POP;
+    detail = detail_stack[--detail_idx];
 
     // Toggle who-to-move
     Toggle();
@@ -780,10 +770,12 @@ void ChessRules::PopMove(Move& m) {
     case SPECIAL_PROMOTION_ROOK:
     case SPECIAL_PROMOTION_BISHOP:
     case SPECIAL_PROMOTION_KNIGHT:
-        if( white )
+        if (white) {
             squares[m.src] = 'P';
-        else
+        }
+        else {
             squares[m.src] = 'p';
+        }
         squares[m.dst] = m.capture;
         break;
 
@@ -829,17 +821,13 @@ void ChessRules::PopMove(Move& m) {
     }
 }
 
-/****************************************************************************
- * Determine if an occupied square is attacked
- ****************************************************************************/
+// Determine if an occupied square is attacked
 bool ChessRules::AttackedPiece(Square square) {
     const bool enemy_is_white = IsBlack(squares[square]);
     return AttackedSquare(square, enemy_is_white);
 }
 
-/****************************************************************************
- * Is a square is attacked by enemy ?
- ****************************************************************************/
+// Is a square is attacked by enemy ?
 bool ChessRules::AttackedSquare(Square square, bool enemy_is_white) {
     Square dst;
     const lte *ptr = (enemy_is_white ? attacks_black_lookup[square] : attacks_white_lookup[square] );
@@ -890,9 +878,7 @@ bool ChessRules::AttackedSquare(Square square, bool enemy_is_white) {
     return false;
 }
 
-/****************************************************************************
- * Evaluate a position, returns bool okay (not okay means illegal position)
- ****************************************************************************/
+// Evaluate a position, returns bool okay (not okay means illegal position)
 bool ChessRules::Evaluate() {
     Square enemy_king = (Square)(white ? bking_square : wking_square);
     // Enemy king is attacked and our move, position is illegal
@@ -945,9 +931,7 @@ bool ChessRules::Evaluate(vector<Move> *p, TERMINAL& score_terminal) {
     return okay;
 }
 
-/****************************************************************************
- *  Test for legal position, sets reason to a mask of possibly multiple reasons
- ****************************************************************************/
+// Test for legal position, sets reason to a mask of possibly multiple reasons
 bool ChessRules::IsLegal(ILLEGAL_REASON& reason) {
     int  ireason = 0;
     int  wkings=0, bkings=0, wpawns=0, bpawns=0, wpieces=0, bpieces=0;

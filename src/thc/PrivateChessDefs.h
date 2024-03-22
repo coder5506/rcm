@@ -11,21 +11,7 @@
 
 #include "ChessDefs.h"
 
-// TripleHappyChess
-namespace thc
-{
-
-// Check whether a piece is black, white or an empty square, should really make
-//  these and most other macros into inline functions
-#define IsEmptySquare(p) ((p)==' ')
-#define IsBlack(p) ((p)>'a')              // all lower case pieces
-#define IsWhite(p) ((p)<'a' && (p)!=' ')  // all upper case pieces, and not empty
-
-// Allow easy iteration through squares
-inline Square operator++(Square sq)
-{
-    return static_cast<Square>(sq+1);
-}
+namespace thc {
 
 // Macro to convert chess notation to Square convention,
 //  eg SQ('c','5') -> c5
@@ -51,46 +37,6 @@ inline Square operator++(Square sq)
 #ifndef nbrof
     #define nbrof(array) (sizeof((array))/sizeof((array)[0]))
 #endif
-
-/* DETAIL is shorthand for the section of type ChessPosition that looks
-   like this;
-
-    Square enpassant_target : 8;
-    Square wking_square     : 8;
-    Square bking_square     : 8;
-    int  wking              : 1;
-    int  wqueen             : 1;
-    int  bking              : 1;
-    int  bqueen             : 1;
-
-  We assume it is located in the last 4 bytes of ChessPosition,
-  hence the definition of typedef DETAIL as unsigned long, and
-  of DETAIL_ADDR below. We assume that ANDing the unsigned
-  character at this address + 3, with ~WKING, where WKING
-  is defined as unsigned char 0x01, will clear wking. See the
-  definition of DETAIL_CASTLING and castling_prohibited_table[].
-  These assumptions are likely not portable and are tested in
-  TestInternals(). If porting this code, step through that code
-  first and make any adjustments necessary */
-
-#define DETAIL_ADDR         ( (DETAIL*) ((char *)this + sizeof(ChessPosition) - sizeof(DETAIL))  )
-#define DETAIL_SAVE         DETAIL tmp = *DETAIL_ADDR
-#define DETAIL_RESTORE      *DETAIL_ADDR = tmp
-#define DETAIL_EQ_ALL               ( (*DETAIL_ADDR&0x0fffffff) == (tmp&0x0fffffff) )
-#define DETAIL_EQ_CASTLING          ( (*DETAIL_ADDR&0x0f000000) == (tmp&0x0f000000) )
-#define DETAIL_EQ_KING_POSITIONS    ( (*DETAIL_ADDR&0x00ffff00) == (tmp&0x00ffff00) )
-#define DETAIL_EQ_EN_PASSANT        ( (*DETAIL_ADDR&0x000000ff) == (tmp&0x000000ff) )
-#define DETAIL_PUSH         detail_stack[detail_idx++] = *DETAIL_ADDR
-#define DETAIL_POP          *DETAIL_ADDR = detail_stack[--detail_idx]
-#define DETAIL_CASTLING(sq) *( 3 + (unsigned char*)DETAIL_ADDR ) &= castling_prohibited_table[sq]
-
-// Bits corresponding to detail bits wking, wqueen, bking, bqueen for
-//  DETAIL_CASTLING
-#define WKING   0x01
-#define WQUEEN  0x02
-#define BKING   0x04
-#define BQUEEN  0x08
-
 
 // Convert piece, e.g. 'N' to bitmask in lookup tables. See automatically
 //  PrivateChessDefs.cpp and GeneratedLookupTables.h for format of
@@ -133,6 +79,6 @@ extern const lte* attacks_white_lookup[];
 // Lookup squares from which enemy pieces attack black
 extern const lte* attacks_black_lookup[];
 
-} //namespace thc
+}
 
 #endif
