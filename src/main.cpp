@@ -13,18 +13,14 @@ int main() {
         // Required
         return EXIT_FAILURE;
     }
-    if (centaur_open() != 0) {
-        db_close();
-        return EXIT_FAILURE;
-    }
 
     // Optional, can ignore failure
     httpd_start();
 
-    standard_main();
+    StandardGame standard;
+    standard.main();
 
     httpd_stop();
-    centaur_close();
     db_close();
 }
 

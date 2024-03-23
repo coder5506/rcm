@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
 #include "image.h"
@@ -10,40 +10,34 @@
 
 #include <png.h>
 
-static bool image_valid(const struct Image *image) {
+bool Image::is_valid() const {
     return
-        image &&
-        image->width  > 0 &&
-        image->height > 0 &&
-        image->width_bytes == (image->width + 7) / 8 &&
-        image->size_bytes  == image->width_bytes * image->height;
+        width  > 0 &&
+        height > 0 &&
+        width_bytes == (width + 7) / 8 &&
+        size_bytes  == width_bytes * height &&
+        data_.size() == size_bytes;
 }
 
-void image_free(struct Image *image) {
-    (void)image;
+Image::Image(int width, int height)
+    : width{width},
+      height{height},
+      width_bytes{(width + 7) / 8},
+      size_bytes{width_bytes * height},
+      data_(size_bytes)
+{
+    assert(is_valid());
 }
 
-struct Image *image_alloc(int width, int height) {
-    assert(width > 0 && height > 0);
-    const int width_bytes = (width + 7) / 8;
-    const int size_bytes  = width_bytes * height;
-
-    struct Image *image = (struct Image*)malloc(sizeof(struct Image) + size_bytes);
-    image->width  = width;
-    image->height = height;
-    image->width_bytes = width_bytes;
-    image->size_bytes  = size_bytes;
-
-    assert(image_valid(image));
-    return image;
+bool operator==(const Image &a, const Image &b) {
+    return
+        a.width  == b.width &&
+        a.height == b.height &&
+        a.data_   == b.data_;
 }
 
-bool image_equal(const struct Image *a, const struct Image *b) {
-    assert(image_valid(a) && image_valid(b));
-    if (a->width != b->width || a->height != b->height) {
-        return false;
-    }
-    return memcmp(a->data, b->data, a->size_bytes) == 0;
+bool operator!=(const Image &a, const Image &b) {
+    return !(a == b);
 }
 
 struct BMPFILEHEADER {
@@ -75,10 +69,8 @@ struct BMPRGBQUAD {
     uint8_t rgbReversed;
 } __attribute__((packed));
 
-struct Image *image_readbmp(const char *path) {
-    struct Image *image = NULL;
-
-    FILE *const fp = fopen(path, "rb");
+std::unique_ptr<Image> Image::readbmp(const char* path) {
+    auto fp = fopen(path, "rb");
     if (!fp) {
         return NULL;
     }
@@ -108,22 +100,22 @@ struct Image *image_readbmp(const char *path) {
     struct BMPRGBQUAD rgb[2];
     fread(&rgb, sizeof rgb, 1, fp);
 
-    enum PixelColor colors[2] = { PIXEL_BLACK, PIXEL_WHITE };
+    PixelColor colors[2] = { PIXEL_BLACK, PIXEL_WHITE };
     if (rgb[0].rgbBlue == 255 && rgb[0].rgbGreen == 255 && rgb[0].rgbRed == 255) {
         colors[0] = PIXEL_WHITE;
         colors[1] = PIXEL_BLACK;
     }
 
-    image = image_alloc(info.biWidth, info.biHeight);
+    auto image = std::make_unique<Image>(int(info.biWidth), int(info.biHeight));
     fseek(fp, header.bOffset, SEEK_SET);
 
     // Bitmap pads each row out to 4 bytes
-    const int row_bytes = ((info.biWidth * info.biBitCount + 31) / 32) * 4;
+    const auto row_bytes = ((info.biWidth * info.biBitCount + 31) / 32) * 4;
 
     // Bitmap starts with lower-left corner
-    for (int y = image->height - 1 ; y >= 0; --y) {
-        for (int x = 0; x < row_bytes; ++x) {
-            uint8_t Rdata;
+    for (auto y = image->height - 1 ; y >= 0; --y) {
+        for (auto x = 0; x < row_bytes; ++x) {
+            std::uint8_t Rdata;
             if (fread((char*)&Rdata, 1, 1, fp) != 1) {
                 fclose(fp);
                 return NULL;
@@ -131,15 +123,15 @@ struct Image *image_readbmp(const char *path) {
 
             if (info.biBitCount == 1) {
                 if (x < image->width_bytes) {
-                    image->data[y * image->width_bytes + x] = Rdata;
+                    image->data_[y * image->width_bytes + x] = Rdata;
                 }
             } else if (info.biBitCount == 8) {
-                const enum PixelColor color = Rdata ? colors[1] : colors[0];
+                const PixelColor color = Rdata ? colors[1] : colors[0];
                 if (x < image->width) {
                     if (color == PIXEL_WHITE) {
-                        image->data[y * image->width_bytes + x / 8] |=   0x80 >> (x % 8);
+                        image->data_[y * image->width_bytes + x / 8] |=   0x80 >> (x % 8);
                     } else {
-                        image->data[y * image->width_bytes + x / 8] &= ~(0x80 >> (x % 8));
+                        image->data_[y * image->width_bytes + x / 8] &= ~(0x80 >> (x % 8));
                     }
                 }
             }
@@ -148,16 +140,16 @@ struct Image *image_readbmp(const char *path) {
 
     fclose(fp);
 
-    assert(image_valid(image));
+    assert(image->is_valid());
     return image;
 }
 
-int image_png(const struct Image *image, uint8_t **png, size_t *size) {
-    assert(image_valid(image));
+int Image::png(std::uint8_t** png, std::size_t* size) const {
+    assert(is_valid());
     assert(png && !*png);
     assert(size && !*size);
 
-    FILE *file = open_memstream((char**)png, size);
+    auto file = open_memstream((char**)png, size);
 
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
@@ -186,8 +178,8 @@ int image_png(const struct Image *image, uint8_t **png, size_t *size) {
     png_set_IHDR(
         png_ptr,
         info_ptr,
-        image->width,
-        image->height,
+        width,
+        height,
         1,
         PNG_COLOR_TYPE_GRAY,
         PNG_INTERLACE_NONE,
@@ -195,9 +187,9 @@ int image_png(const struct Image *image, uint8_t **png, size_t *size) {
         PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png_ptr, info_ptr);
 
-    png_bytep *row_pointers = (png_bytep*)alloca(image->height * sizeof(png_bytep));
-    for (int y = 0; y != image->height; ++y) {
-        row_pointers[y] = (uint8_t*)image->data + y * image->width_bytes;
+    png_bytep* row_pointers = (png_bytep*)alloca(height * sizeof(png_bytep));
+    for (auto y = 0; y != height; ++y) {
+        row_pointers[y] = const_cast<std::uint8_t*>(data()) + y * width_bytes;
     }
     png_write_image(png_ptr, row_pointers);
 

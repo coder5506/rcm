@@ -220,43 +220,45 @@ httpd_response_new(struct MHD_Response *mhd_response, int status_code) {
 // Handlers
 //
 
-struct EventStream {
+class EventStream : public Observer<Game>, public Observer<Screen> {
+public:
     std::condition_variable cond;
     std::mutex              mutex;
     std::queue<std::string> events;
 
     ~EventStream();
     EventStream();
+
+    void model_changed(Game&) override;
+    void model_changed(Screen&) override;
 };
 
-static void observe_game(struct Model *model, struct EventStream *stream) {
-    (void)model;
-    std::lock_guard<std::mutex> lock(stream->mutex);
-    stream->events.push("game_changed");
-    stream->cond.notify_one();
+void EventStream::model_changed(Game&) {
+    std::lock_guard<std::mutex> lock(mutex);
+    events.push("game_changed");
+    cond.notify_one();
 }
 
-static void observe_screen(struct Model *model, struct EventStream *stream) {
-    (void)model;
-    std::lock_guard<std::mutex> lock(stream->mutex);
-    stream->events.push("screen_changed");
-    stream->cond.notify_one();
+void EventStream::model_changed(Screen&) {
+    std::lock_guard<std::mutex> lock(mutex);
+    events.push("screen_changed");
+    cond.notify_one();
 }
 
 EventStream::~EventStream() {
     std::lock_guard<std::mutex> lock(mutex);
-    centaur.game->unobserve((ModelChanged)observe_game, this);
-    screen.unobserve((ModelChanged)observe_screen, this);
+    centaur.game->unobserve(this);
+    centaur.screen.unobserve(this);
 }
 
 EventStream::EventStream() {
     std::lock_guard<std::mutex> lock(mutex);
-    centaur.game->observe((ModelChanged)observe_game, this);
-    screen.observe((ModelChanged)observe_screen, this);
+    centaur.game->observe(this);
+    centaur.screen.observe(this);
 }
 
 static ssize_t
-stream_events(struct EventStream *stream, uint64_t pos, char *buf, size_t max)
+stream_events(EventStream *stream, uint64_t pos, char *buf, size_t max)
 {
     (void)pos;
 
@@ -337,7 +339,7 @@ get_screen(struct HttpdRequest *request) {
 
     uint8_t *png  = NULL;
     size_t   size = 0;
-    screen_png(&png, &size);
+    centaur.screen.png(&png, &size);
 
     struct MHD_Response *mhd_response =
         MHD_create_response_from_buffer(size, png, MHD_RESPMEM_MUST_FREE);

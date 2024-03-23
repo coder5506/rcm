@@ -9,7 +9,7 @@ sources  = $(foreach d,$(src_dirs),$(wildcard $d/*.cpp))
 obj_dirs = $(patsubst src%,obj%,$(src_dirs))
 objects  = $(foreach s,$(sources),$(patsubst src/%.cpp,obj/%.o,$s))
 
-CPPFLAGS = -DGC_THREADS -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
+CPPFLAGS = -D_GNU_SOURCE -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS   = -Wall -Wextra -Wpedantic -pthread
 CFLAGS  += -Werror -g
 #CFLAGS  += -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable

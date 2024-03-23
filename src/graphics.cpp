@@ -2,84 +2,53 @@
 // See license at end of file
 
 #include "graphics.h"
-#include "fonts/fonts.h"
 
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-struct Context default_context = {
-    .next       = NULL,
-    .image      = NULL,
-    .foreground = PIXEL_BLACK,
-    .background = PIXEL_WHITE,
-    .dot_style  = DOT_FILL_AROUND,
-    .dot_size   = 1,
-    .line_style = LINE_STYLE_SOLID,
-    .line_width = 1,
-    .rotate     = ROTATE_180,
-    .font       = &Font16,
-};
-
-void context_free(struct Context *context) {
-    (void)context;
+Context::Context()
+    : image{nullptr},
+      foreground{PIXEL_BLACK},
+      background{PIXEL_WHITE},
+      dot_style{DOT_FILL_AROUND},
+      dot_size{1},
+      line_style{LINE_STYLE_SOLID},
+      line_width{1},
+      rotate{ROTATE_180},
+      font{&Font16}
+{
 }
 
-struct Context *context_alloc() {
-    struct Context *context = (struct Context*)malloc(sizeof *context);
-    *context = default_context;
-    return context;
+void Context::clear() {
+    memset(image->data(), background, image->size_bytes);
 }
 
-void context_push(struct Context **context) {
-    struct Context *new_context = context_alloc();
-    *new_context = **context;
-    new_context->next = *context;
-    *context = new_context;
-}
-
-void context_pop(struct Context **context) {
-    assert(context && (*context)->next);
-    struct Context *old_context = *context;
-    *context = old_context->next;
-    context_free(old_context);
-}
-
-void graphics_clear(struct Context *context) {
-    struct Image *image = context->image;
-    memset(image->data, context->background, image->size_bytes);
-}
-
-static void transform_point(const struct Context *context, int *x, int *y) {
-    const struct Image *image = context->image;
-    const int x_orig = *x;
-
-    switch (context->rotate) {
+void Context::transform_point(int& x, int& y) const {
+    const auto x_orig = x;
+    switch (rotate) {
     case ROTATE_0:
         break;
     case ROTATE_90:
-        *x = *y;
-        *y = image->height - 1 - x_orig;
+        x = y;
+        y = image->height - 1 - x_orig;
         break;
     case ROTATE_180:
-        *x = image->width  - 1 - x_orig;
-        *y = image->height - 1 - *y;
+        x = image->width  - 1 - x_orig;
+        y = image->height - 1 - y;
         break;
     case ROTATE_270:
-        *x = image->width  - 1 - *y;
-        *y = x_orig;
+        x = image->width  - 1 - y;
+        y = x_orig;
         break;
     default:
         assert(0);
     }
 }
 
-static void
-setpixel(struct Context *context, int x, int y, enum PixelColor color) {
-    struct Image *image = context->image;
-
-    transform_point(context, &x, &y);
+void Context::setpixel(int x, int y, PixelColor color) {
+    transform_point(x, y);
     if (x < 0 || image->width <= x || y < 0 || image->height <= y) {
         return;
     }
@@ -87,29 +56,26 @@ setpixel(struct Context *context, int x, int y, enum PixelColor color) {
     const int byte = y * image->width_bytes + x / 8;
     const int bit  = 0x80 >> (x % 8); // MSB
     if (color == PIXEL_BLACK) {
-        image->data[byte] &= ~bit;
+        image->data_[byte] &= ~bit;
     } else {
-        image->data[byte] |=  bit;
+        image->data_[byte] |=  bit;
     }
 }
 
-void
-graphics_drawpoint(
-    struct Context *context, int x, int y, enum PixelColor color)
+void Context::drawpoint(int x, int y, PixelColor color)
 {
-    const int dot_size = context->dot_size;
-    switch (context->dot_style) {
+    switch (dot_style) {
     case DOT_FILL_AROUND:
-        for (int xd = 0; xd < 2 * dot_size - 1; ++xd) {
-            for (int yd = 0; yd < 2 * dot_size - 1; ++yd) {
-                setpixel(context, x + xd - dot_size, y + yd - dot_size, color);
+        for (auto xd = 0; xd < 2 * dot_size - 1; ++xd) {
+            for (auto yd = 0; yd < 2 * dot_size - 1; ++yd) {
+                setpixel(x + xd - dot_size, y + yd - dot_size, color);
             }
         }
         break;
     case DOT_FILL_RIGHTUP:
-        for (int xd = 0; xd < dot_size; ++xd) {
-            for (int yd = 0; yd < dot_size; ++yd) {
-                setpixel(context, x + xd - 1, y + yd - 1, color);
+        for (auto xd = 0; xd < dot_size; ++xd) {
+            for (auto yd = 0; yd < dot_size; ++yd) {
+                setpixel(x + xd - 1, y + yd - 1, color);
             }
         }
         break;
@@ -118,26 +84,22 @@ graphics_drawpoint(
     }
 }
 
-static int sign(int x) {
-    return x < 0 ? -1 : x > 0 ? 1 : 0;
-}
+inline int sign(int x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
 
-static void
-drawline_low(struct Context *context, int x0, int y0, int x1, int y1) {
-    const int line_style = context->line_style;
-    int dots = 0;
+void Context::drawline_low(int x0, int y0, int x1, int y1) {
+    auto dots = 0;
 
-    const int dx = x1 - x0;
-    const int dy = abs(y1 - y0);
-    const int sy = sign(y1 - y0);
+    const auto dx = x1 - x0;
+    const auto dy = abs(y1 - y0);
+    const auto sy = sign(y1 - y0);
 
-    int d = 2 * dy - dx;
-    int y = y0;
-    for (int x = x0; x <= x1; ++x) {
+    auto d = 2 * dy - dx;
+    auto y = y0;
+    for (auto x = x0; x <= x1; ++x) {
         if (line_style == LINE_STYLE_DOTTED && ++dots % 3 == 0) {
-            graphics_drawpoint(context, x, y, context->background);
+            drawpoint(x, y, background);
         } else {
-            graphics_drawpoint(context, x, y, context->foreground);
+            drawpoint(x, y, foreground);
         }
         if (d > 0) {
             y += sy;
@@ -147,22 +109,20 @@ drawline_low(struct Context *context, int x0, int y0, int x1, int y1) {
     }
 }
 
-static void
-drawline_high(struct Context *context, int x0, int y0, int x1, int y1) {
-    const int line_style = context->line_style;
-    int dots = 0;
+void  Context::drawline_high(int x0, int y0, int x1, int y1) {
+    auto dots = 0;
 
-    const int dy = y1 - y0;
-    const int dx = abs(x1 - x0);
-    const int sx = sign(x1 - x0);
+    const auto dy = y1 - y0;
+    const auto dx = abs(x1 - x0);
+    const auto sx = sign(x1 - x0);
 
-    int d = 2 * dx - dy;
-    int x = x0;
-    for (int y = y0; y <= y1; ++y) {
+    auto d = 2 * dx - dy;
+    auto x = x0;
+    for (auto y = y0; y <= y1; ++y) {
         if (line_style == LINE_STYLE_DOTTED && ++dots % 3 == 0) {
-            graphics_drawpoint(context, x, y, context->background);
+            drawpoint(x, y, background);
         } else {
-            graphics_drawpoint(context, x, y, context->foreground);
+            drawpoint(x, y, foreground);
         }
         if (d > 0) {
             x += sx;
@@ -172,65 +132,62 @@ drawline_high(struct Context *context, int x0, int y0, int x1, int y1) {
     }
 }
 
-void
-graphics_drawline(struct Context *context, int x0, int y0, int x1, int y1) {
-    context_push(&context);
-    context->dot_style = DOT_FILL_AROUND;
-    context->dot_size  = context->line_width;
+void Context::drawline(int x0, int y0, int x1, int y1) {
+    const auto save_dot_style = dot_style;
+    const auto save_dot_size  = dot_size;
+    dot_style = DOT_FILL_AROUND;
+    dot_size  = line_width;
 
     if (abs(y1 - y0) < abs(x1 - x0)) {
         if (x0 <= x1) {
-            drawline_low(context, x0, y0, x1, y1);
+            drawline_low(x0, y0, x1, y1);
         } else {
-            drawline_low(context, x1, y1, x0, y0);
+            drawline_low(x1, y1, x0, y0);
         }
     } else {
         if (y0 <= y1) {
-            drawline_high(context, x0, y0, x1, y1);
+            drawline_high(x0, y0, x1, y1);
         } else {
-            drawline_high(context, x1, y1, x0, y0);
+            drawline_high(x1, y1, x0, y0);
         }
     }
 
-    context_pop(&context);
+    dot_style = save_dot_style;
+    dot_size  = save_dot_size;
 }
 
-void
-graphics_drawrect(struct Context *context, int x0, int y0, int x1, int y1) {
-    graphics_drawline(context, x0, y0, x1, y0);
-    graphics_drawline(context, x1, y0, x1, y1);
-    graphics_drawline(context, x1, y1, x0, y1);
-    graphics_drawline(context, x0, y1, x0, y0);
+void Context::drawrect(int x0, int y0, int x1, int y1) {
+    drawline(x0, y0, x1, y0);
+    drawline(x1, y0, x1, y1);
+    drawline(x1, y1, x0, y1);
+    drawline(x0, y1, x0, y0);
 }
 
-void
-graphics_fillrect(struct Context *context, int x0, int y0, int x1, int y1) {
-    for (int y = y0; y <= y1; ++y) {
-        graphics_drawline(context, x0, y, x1, y);
+void Context::fillrect(int x0, int y0, int x1, int y1) {
+    for (auto y = y0; y <= y1; ++y) {
+        drawline(x0, y, x1, y);
     }
 }
 
-void
-graphics_eraserect(struct Context *context, int x0, int y0, int x1, int y1) {
-    for (int y = y0; y <= y1; ++y) {
-        for (int x = x0; x <= x1; ++x) {
-            setpixel(context, x, y, context->background);
+void Context::eraserect(int x0, int y0, int x1, int y1) {
+    for (auto y = y0; y <= y1; ++y) {
+        for (auto x = x0; x <= x1; ++x) {
+            setpixel(x, y, background);
         }
     }
 }
 
-static void drawchar(struct Context *context, int x, int y, char c) {
-    const struct sFONT *font = context->font;
-    const int index = (c - ' ') * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
-    const uint8_t *ptr = &font->table[index];
+void Context::drawchar(int x, int y, char c) {
+    auto index = (c - ' ') * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+    auto ptr = &font->table[index];
 
-    for (int r = 0; r < font->Height; ++r) {
-        for (int c = 0; c < font->Width; ++c) {
+    for (auto r = 0; r < font->Height; ++r) {
+        for (auto c = 0; c < font->Width; ++c) {
             if (*ptr & (0x80 >> (c % 8))) {
-                setpixel(context, x + c, y + r, context->foreground);
+                setpixel(x + c, y + r, foreground);
             }
             else {
-                setpixel(context, x + c, y + r, context->background);
+                setpixel(x + c, y + r, background);
             }
 
             // Move to next byte of font data
@@ -246,13 +203,9 @@ static void drawchar(struct Context *context, int x, int y, char c) {
     }
 }
 
-void
-graphics_drawstring(struct Context *context, int left, int top, const char *s) {
-    const struct sFONT *font = context->font;
-    struct Image *image = context->image;
-
-    int x = left;
-    int y = top;
+void Context::drawstring(int left, int top, const char* s) {
+    auto x = left;
+    auto y = top;
     while (*s) {
         if (x + font->Width > image->width) {
             // Wrap to next line
@@ -265,35 +218,33 @@ graphics_drawstring(struct Context *context, int left, int top, const char *s) {
             y = top;
         }
 
-        drawchar(context, x, y, *s++);
+        drawchar(x, y, *s++);
         x += font->Width;
     }
 }
 
-void
-graphics_drawimage(
-    struct Context *context,
+void Context::drawimage(
     int x_to,
     int y_to,
-    const struct Image *image,
+    const Image& source,
     int x_from,
     int y_from,
     int w,
     int h)
 {
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            const int x_src = x_from + x;
-            const int y_src = y_from + y;
-            const int x_dst = x_to + x;
-            const int y_dst = y_to + y;
-            if (x_src < 0 || image->width <= x_src || y_src < 0 || image->height <= y_src) {
+    for (auto y = 0; y < h; ++y) {
+        for (auto x = 0; x < w; ++x) {
+            const auto x_src = x_from + x;
+            const auto y_src = y_from + y;
+            const auto x_dst = x_to + x;
+            const auto y_dst = y_to + y;
+            if (x_src < 0 || source.width <= x_src || y_src < 0 || source.height <= y_src) {
                 continue;
             }
-            const int byte = image->data[y_src * image->width_bytes + x_src / 8];
-            const int bit  = 0x80 >> (x_src % 8);
-            enum PixelColor color = byte & bit ? context->background : context->foreground;
-            setpixel(context, x_dst, y_dst, color);
+            const auto byte = source.data_[y_src * source.width_bytes + x_src / 8];
+            const auto bit  = 0x80 >> (x_src % 8);
+            const auto color = byte & bit ? background : foreground;
+            setpixel(x_dst, y_dst, color);
         }
     }
 }

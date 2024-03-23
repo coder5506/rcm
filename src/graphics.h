@@ -25,20 +25,44 @@ enum Rotate {
     ROTATE_270 = 270,
 };
 
-struct Image;
 struct sFONT;
 
-struct Context {
-    struct Context *next;
-    struct Image   *image;
-    enum PixelColor foreground;
-    enum PixelColor background;
-    enum DotStyle   dot_style;
-    int             dot_size;
-    enum LineStyle  line_style;
-    int             line_width;
-    enum Rotate     rotate;
-    const struct sFONT *font;
+class Context {
+public:
+    Image*       image;
+    PixelColor   foreground;
+    PixelColor   background;
+    DotStyle     dot_style;
+    int          dot_size;
+    LineStyle    line_style;
+    int          line_width;
+    Rotate       rotate;
+    const sFONT* font;
+
+    Context();
+
+    void clear();
+    void drawpoint(int x, int y, PixelColor color);
+    void drawline(int x0, int y0, int x1, int y1);
+    void drawrect(int x0, int y0, int x1, int y1);
+    void fillrect(int x0, int y0, int x1, int y1);
+    void eraserect(int x0, int y0, int x1, int y1);
+    void drawstring(int left, int top, const char* s);
+    void drawimage(
+        int x_to,
+        int y_to,
+        const Image& source,
+        int x_from,
+        int y_from,
+        int w,
+        int h);
+
+private:
+    void transform_point(int& x, int& y) const;
+    void setpixel(int x, int y, PixelColor color);
+    void drawline_low(int x0, int y0, int x1, int y1);
+    void drawline_high(int x0, int y0, int x1, int y1);
+    void drawchar(int x, int y, char c);
 };
 
 struct Rect {
@@ -48,38 +72,13 @@ struct Rect {
     int bottom;
 };
 
-struct View;
+class View {
+public:
+    Rect bounds;
 
-typedef void (*ViewRender)(struct View *view, struct Context *context);
-
-struct View {
-    ViewRender  render;
-    struct Rect bounds;
+    virtual ~View() = default;
+    virtual void render(Context& context) = 0;
 };
-
-void context_free(struct Context *context);
-struct Context *context_alloc();
-void context_push(struct Context **context);
-void context_pop(struct Context **context);
-
-void graphics_clear(struct Context*);
-void graphics_drawpoint(struct Context*, int x, int y, enum PixelColor color);
-void graphics_drawline(struct Context*, int x0, int y0, int x1, int y1);
-void graphics_drawrect(struct Context*, int x0, int y0, int x1, int y1);
-void graphics_eraserect(struct Context*, int x0, int y0, int x1, int y1);
-void graphics_fillrect(struct Context*, int x0, int y0, int x1, int y1);
-void graphics_drawstring(struct Context*, int left, int top, const char *s);
-
-void
-graphics_drawimage(
-    struct Context *context,
-    int x_to,
-    int y_to,
-    const struct Image *image,
-    int x_from,
-    int y_from,
-    int w,
-    int h);
 
 #endif
 

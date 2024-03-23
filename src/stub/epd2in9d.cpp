@@ -9,31 +9,35 @@
 
 #include <cstdio>
 
-void epd2in9d_close(void) {
+const int Epd2in9d::SCREEN_WIDTH  = 128;
+const int Epd2in9d::SCREEN_HEIGHT = 296;
+
+Epd2in9d::~Epd2in9d() {
     printf("epd2in9d_close()\n");
 }
 
-int epd2in9d_open(void) {
-    printf("epd2in9d_open() => 0\n");
-    return 0;  // Success
+Epd2in9d::Epd2in9d() {
+    printf("epd2in9d_open()\n");
 }
 
-void epd2in9d_sleep(void) {
+void Epd2in9d::sleep() {
     printf("epd2in9d_sleep()\n");
     sleep_ms(2000);  // Simulate delay
 }
 
-void epd2in9d_init(void) {
+void Epd2in9d::init() {
     printf("epd2in9d_init()\n");
 }
 
-void epd2in9d_update(const uint8_t *data) {
-    printf("epd2in9d_update(%p)\n", (void*)data);
-    sleep_ms(100);
+void Epd2in9d::init_lut() {}
+
+void Epd2in9d::display(const std::uint8_t* data) {
+    printf("epd2in9d_display(%p)\n", (void*)data);
 }
 
-void epd2in9d_display(const uint8_t *data) {
-    printf("epd2in9d_display(%p)\n", (void*)data);
+void Epd2in9d::update(const std::uint8_t* data) {
+    printf("epd2in9d_update(%p)\n", (void*)data);
+    sleep_ms(100);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

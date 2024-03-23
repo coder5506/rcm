@@ -5,38 +5,37 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include "boardserial.h"
 #include "chess/chess.h"
 
 #include <cstdint>
 #include <vector>
 
-// 0xffff00000000ffff
-extern const std::uint64_t STARTING_POSITION;
+class Board {
+    BoardSerial boardserial;
 
-extern bool board_reversed;
+public:
+    static const Bitmap STARTING_POSITION = 0xffff00000000ffff;
 
-// Shutdown connection to board
-void board_close();
+    bool reversed{false};
 
-// Initialize connection to board
-int board_open();
+    // Return battery and charging status
+    int batterylevel();
+    int charging();
 
-// Read current state of board fields
-// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-std::uint64_t board_getstate();
+    // Read current state of board fields
+    // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
+    Bitmap getstate();
 
-// Return battery and charging status
-int board_batterylevel();
-int board_charging();
+    // Return number of actions read
+    int read_actions(std::vector<Action>& actions);
 
-int board_leds_off();
-int board_led_flash();
-int board_led(thc::Square square);
-int board_led_array(const std::vector<thc::Square>& squares);
-int board_led_from_to(thc::Square from, thc::Square to);
-
-// Return number of actions read
-int board_read_actions(std::vector<Action>& actions);
+    int leds_off();
+    int led_flash();
+    int led(thc::Square square);
+    int led_array(const std::vector<thc::Square>& squares);
+    int led_from_to(thc::Square from, thc::Square to);
+};
 
 inline thc::Square rotate_square(thc::Square square) {
     // square  == 8 * (7 - row) + col

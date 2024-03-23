@@ -1,33 +1,41 @@
-// Copyright (c) 2024 Eric Sessoms
+// Copyright (C) 2024 Eric Sessoms
 // See license at end of file
+#pragma once
 
 #ifndef IMAGE_H
 #define IMAGE_H
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 enum PixelColor {
     PIXEL_BLACK =  0,
     PIXEL_WHITE = -1,
 };
 
-struct Image {
+class Image {
+public:
     int width;
     int height;
     int width_bytes;
     int size_bytes;
-    uint8_t data[];
+    std::vector<std::uint8_t> data_;
+
+    Image(int width, int height);
+    bool is_valid() const;
+
+    static std::unique_ptr<Image> readbmp(const char* path);
+
+    const std::uint8_t* data() const { return data_.data(); }
+    std::uint8_t* data() { return data_.data(); }
+
+    int png(std::uint8_t** png, std::size_t* size) const;
 };
 
-void image_free(struct Image *image);
-struct Image *image_alloc(int width, int height);
-
-bool image_equal(const struct Image *a, const struct Image *b);
-
-struct Image *image_readbmp(const char *path);
-
-int image_png(const struct Image *image, uint8_t **png, size_t *size);
+bool operator==(const Image &a, const Image &b);
+bool operator!=(const Image &a, const Image &b);
 
 #endif
 

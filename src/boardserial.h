@@ -7,56 +7,76 @@
 #ifndef BOARDSERIAL_H
 #define BOARDSERIAL_H
 
+#include <array>
+#include <bitset>
 #include <cstdint>
 
-enum Button {
-    BUTTON_NONE = 0,
-    BUTTON_BACK = 1 << 0,
-    BUTTON_DOWN = 1 << 1,
-    BUTTON_PLAY = 1 << 2,
-    BUTTON_UP   = 1 << 3,
-    BUTTON_TICK = 1 << 4,
-    BUTTON_HELP = 1 << 6, // no, I don't know where 5 went
-    BUTTON_MASK = 0x5F,
+using Bitmap = std::uint64_t;
+
+enum class Button {
+    BACK = 0,
+    DOWN = 1,
+    PLAY = 2,
+    UP   = 3,
+    TICK = 4,
+    HELP = 6,  // no, I don't know where 5 went
 };
 
-enum Sound {
-    SOUND_GENERAL    = 0,
-    SOUND_FACTORY    = 1,
-    SOUND_POWER_OFF  = 2,
-    SOUND_POWER_ON   = 3,
-    SOUND_WRONG      = 4,
-    SOUND_WRONG_MOVE = 5,
-    SOUND_NONE       = 6,
+class Buttons {
+    std::bitset<7> buttons;
+public:
+    Buttons(unsigned long value = 0) noexcept : buttons(value) {}
 };
 
-// Shutdown serial connection to board
-void boardserial_close(void);
+enum class Sound {
+    GENERAL    = 0,
+    FACTORY    = 1,
+    POWER_OFF  = 2,
+    POWER_ON   = 3,
+    WRONG      = 4,
+    WRONG_MOVE = 5,
+    NONE       = 6,
+};
 
-// Initialize serial connection to board
-int boardserial_open(void);
+class BoardSerial {
+    int fd{-1};
+    std::array<std::uint8_t, 2> addr{0, 0};
 
-// Return battery and charging status
-int boardserial_chargingstate(void);
+public:
+    // Shutdown serial connection to board
+    ~BoardSerial() noexcept;
 
-// Read current state of board fields.  Returns bitmap where set bit indicates
-// presence of piece.
-// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t boardserial_boardstate(void);
+    // Initialize serial connection to board
+    BoardSerial();
 
-// Read field events from board
-int boardserial_readdata(uint8_t *buf, int len);
+    // Return battery and charging status
+    int chargingstate();
 
-// Read button events from board
-void boardserial_buttons(enum Button *press, enum Button *release);
+    // Read current state of board fields.  Returns bitmap where set bit
+    // indicates presence of piece.
+    // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
+    Bitmap boardstate();
 
-int boardserial_leds_off(void);
-int boardserial_led_flash(void);
-int boardserial_led(int square);
-int boardserial_led_array(const int *squares, int num_squares);
-int boardserial_led_from_to(int from, int to);
+    // Read field events from board
+    int readdata(std::uint8_t* buf, int len);
 
-int boardserial_play_sound(enum Sound sound);
+    // Read button events from board
+    void buttons(Buttons& press, Buttons& release);
+
+    int leds_off();
+    int led_flash();
+    int led(int square);
+    int led_array(const int* squares, int num_squares);
+    int led_from_to(int from, int to);
+
+    int play_sound(Sound sound);
+
+private:
+    void read_address();
+
+    void build_packet(std::uint8_t* buf, int addr_pos, int len);
+    int write_board(std::uint8_t* buf, int addr_pos, int len);
+};
 
 #endif
 

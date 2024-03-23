@@ -9,28 +9,36 @@
 
 #include <cstdint>
 
-#define SCREEN_WIDTH  128
-#define SCREEN_HEIGHT 296
+class Epd2in9d {
+    bool lut_ready{false};
 
-// Shutdown display
-void epd2in9d_close(void);
+public:
+    static const int SCREEN_WIDTH;
+    static const int SCREEN_HEIGHT;
 
-// Initialize display
-int epd2in9d_open(void);
+    // Shutdown display
+    ~Epd2in9d() noexcept;
 
-// Put display to sleep
-void epd2in9d_sleep(void);
+    // Connect to display
+    Epd2in9d();
 
-// Wake display from sleep
-void epd2in9d_init(void);
+    // Put display to sleep
+    void sleep();
 
-// Partially update display.  That is, instruct the e-Paper to make the minimal
-// changes necessary to display the new image.
-void epd2in9d_update(const uint8_t *data);
+    // Initialize display
+    void init();
 
-// Fully refresh display.  This is slower and draws more power than partial
-// updates, but should be done occassionally to cleanup e-Paper artifacts.
-void epd2in9d_display(const uint8_t *data);
+    // Fully refresh display.  This is slower and draws more power than partial
+    // updates, but should be done occassionally to cleanup e-Paper artifacts.
+    void display(const std::uint8_t* data);
+
+    // Partially update display.  That is, instruct the e-Paper to make the
+    // minimal changes necessary to display the new image.
+    void update(const std::uint8_t* data);
+
+private:
+    void init_lut();
+};
 
 #endif
 

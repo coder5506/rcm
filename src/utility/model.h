@@ -5,26 +5,37 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include <algorithm>
 #include <vector>
 
-class Model;
-
-typedef void (*ModelChanged)(Model* model, void* data);
-
-struct Observer {
-    ModelChanged  model_changed;
-    void*         data;
+template<typename T> class Observer {
+public:
+    virtual ~Observer() = default;
+    virtual void model_changed(T& model) = 0;
 };
 
-class Model {
+template<typename T> class Model {
 private:
-    std::vector<Observer> observers;
+    std::vector<Observer<T>*> observers;
 
 public:
-    void observe(ModelChanged model_changed, void* data);
-    void unobserve(ModelChanged model_changed, void* data);
+    virtual ~Model() = default;
 
-    void changed();
+    void observe(Observer<T>* observer) {
+        observers.push_back(observer);
+    }
+
+    void unobserve(Observer<T>* observer) {
+        observers.erase(
+            std::remove(observers.begin(), observers.end(), observer),
+            observers.end());
+    }
+
+    void changed() {
+        for (auto observer : observers) {
+            observer->model_changed(*dynamic_cast<T*>(this));
+        }
+    }
 };
 
 #endif

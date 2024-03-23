@@ -6,45 +6,51 @@
 #define CENTAUR_H
 
 #include "board.h"
+#include "screen.h"
 
+#include <optional>
 #include <vector>
 
-struct Context;
-struct View;
+class Centaur : public Observer<Game> {
+public:
+    Board  board;
+    Screen screen;
 
-struct Centaur {
-    Game *game;
-    View *screen_view;
-    std::vector<Action> actions;
+    std::unique_ptr<Game> game;
+    std::unique_ptr<View> screen_view;
+    std::vector<Action>   actions;
+
+    Centaur();
+
+    bool reversed() const;
+    void reversed(bool);
+
+    void model_changed(Game&) override;
+    void render();
+    void set_game(std::unique_ptr<Game>);
+
+    int batterylevel();
+    int charging();
+
+    // Read current state of board fields
+    // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
+    Bitmap getstate();
+
+    int update_actions();
+    void purge_actions();
+
+    bool read_move(
+        Bitmap                    boardstate,
+        std::vector<thc::Move>&   candidates,
+        std::optional<thc::Move>& takeback);
+
+    void clear_feedback();
+    void led(thc::Square);
+    void led_from_to(thc::Square, thc::Square);
+    void show_feedback(Bitmap);
 };
 
 extern Centaur centaur;
-
-void centaur_close();
-int centaur_open();
-
-void centaur_render();
-void centaur_set_game(Game* game);
-
-int centaur_batterylevel();
-int centaur_charging();
-void centaur_led(thc::Square square);
-void centaur_led_from_to(thc::Square from, thc::Square to);
-
-// Read current state of board fields
-// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
-uint64_t centaur_getstate();
-
-void centaur_clear_actions();
-int centaur_update_actions();
-void centaur_purge_actions();
-
-bool
-centaur_read_move(
-    Game&                     game,
-    std::uint64_t             boardstate,
-    std::vector<thc::Move>&   candidates,
-    std::optional<thc::Move>& takeback);
 
 #endif
 

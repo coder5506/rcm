@@ -5,11 +5,56 @@
 #ifndef STANDARD_H
 #define STANDARD_H
 
+#include "chess/chess.h"
+#include "utility/model.h"
+
+// Either player can be computer or human, no restrictions
+enum PlayerType {
+    COMPUTER,
+    HUMAN,
+};
+
+struct Player {
+    PlayerType type;
+    union {
+        // Engine settings for computer players
+        struct {
+            const char* engine;  // e.g. "stockfish"
+            int         elo;     // Desired playing strength 1400..2800
+            // N.B., 2800 is about as good as Stockfish can do on a Pi Zero
+        } computer;
+        // Coaching settings for human players
+        struct {
+            // centipawns, zero to disable
+            int error;        // Alert moves that actively worsen your position
+            int opportunity;  // Alert moves that fail to improve your position
+        } human;
+    };
+};
+
 // Standard gameplay module:
 // - Standard chess
 // - Casual play
 // - Human vs. Computer or Human vs. Human
-void standard_main(void);
+class StandardGame : public Observer<Game> {
+    Player white;
+    Player black;
+
+public:
+    ~StandardGame();
+    StandardGame();
+
+    void main();
+
+    void model_changed(Game&) override;
+    void set_game(std::unique_ptr<Game>);
+
+private:
+    char* settings_to_json();
+    int settings_from_json(const char*);
+    void start();
+    void run();
+};
 
 #endif
 

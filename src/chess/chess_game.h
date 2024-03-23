@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-class Game : public Model {
+class Game : public Model<Game>, public Observer<Game> {
 public:
     std::vector<PositionPtr> history;
     std::time_t  started{0};
@@ -24,6 +24,8 @@ public:
     std::map<std::string, std::string> tags;
 
     explicit Game(const char* txt = nullptr);
+
+    void model_changed(Game&) override;
 
     std::string& tag(const std::string& key);
 

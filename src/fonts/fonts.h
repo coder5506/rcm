@@ -39,16 +39,18 @@
 #ifndef FONTS_H
 #define FONTS_H
 
+#include <cstdint>
+
 struct sFONT {
-    const unsigned char *table;
+    const std::uint8_t *table;
     int Width;
     int Height;
 };
 
-extern const struct sFONT Font12;
-extern const struct sFONT Font16;
-extern const struct sFONT Font20;
-extern const struct sFONT Font24;
+extern const sFONT Font12;
+extern const sFONT Font16;
+extern const sFONT Font20;
+extern const sFONT Font24;
 
 #endif
 

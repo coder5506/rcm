@@ -29,16 +29,15 @@ char Game::at(thc::Square square) const {
     return current()->at(square);
 }
 
-static void game_changed(Game* game, void* data) {
-    (void)data;
-    if (game->started > 0) {
+void Game::model_changed(Game&) {
+    if (started > 0) {
         return;
     }
 
-    game->started = std::time(nullptr);
+    started = std::time(nullptr);
     std::ostringstream date;
-    date << std::put_time(std::localtime(&game->started), "%Y.%m.%d");
-    game->tag("Date") = date.str();
+    date << std::put_time(std::localtime(&started), "%Y.%m.%d");
+    tag("Date") = date.str();
 }
 
 static void game_reset(Game* game) {
@@ -59,7 +58,7 @@ static void game_reset(Game* game) {
 
 Game::Game(const char* txt) {
     game_reset(this);
-    observe((ModelChanged)game_changed, nullptr);
+    this->observe(this);
     history.push_back(std::make_shared<Position>(txt));
 }
 

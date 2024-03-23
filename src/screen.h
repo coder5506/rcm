@@ -4,6 +4,8 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
+#include "epd2in9d.h"
+#include "graphics.h"
 #include "utility/model.h"
 
 #include <condition_variable>
@@ -12,34 +14,31 @@
 #include <mutex>
 #include <thread>
 
-struct Context;
-struct View;
-
-class Screen : public Model {
+class Screen : public Model<Screen> {
 public:
-    struct Image   *image[2];
-    struct Context *context;
+    Epd2in9d    epd2in9d;
+    Context     context;
+    std::unique_ptr<Image>  image[2];
     std::condition_variable cond;
-    std::mutex      mutex;
-    std::thread     thread;
-    bool            shutdown;
+    mutable std::mutex  mutex;
+    std::thread thread;
+    bool        shutdown{false};
 
+    // Shutdown display
+    ~Screen();
+
+    // Initialize display
     Screen();
+
+    // Render UI to display
+    void render(View& view);
+
+    // Get PNG image of display
+    int png(std::uint8_t** png, std::size_t* size) const;
+
+private:
+    void update_epd2in9d();
 };
-
-extern struct Screen screen;
-
-// Shutdown display
-void screen_close();
-
-// Initialize display
-int screen_open();
-
-// Render UI to display
-void screen_render(struct View *view);
-
-// Get PNG image of display
-int screen_png(uint8_t **png, size_t *size);
 
 #endif
 

@@ -8,75 +8,79 @@
 #include <cstdio>
 
 // Default: no pieces on board
-static uint64_t boardstate = 0llu;
+static Bitmap boardstate = 0llu;
 
-// Hook for testing and debugging
-void boardserial_set_boardstate(uint64_t bitmap) {
-    printf("boardserial_set_boardstate(%016lx)\n", bitmap);
-    boardstate = bitmap;
-}
-
-void boardserial_close(void) {
+BoardSerial::~BoardSerial() {
     printf("boardserial_close()\n");
 }
 
-int boardserial_open(void) {
+void BoardSerial::read_address() {}
+
+BoardSerial::BoardSerial() {
     printf("boardserial_open() => 0\n");
+}
+
+void BoardSerial::build_packet(std::uint8_t* buf, int addr_pos, int len) {
+    (void)buf;
+    (void)addr_pos;
+    (void)len;
+}
+
+int BoardSerial::write_board(std::uint8_t* buf, int addr_pos, int len) {
+    (void)buf;
+    (void)addr_pos;
+    (void)len;
     return 0;  // Success
 }
 
-int boardserial_chargingstate(void) {
+int BoardSerial::chargingstate() {
     printf("boardserial_chargingstate() => 20\n");
     return 20;  // Fully charged, not charging
 }
 
-uint64_t boardserial_boardstate(void) {
-    printf("boardserial_boardstate() => %016lx\n", boardstate);
-    return boardstate;
+Bitmap BoardSerial::boardstate() {
+    printf("boardserial_boardstate() => %016lx\n", ::boardstate);
+    return ::boardstate;
 }
 
-int boardserial_readdata(uint8_t *buf, int len) {
+int BoardSerial::readdata(std::uint8_t* buf, int len) {
     printf("boardserial_readdata(%p, %d) => 6\n", (void*)buf, len);
     return 6;  // Idle
 }
 
-void boardserial_buttons(enum Button *press, enum Button *release) {
-    printf("boardserial_buttons(%p, %p)\n", (void*)press, (void*)release);
-    if (press) {
-        *press = BUTTON_NONE;
-    }
-    if (release) {
-        *release = BUTTON_NONE;
-    }
+void BoardSerial::buttons(Buttons& press, Buttons& release) {
+    printf("boardserial_buttons()\n");
+    press   = Buttons();
+    release = Buttons();
 }
 
-int boardserial_leds_off(void) {
+int BoardSerial::leds_off() {
     printf("boardserial_leds_off() => 0\n");
     return 0;  // Success
 }
 
-int boardserial_led_flash(void) {
+int BoardSerial::led_flash() {
     printf("boardserial_led_flash() => 0\n");
     return 0;
 }
 
-int boardserial_led(int square) {
+int BoardSerial::led(int square) {
     printf("boardserial_led(%d) => 0\n", square);
     return 0;
 }
 
-int boardserial_led_array(const int *squares, int num_squares) {
+int BoardSerial::led_array(const int* squares, int num_squares) {
     printf("boardserial_led_array(%p, %d) => 0\n", (void*)squares, num_squares);
     return 0;
 }
 
-int boardserial_led_from_to(int from, int to) {
+int BoardSerial::led_from_to(int from, int to) {
     printf("boardserial_led_from_to(%d, %d) => 0\n", from, to);
     return 0;
 }
 
-int boardserial_play_sound(enum Sound sound) {
-    printf("boardserial_play_sound(%d) => 0\n", sound);
+int BoardSerial::play_sound(Sound sound) {
+    printf("boardserial_play_sound(%d) => 0\n", int(sound));
     return 0;
 }
 

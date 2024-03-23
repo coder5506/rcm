@@ -31,18 +31,18 @@ enum Pin {
     PIN_BUSY          = 13,
 };
 
-static void delay_ms(uint32_t ms) {
+static void delay_ms(std::uint32_t ms) {
     gpioDelay(1000 * ms /* micros */);
 }
 
-static void gpio_close(void) {
+static void gpio_close() {
     gpioWrite(PIN_RESET, 0);
     gpioWrite(PIN_COMMAND_DATA, 0);
 	gpioWrite(PIN_CLEAR_TO_SEND, 0);
     gpioTerminate();
 }
 
-static int gpio_open(void) {
+static int gpio_open() {
     int err = gpioInitialise();
     if (err < 0) {
         return err;
@@ -57,7 +57,7 @@ static int gpio_open(void) {
 }
 
 // Software reset
-static void gpio_reset(void) {
+static void gpio_reset() {
     for (int i = 0; i != 3; ++i) {
         gpioWrite(PIN_RESET, 1);
         delay_ms(20);
@@ -74,14 +74,14 @@ static void gpio_reset(void) {
 
 static int SPI_Handle = -1;
 
-static void spi_close(void) {
+static void spi_close() {
     if (SPI_Handle >= 0) {
         spiClose(SPI_Handle);
     }
     SPI_Handle = -1;
 }
 
-static void spi_open(void) {
+static void spi_open() {
     const int SPI_AUX = 0x100;
     SPI_Handle = spiOpen(0, 4000000, SPI_AUX);
 }
@@ -98,7 +98,7 @@ static void spi_send_data(int data) {
     spi_send_byte(data, 1);
 }
 
-static int spi_send_array(const uint8_t *buf, size_t len) {
+static int spi_send_array(const std::uint8_t* buf, size_t len) {
     int err = gpioWrite(PIN_COMMAND_DATA, 1);
     if (!err) {
         err = gpioWrite(PIN_CLEAR_TO_SEND, 0);
@@ -117,32 +117,23 @@ static int spi_send_array(const uint8_t *buf, size_t len) {
 // Screen
 //
 
-static bool lut_ready = false;
-
 // Shutdown display
-void epd2in9d_close(void) {
+Epd2in9d::~Epd2in9d() {
     spi_close();
     gpio_close();
-
-    // Reinit after close/open
-    lut_ready = false;
 }
 
 // Connect to display
-int epd2in9d_open(void) {
-    if (gpio_open() < 0) {
-        return 1;
+Epd2in9d::Epd2in9d() {
+    if (epd2in9d_open() < 0) {
+        throw std::runtime_error("Failed to open e-Paper display");
     }
 
     spi_open();
     if (SPI_Handle < 0) {
         gpio_close();
-        return 1;
+        throw std::runtime_error("Failed to open e-Paper display");
     }
-
-    // Reinit after close/open
-    lut_ready = false;
-    return 0;
 }
 
 enum Command {
@@ -170,11 +161,11 @@ enum Command {
     COMMAND_PTIN  = 0x91,  // Partial In
 };
 
-static void send_command(enum Command command) {
+static void send_command(Command command) {
     spi_send_byte(command, 0);
 }
 
-static void read_busy(void) {
+static void read_busy() {
     do {
         send_command(COMMAND_FLG);
     } while ((gpioRead(PIN_BUSY) & 1) == 0);
@@ -182,7 +173,7 @@ static void read_busy(void) {
 }
 
 // Put display to sleep
-void epd2in9d_sleep(void) {
+void Epd2in9d::sleep() {
     send_command(COMMAND_CDI);
     spi_send_data(0xf7);
     send_command(COMMAND_POF);
@@ -198,7 +189,7 @@ void epd2in9d_sleep(void) {
 }
 
 // Initialize display
-void epd2in9d_init(void) {
+void Epd2in9d::init() {
     gpio_reset();
 
 	send_command(COMMAND_PON);
@@ -221,11 +212,7 @@ void epd2in9d_init(void) {
     lut_ready = false;
 }
 
-void epd2in9d_wake(void) {
-    epd2in9d_init();
-}
-
-static void lut_tables(void) {
+static void lut_tables() {
     const uint8_t EPD_2IN9D_lut_vcom1[] = {
         0x00, 0x19, 0x01, 0x00, 0x00, 0x01,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -288,7 +275,7 @@ static void lut_tables(void) {
     spi_send_array(EPD_2IN9D_lut_bb1, sizeof EPD_2IN9D_lut_bb1);
 }
 
-static void init_lut(void) {
+void Epd2in9d::init_lut() {
     if (lut_ready) {
         return;
     }
@@ -359,10 +346,10 @@ static void refresh_screen(void) {
 
 #define WIDTH_BYTES  ((SCREEN_WIDTH + 7) / 8)
 #define SCREEN_BYTES (WIDTH_BYTES * SCREEN_HEIGHT)
-static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
+static const std::uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
 
 // Fully refresh display
-void epd2in9d_display(const uint8_t *data) {
+void Epd2in9d::display(const std::uint8_t* data) {
     send_command(COMMAND_DTM1);
     spi_send_array(black_buffer, SCREEN_BYTES);
 
@@ -373,7 +360,7 @@ void epd2in9d_display(const uint8_t *data) {
 }
 
 // Partially update display
-void epd2in9d_update(const uint8_t *data) {
+void Epd2in9d::update(const std::uint8_t* data) {
     init_lut();
     send_command(COMMAND_PTIN);
     send_command(COMMAND_PTL);

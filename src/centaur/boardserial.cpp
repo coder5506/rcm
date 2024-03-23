@@ -14,38 +14,25 @@
 #include "../utility/sleep.h"
 
 #include <cassert>
-#include <cstdbool>
+#include <cerrno>
 #include <cstdio>
+#include <ctime>
+#include <stdexcept>
 
-#include <errno.h>
 #include <sys/file.h>
 #include <termios.h>
-#include <time.h>
 #include <unistd.h>
 
-static struct {
-    int     fd;
-    uint8_t addr[2];
-} boardserial = {
-    .fd   = -1,
-    .addr = {0, 0},
-};
-
 // Shutdown serial connection to board
-void boardserial_close(void) {
-    if (boardserial.fd >= 0) {
-        flock(boardserial.fd, LOCK_UN);
-        close(boardserial.fd);
+BoardSerial::~BoardSerial() {
+    if (fd >= 0) {
+        flock(fd, LOCK_UN);
+        close(fd);
     }
-    boardserial.fd = -1;
-    boardserial.addr[0] = 0;
-    boardserial.addr[1] = 0;
 }
 
-static int open_serial(const char *serial_port) {
-    assert(serial_port != NULL && serial_port[0] != '\0');
-
-    const int fd = open(serial_port, O_RDWR);
+static int open_serial(const char* serial_port) {
+    const auto fd = open(serial_port, O_RDWR);
     if (fd < 0) {
         perror("open");
         return -1;
@@ -83,15 +70,15 @@ error:
     return -1;
 }
 
-static int read_serial(int fd, uint8_t *buf, int len) {
+static int read_serial(int fd, std::uint8_t* buf, int len) {
     assert(fd >= 0);
     assert(buf != NULL && len >= 0);
 
-    uint8_t *receiving = buf;
-    int      remaining = len;
+    auto receiving = buf;
+    auto remaining = len;
 
-    int total_read = 0;
-    int num_read   = 0;
+    auto total_read = 0;
+    auto num_read   = 0;
     while (num_read < remaining) {
         num_read = read(fd, receiving, remaining);
         if (num_read == 0) {
@@ -124,48 +111,48 @@ error:
 // N.B., This does not query the board for any queued data (field events,
 // button presses), so that data remains queued.  We're only concerned with
 // getting communications up and running.
-static void clear_serial(void) {
+static void clear_serial(int fd) {
     // Wait for any pending writes to complete
-    tcdrain(boardserial.fd);
+    tcdrain(fd);
     sleep_ms(100);
 
     // Read anything there is to read
-    uint8_t buf[256];
-    while (read_serial(boardserial.fd, buf, sizeof buf) > 0) {
+    std::uint8_t buf[256];
+    while (read_serial(fd, buf, sizeof buf) > 0) {
         // Discard bufferred data
-        tcflush(boardserial.fd, TCIFLUSH);
+        tcflush(fd, TCIFLUSH);
         sleep_ms(100);
     }
 }
 
-static int checksum(const uint8_t *buf, int len) {
+static int checksum(const std::uint8_t* buf, int len) {
     assert(buf && len >= 0);
-    unsigned int sum = 0;
-    for (int i = 0; i != len; ++i) {
+    unsigned sum = 0;
+    for (auto i = 0; i != len; ++i) {
         sum += buf[i];
     }
     return sum % 128;
 }
 
-static bool valid_checksum(const uint8_t *buf, int len) {
+static bool valid_checksum(const std::uint8_t* buf, int len) {
     return buf[len - 1] == checksum(buf, len - 1);
 }
 
 // Read packet with defined length
-static int read_packet(int fd, uint8_t *data, int length) {
+static int read_packet(int fd, std::uint8_t* data, int length) {
     assert(fd >= 0);
     assert(data != NULL && length >= 256);
 
     // Read packet header {id, 0|1, len}
-    const int HEADER_LEN = 3;
+    const auto HEADER_LEN = 3;
 
-    uint8_t *receiving  = data;
-    int  packet_len = HEADER_LEN;
-    int  total_read = 0;
-    int  num_read   = 0;
-    const time_t timeout = time(NULL) + 2;
-    while (total_read < packet_len && time(NULL) < timeout) {
-        num_read = read_serial(fd, receiving, length);
+    auto receiving  = data;
+    auto packet_len = HEADER_LEN;
+    auto total_read = 0;
+    auto num_read   = 0;
+    const auto timeout = std::time(NULL) + 2;
+    while (total_read < packet_len && std::time(NULL) < timeout) {
+        num_read    = read_serial(fd, receiving, length);
         total_read += num_read;
         receiving  += num_read;
         length     -= num_read;
@@ -189,10 +176,10 @@ static int read_packet(int fd, uint8_t *data, int length) {
 }
 
 // Receive packet with specific ID
-static int recv_packet(int fd, int id, uint8_t *data, int length) {
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        const int num_read = read_packet(fd, data, length);
+static int recv_packet(int fd, int id, std::uint8_t* data, int length) {
+    const auto timeout = time(NULL) + 2;
+    while (std::time(NULL) < timeout) {
+        const auto num_read = read_packet(fd, data, length);
         if (num_read > 0 && data[0] == id) {
             return num_read;
         }
@@ -200,16 +187,16 @@ static int recv_packet(int fd, int id, uint8_t *data, int length) {
     return 0;
 }
 
-static int write_serial(int fd, const uint8_t *buf, int len) {
+static int write_serial(int fd, const std::uint8_t* buf, int len) {
     assert(fd >= 0);
     assert(buf != NULL && len >= 1);
     assert(valid_checksum(buf, len));
 
-    const uint8_t *sending   = buf;
-    int            remaining = len;
+    auto sending   = buf;
+    auto remaining = len;
 
-    int total_written = 0;
-    int num_written   = 0;
+    auto total_written = 0;
+    auto num_written   = 0;
     while (num_written < remaining) {
         num_written = write(fd, sending, remaining);
         if (num_written == 0) {
@@ -250,62 +237,58 @@ error:
     return 0;
 }
 
-static int read_address(void) {
-    assert(boardserial.fd >= 0);
+void BoardSerial::read_address() {
+    assert(fd >= 0);
 
-    boardserial.addr[0] = 0;
-    boardserial.addr[1] = 0;
+    addr[0] = 0;
+    addr[1] = 0;
 
-    const uint8_t request[4] = {135, 0, 0, 7};
-    write_serial(boardserial.fd, request, 4);
+    const std::uint8_t request[4] = {135, 0, 0, 7};
+    write_serial(fd, request, 4);
 
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        if (recv_packet(boardserial.fd, 135, buf, sizeof buf) != 6) {
+    std::uint8_t buf[256];
+    const auto timeout = std::time(NULL) + 2;
+    while (std::time(NULL) < timeout) {
+        if (recv_packet(fd, 135, buf, sizeof buf) != 6) {
             continue;
         }
 
-        boardserial.addr[0] = buf[3];
-        boardserial.addr[1] = buf[4];
-        printf("Board address: %d %d\n", boardserial.addr[0], boardserial.addr[1]);
-        return 0;
+        addr[0] = buf[3];
+        addr[1] = buf[4];
+        printf("Board address: %d %d\n", addr[0], addr[1]);
+        return;
     }
 
     printf("No response from serial\n");
     printf("Board communication has been disabled\n");
-    return 1;
+    return;
 }
 
 // Initialize serial connection to board
-int boardserial_open(void) {
+BoardSerial::BoardSerial() {
     // Open device
-    boardserial.fd = open_serial("/dev/serial0");
-    if (boardserial.fd < 0) {
-        goto error;
+    fd = open_serial("/dev/serial0");
+    if (fd < 0) {
+        throw std::runtime_error("Failed to open serial port");
     }
 
     // Flush traffic
-    clear_serial();
+    clear_serial(fd);
 
     // See if there's anything there
-    if (read_address() != 0) {
-        goto error;
+    read_address();
+    if (addr[0] == 0 && addr[1] == 0) {
+        close(fd);
+        throw std::runtime_error("Failed to read board address");
     }
-
-    return 0;
-
-error:
-    boardserial_close();
-    return 1;
 }
 
-static void add_checksum(uint8_t *buf, int len) {
+static void add_checksum(std::uint8_t* buf, int len) {
     buf[len - 1] = checksum(buf, len - 1);
     assert(valid_checksum(buf, len));
 }
 
-static void build_packet(uint8_t *buf, int addr_pos, int len) {
+void BoardSerial::build_packet(std::uint8_t* buf, int addr_pos, int len) {
     assert(buf != NULL);
 
     // Must have space available for both the address and the checksum
@@ -317,26 +300,26 @@ static void build_packet(uint8_t *buf, int addr_pos, int len) {
         assert(buf[2] == len);
     }
 
-    buf[addr_pos + 0] = boardserial.addr[0];
-    buf[addr_pos + 1] = boardserial.addr[1];
+    buf[addr_pos + 0] = addr[0];
+    buf[addr_pos + 1] = addr[1];
     add_checksum(buf, len);
 }
 
-static int write_board(uint8_t *buf, int addr_pos, int len) {
+int BoardSerial::write_board(std::uint8_t* buf, int addr_pos, int len) {
     build_packet(buf, addr_pos, len);
-    const int num_written = write_serial(boardserial.fd, buf, len);
+    const auto num_written = write_serial(boardserial.fd, buf, len);
     return num_written == len ? 0 : 1;
 }
 
 // Read battery and charging status
-int boardserial_chargingstate(void) {
-    uint8_t request[4] = {152};
+int BoardSerial::chargingstate() {
+    std::uint8_t request[4] = {152};
     write_board(request, 1, sizeof request);
 
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        if (recv_packet(boardserial.fd, 181, buf, sizeof buf) == 7) {
+    std::uint8_t buf[256];
+    const auto timeout = std::time(NULL) + 2;
+    while (std::time(NULL) < timeout) {
+        if (recv_packet(fd, 181, buf, sizeof buf) == 7) {
             break;
         }
     }
@@ -345,22 +328,22 @@ int boardserial_chargingstate(void) {
 }
 
 // Read current state of board fields
-uint64_t boardserial_boardstate(void) {
-    uint8_t request[7] = {240, 0, 7, 0, 0, 127, 0};
+Bitmap BoardSerial::boardstate() {
+    std::uint8_t request[7] = {240, 0, 7, 0, 0, 127, 0};
     write_board(request, 3, sizeof request);
 
-    uint8_t buf[256];
-    size_t num_read = 0;
+    std::uint8_t buf[256];
+    std::size_t num_read = 0;
     while (num_read < 128 + 7) {
-        num_read = read_serial(boardserial.fd, buf, sizeof buf);
+        num_read = read_serial(fd, buf, sizeof buf);
     }
 
-    uint64_t boardstate = 0;
-    uint64_t mask = 1;
+    Bitmap boardstate = 0;
+    Bitmap mask = 1;
 
-    const uint8_t *resp = &buf[6];
-    for (int i = 0; i != 64; ++i) {
-        const int value = 256 * resp[2*i] + resp[2*i + 1];
+    auto resp = &buf[6];
+    for (auto i = 0; i != 64; ++i) {
+        const auto value = 256 * resp[2*i] + resp[2*i + 1];
         if (300 <= value && value <= 32000) {
             boardstate |= mask;
         }
@@ -371,16 +354,16 @@ uint64_t boardserial_boardstate(void) {
 }
 
 // Read field events from board
-int boardserial_readdata(uint8_t *buf, int len) {
-    assert(boardserial.fd >= 0);
+int BoardSerial::readdata(std::uint8_t* buf, int len) {
+    assert(fd >= 0);
     assert(buf && len >= 256);
 
-    uint8_t request[4] = {131};
+    std::uint8_t request[4] = {131};
     write_board(request, 1, sizeof request);
 
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        const int num_read = read_packet(boardserial.fd, buf, len);
+    const auto timeout = std::time(NULL) + 2;
+    while (std::time(NULL) < timeout) {
+        const auto num_read = read_packet(fd, buf, len);
         if (num_read >= 6 && (buf[0] == 131 || buf[0] == 133)) {
             return num_read;
         }
@@ -389,28 +372,25 @@ int boardserial_readdata(uint8_t *buf, int len) {
     return 0;
 }
 
-void boardserial_buttons(enum Button *press, enum Button *release) {
-    uint8_t request[4] = {148};
+void BoardSerial::buttons(Buttons& press, Buttons& release) {
+    std::uint8_t request[4] = {148};
     write_board(request, 1, sizeof request);
 
-    uint8_t buf[256];
-    const time_t timeout = time(NULL) + 2;
-    while (time(NULL) < timeout) {
-        if (recv_packet(boardserial.fd, 177, buf, sizeof buf) >= 6) {
+    std::uint8_t buf[256];
+    const auto timeout = std::time(NULL) + 2;
+    while (std::time(NULL) < timeout) {
+        if (recv_packet(fd, 177, buf, sizeof buf) >= 6) {
             break;
         }
     }
 
     if (buf[0] != 177 || buf[2] < 16) {
-        if (press) {
-            *press = BUTTON_NONE;
-        }
-        if (release) {
-            *release = BUTTON_NONE;
-        }
+        press   = Buttons();
+        release = Buttons();
         return;
     }
 
+    const auto BUTTON_MASK = 0x5F;
     assert(buf[ 5] ==  0);
     assert(buf[ 6] == 20);
     assert(buf[ 7] == 10);
@@ -419,39 +399,35 @@ void boardserial_buttons(enum Button *press, enum Button *release) {
     assert(buf[10] == (buf[10] & BUTTON_MASK));
     // buf[13] looks like duration, maybe deciseconds
 
-    if (press) {
-        *press = buf[9];
-    }
-    if (release) {
-        *release = buf[10];
-    }
+    press   = Buttons(buf[ 9]);
+    release = Buttons(buf[10]);
 }
 
-int boardserial_leds_off(void) {
-    uint8_t request[7] = {176, 0, 7};
+int BoardSerial::leds_off() {
+    std::uint8_t request[7] = {176, 0, 7};
     return write_board(request, 3, sizeof request);
 }
 
-int boardserial_led_flash(void) {
-    uint8_t request[10] = {176, 0, 10, 0, 0, 5, 10, 0, 1, 0};
+int BoardSerial::led_flash() {
+    std::uint8_t request[10] = {176, 0, 10, 0, 0, 5, 10, 0, 1, 0};
     return write_board(request, 3, sizeof request);
 }
 
-int boardserial_led(int square) {
-    const int intensity = 5;
-    uint8_t request[11] = {176, 0, 11, 0, 0, 5, 10, 1, intensity, square, 0};
+int BoardSerial::led(int square) {
+    const auto intensity = 5;
+    std::uint8_t request[11] = {176, 0, 11, 0, 0, 5, 10, 1, intensity, square, 0};
     return write_board(request, 3, sizeof request);
 }
 
-int boardserial_led_array(const int *squares, int num_squares) {
+int BoardSerial::led_array(const int* squares, int num_squares) {
     assert(squares && num_squares >= 0);
 
-    const int speed     = 3;
-    const int intensity = 5;
-    uint8_t request[128] = {[0] = 176, [5] = 5, [6] = speed, [8] = intensity};
+    const auto speed     = 3;
+    const auto intensity = 5;
+    std::uint8_t request[128] = {[0] = 176, [5] = 5, [6] = speed, [8] = intensity};
 
-    int len = 9;
-    for (int i = 0; i != num_squares; ++i) {
+    auto len = 9;
+    for (auto i = 0; i != num_squares; ++i) {
         request[len++] = squares[i];
     }
     request[len++] = 0;
@@ -459,40 +435,40 @@ int boardserial_led_array(const int *squares, int num_squares) {
     return write_board(request, 3, len);
 }
 
-int boardserial_led_from_to(int from, int to) {
-    const int squares[2] = {from, to};
-    return boardserial_led_array(squares, 2);
+int BoardSerial::led_from_to(int from, int to) {
+    const auto squares[2] = {from, to};
+    return led_array(squares, 2);
 }
 
 // pitch, duration pairs
-static const uint8_t sound_data[] = {
-    76,  8,          // SOUND_GENERAL
-    76, 64,          // SOUND_FACTORY
-    76,  8, 72,  8,  // SOUND_POWER_OFF
-    72,  8, 76,  8,  // SOUND_POWER_ON
-    78, 12, 72, 16,  // SOUND_WRONG
-    72,  8,          // SOUND_WRONG_MOVE
+static const std::uint8_t sound_data[] = {
+    76,  8,          // GENERAL
+    76, 64,          // FACTORY
+    76,  8, 72,  8,  // POWER_OFF
+    72,  8, 76,  8,  // POWER_ON
+    78, 12, 72, 16,  // WRONG
+    72,  8,          // WRONG_MOVE
 };
 
 // Index into sound_data
 static const int sounds[] = {
-     0,  // SOUND_GENERAL
-     2,  // SOUND_FACTORY
-     4,  // SOUND_POWER_OFF
-     8,  // SOUND_POWER_ON
-    12,  // SOUND_WRONG
-    16,  // SOUND_WRONG_MOVE
-    18,  // SOUND_NONE
+     0,  // GENERAL
+     2,  // FACTORY
+     4,  // POWER_OFF
+     8,  // POWER_ON
+    12,  // WRONG
+    16,  // WRONG_MOVE
+    18,  // NONE
 };
 
-int boardserial_play_sound(enum Sound sound) {
-    if (sound < SOUND_GENERAL || SOUND_NONE <= sound) {
+int BoardSerial::play_sound(Sound sound) {
+    if (sound < Sound.GENERAL || Sound.NONE <= sound) {
         return 0;
     }
 
-    uint8_t request[10] = {177};
-    int len = 5;
-    for (int i = sounds[sound]; i != sounds[sound + 1]; ++i) {
+    std::uint8_t request[10] = {177};
+    auto len = 5;
+    for (auto i = sounds[sound]; i != sounds[sound + 1]; ++i) {
         request[len++] = sound_data[i];
     }
     request[len++] = 0;
