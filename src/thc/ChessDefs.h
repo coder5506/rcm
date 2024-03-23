@@ -37,8 +37,15 @@ enum Square {
 };
 
 // Allow easy iteration through squares
-inline Square operator++(Square sq) {
-    return static_cast<Square>(sq+1);
+inline Square operator++(Square& sq, int) {
+    auto result = sq;
+    sq = static_cast<Square>(sq+1);
+    return result;
+}
+
+inline Square operator++(Square& sq) {
+    sq = static_cast<Square>(sq+1);
+    return sq;
 }
 
 // Check whether a piece is black, white or an empty square, should really make
@@ -68,10 +75,10 @@ inline Square SE(Square sq) { return static_cast<Square>(sq + 9); }     // eg c5
 inline Square NW(Square sq) { return static_cast<Square>(sq - 9); }     // eg c5->b6
 inline Square NE(Square sq) { return static_cast<Square>(sq - 7); }     // eg c5->d6
 
-inline int SW(int sq) { return sq + 7; }     // eg c5->b4
-inline int SE(int sq) { return sq + 9; }     // eg c5->d4
-inline int NW(int sq) { return sq - 9; }     // eg c5->b6
-inline int NE(int sq) { return sq - 7; }     // eg c5->d6
+inline int SW(int sq) { return sq + 7; }  // eg c5->b4
+inline int SE(int sq) { return sq + 9; }  // eg c5->d4
+inline int NW(int sq) { return sq - 9; }  // eg c5->b6
+inline int NE(int sq) { return sq - 7; }  // eg c5->d6
 
 // thc::Square utilities
 inline char get_file(Square sq) { return FILE(sq); }  // eg c5->'c'

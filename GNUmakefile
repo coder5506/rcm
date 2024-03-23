@@ -19,11 +19,18 @@ LDLIBS  += -ljansson -lmicrohttpd -lpcre2-8 -lpng -lsqlite3 -lrt -lm
 $(shell mkdir -p bin $(obj_dirs))
 all: bin/rcm
 
+check: bin/check
+	$<
+
 clean:
-	$(RM) -R bin/rcm obj/*
+	$(RM) -R bin/check bin/rcm obj/*
 
 bin/rcm: $(objects)
 	$(LINK.cc) $^ $(LDLIBS) -o $@
+
+test_sources =
+bin/check: $(wildcard t/*.cpp) $(test_sources)
+	$(LINK.cc) $^ -o $@
 
 obj/%.o: src/%.cpp
 	$(COMPILE.cc) $< -o $@
