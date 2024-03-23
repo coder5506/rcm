@@ -108,11 +108,11 @@ enum SPECIAL {
 // Results of a test for legal position, note that they are powers
 //  of 2, allowing a mask of reasons
 enum ILLEGAL_REASON {
-    IR_NULL                  = 0,
-    IR_PAWN_POSITION         = 1, //pawns on 1st or 8th rank
-    IR_NOT_ONE_KING_EACH     = 2,
-    IR_CAN_TAKE_KING         = 4,
-    IR_WHITE_TOO_MANY_PIECES = 8,
+    IR_NULL                  =  0,
+    IR_PAWN_POSITION         =  1,  //pawns on 1st or 8th rank
+    IR_NOT_ONE_KING_EACH     =  2,
+    IR_CAN_TAKE_KING         =  4,
+    IR_WHITE_TOO_MANY_PIECES =  8,
     IR_WHITE_TOO_MANY_PAWNS  = 16,
     IR_BLACK_TOO_MANY_PIECES = 32,
     IR_BLACK_TOO_MANY_PAWNS  = 64,

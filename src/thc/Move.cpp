@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <string>
 
 using namespace std;
@@ -932,7 +933,6 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in) {
         }
         else
         {
-
             // Piece move
             const lte **ray_lookup=queen_lookup;
             switch( f )
@@ -1151,66 +1151,69 @@ bool Move::NaturalInFast(ChessRules* cr, const char* natural_in) {
 // Read terse string move eg "g1f3"
 //  return bool okay
 bool Move::TerseIn(ChessRules* cr, const char* tmove) {
-    vector<Move> list;
-    int i;
-    bool okay=false;
-    if( strlen(tmove)>=4 && 'a'<=tmove[0] && tmove[0]<='h'
-                         && '1'<=tmove[1] && tmove[1]<='8'
-                         && 'a'<=tmove[2] && tmove[2]<='h'
-                         && '1'<=tmove[3] && tmove[3]<='8' )
+    if (strlen(tmove) >= 4 && 'a' <= tmove[0] && tmove[0] <= 'h'
+                           && '1' <= tmove[1] && tmove[1] <= '8'
+                           && 'a' <= tmove[2] && tmove[2] <= 'h'
+                           && '1' <= tmove[3] && tmove[3] <= '8')
     {
-        Square src_   = SQ(tmove[0],tmove[1]);
-        Square dst_   = SQ(tmove[2],tmove[3]);
-        char   expected_promotion_if_any = 'Q';
-        if( tmove[4] )
-        {
-            if( tmove[4]=='n' || tmove[4]=='N' )
+        const Square src_ = SQ(tmove[0], tmove[1]);
+        const Square dst_ = SQ(tmove[2], tmove[3]);
+        char expected_promotion_if_any = 'Q';
+        if (tmove[4]) {
+            if (tmove[4] == 'n' || tmove[4] == 'N') {
                 expected_promotion_if_any = 'N';
-            else if( tmove[4]=='b' || tmove[4]=='B' )
+            }
+            else if (tmove[4] == 'b' || tmove[4] == 'B') {
                 expected_promotion_if_any = 'B';
-            else if( tmove[4]=='r' || tmove[4]=='R' )
+            }
+            else if (tmove[4] == 'r' || tmove[4] == 'R') {
                 expected_promotion_if_any = 'R';
+            }
         }
 
         // Generate legal moves, then search for this move
+        vector<Move> list;
         cr->GenLegalMoveList(list);
         for (auto move : list) {
-            if( move.dst==dst_ && move.src==src_ )
-            {
-                switch( move.special )
-                {
-                    default:    okay=true;  break;
-                    case SPECIAL_PROMOTION_QUEEN:
-                    {
-                        if( expected_promotion_if_any == 'Q' )
+            auto okay = false;
+            if (move.dst==dst_ && move.src==src_) {
+                switch(move.special) {
+                    default:
+                        okay = true;
+                        break;
+                    case SPECIAL_PROMOTION_QUEEN: {
+                        if (expected_promotion_if_any == 'Q') {
                             okay = true;
+                        }
                         break;
                     }
-                    case SPECIAL_PROMOTION_ROOK:
-                    {
-                        if( expected_promotion_if_any == 'R' )
+                    case SPECIAL_PROMOTION_ROOK: {
+                        if (expected_promotion_if_any == 'R') {
                             okay = true;
+                        }
                         break;
                     }
-                    case SPECIAL_PROMOTION_BISHOP:
-                    {
-                        if( expected_promotion_if_any == 'B' )
+                    case SPECIAL_PROMOTION_BISHOP: {
+                        if (expected_promotion_if_any == 'B') {
                             okay = true;
+                        }
                         break;
                     }
-                    case SPECIAL_PROMOTION_KNIGHT:
-                    {
-                        if( expected_promotion_if_any == 'N' )
+                    case SPECIAL_PROMOTION_KNIGHT: {
+                        if (expected_promotion_if_any == 'N') {
                             okay = true;
+                        }
                         break;
                     }
                 }
             }
-            if( okay )
+            if (okay) {
                 *this = move;
+                return true;
+            }
         }
     }
-    return okay;
+    return false;
 }
 
 // Convert to natural string, eg "Nf3"
@@ -1268,7 +1271,7 @@ std::string Move::NaturalOut(ChessRules* cr) {
 
         // Run the algorithm on the input move (i=-1) AND on all legal moves
         //  in a loop if do_loop set for this algorithm (i=0 to i=count-1)
-        for( int i=-1; !done && i<(do_loop?list.size():0); i++ )
+        for (auto i = -1; !done && i < (do_loop ? int(list.size()) : 0); i++)
         {
             char *str_dst;
             char compare[10];

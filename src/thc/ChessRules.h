@@ -70,9 +70,6 @@ public:
     // Undo a move
     void PopMove(Move m);
 
-    // Test fundamental internal assumptions and operations
-    void TestInternals();
-
 private:
     // Generate a list of all possible moves in a position (including
     //  illegally "moving into check")

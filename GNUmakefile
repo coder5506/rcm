@@ -28,7 +28,7 @@ clean:
 bin/rcm: $(objects)
 	$(LINK.cc) $^ $(LDLIBS) -o $@
 
-test_sources =
+test_sources = $(wildcard src/thc/*.cpp)
 bin/check: $(wildcard t/*.cpp) $(test_sources)
 	$(LINK.cc) $^ -o $@
 

@@ -323,7 +323,7 @@ void ChessRules::GenMoveList(vector<Move>& moves) {
 
     for (Square square = a8; square <= h1; ++square) {
         // If square occupied by a piece of the right colour
-        const char piece=squares[square];
+        const auto piece = squares[square];
         if ((white && IsBlack(piece)) || (!white && IsWhite(piece))) {
             continue;
         }
@@ -336,32 +336,19 @@ void ChessRules::GenMoveList(vector<Move>& moves) {
         case 'p':
             BlackPawnMoves(moves, square );
             break;
-        case 'N':
-        case 'n': {
-            const lte* ptr = knight_lookup[square];
-            ShortMoves(moves, square, ptr, NOT_SPECIAL);
+        case 'N': case 'n':
+            ShortMoves(moves, square, knight_lookup[square], NOT_SPECIAL);
             break;
-        }
-        case 'B':
-        case 'b': {
-            const lte* ptr = bishop_lookup[square];
-            LongMoves(moves, square, ptr);
+        case 'B': case 'b':
+            LongMoves(moves, square, bishop_lookup[square]);
             break;
-        }
-        case 'R':
-        case 'r': {
-            const lte* ptr = rook_lookup[square];
-            LongMoves(moves, square, ptr);
+        case 'R': case 'r':
+            LongMoves(moves, square, rook_lookup[square]);
             break;
-        }
-        case 'Q':
-        case 'q': {
-            const lte* ptr = queen_lookup[square];
-            LongMoves(moves, square, ptr);
+        case 'Q': case 'q':
+            LongMoves(moves, square, queen_lookup[square]);
             break;
-        }
-        case 'K':
-        case 'k':
+        case 'K': case 'k':
             KingMoves(moves, square);
             break;
         }
@@ -370,10 +357,8 @@ void ChessRules::GenMoveList(vector<Move>& moves) {
 
 // Generate moves for pieces that move along multi-move rays (B,R,Q)
 void ChessRules::LongMoves(vector<Move>& moves, Square square, const lte* ptr) {
-    lte nbr_rays = *ptr++;
-    while (--nbr_rays >= 0) {
-        lte ray_len = *ptr++;
-        while (--ray_len >= 0) {
+    for (lte nbr_rays = *ptr++; nbr_rays != 0; --nbr_rays) {
+        for (lte ray_len = *ptr++; ray_len != 0; --ray_len) {
             const Square dst = static_cast<Square>(*ptr++);
             const char piece = squares[dst];
 
@@ -383,13 +368,13 @@ void ChessRules::LongMoves(vector<Move>& moves, Square square, const lte* ptr) {
             }
             // Else must move to end of ray
             else {
-                ptr += ray_len;
-                ray_len = 0;
+                ptr += ray_len - 1;
 
                 // If not occupied by our man add a capture
                 if ((white && IsBlack(piece)) || (!white && IsWhite(piece))) {
                     moves.push_back({square, dst, NOT_SPECIAL, piece});
                 }
+                break;
             }
         }
     }
@@ -399,8 +384,7 @@ void ChessRules::LongMoves(vector<Move>& moves, Square square, const lte* ptr) {
 void ChessRules::ShortMoves(
     vector<Move>& moves, Square square, const lte* ptr, SPECIAL special)
 {
-    lte nbr_moves = *ptr++;
-    while (--nbr_moves >= 0) {
+    for (lte nbr_moves = *ptr++; nbr_moves != 0; --nbr_moves) {
         const Square dst = static_cast<Square>(*ptr++);
         const char piece = squares[dst];
 
@@ -485,8 +469,7 @@ void ChessRules::WhitePawnMoves(vector<Move>& moves, Square square) {
     bool promotion = RANK(square) == '7';
 
     // Capture ray
-    lte nbr_moves = *ptr++;
-    while (--nbr_moves >= 0) {
+    for (lte nbr_moves = *ptr++; nbr_moves != 0; --nbr_moves) {
         const Square dst = static_cast<Square>(*ptr++);
         if (dst == d.enpassant_target) {
             moves.push_back({square, dst, SPECIAL_WEN_PASSANT, 'p'});
@@ -509,7 +492,7 @@ void ChessRules::WhitePawnMoves(vector<Move>& moves, Square square) {
     }
 
     // Advance ray
-    nbr_moves = *ptr++;
+    lte nbr_moves = *ptr++;
     for (int i = 0; i < nbr_moves; ++i) {
         const Square dst = static_cast<Square>(*ptr++);
 
@@ -538,8 +521,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
     bool promotion = RANK(square) == '2';
 
     // Capture ray
-    lte nbr_moves = *ptr++;
-    while (--nbr_moves >= 0) {
+    for (lte nbr_moves = *ptr++; nbr_moves != 0; --nbr_moves) {
         const Square dst = static_cast<Square>(*ptr++);
         if (dst == d.enpassant_target) {
             moves.push_back({square, dst, SPECIAL_BEN_PASSANT, 'P'});
@@ -562,7 +544,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
     }
 
     // Advance ray
-    nbr_moves = *ptr++;
+    lte nbr_moves = *ptr++;
     for (int i = 0; i < nbr_moves; ++i) {
         const Square dst = static_cast<Square>(*ptr++);
 

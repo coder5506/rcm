@@ -45,6 +45,10 @@ inline bool operator==(const DETAIL& lhs, const DETAIL& rhs) {
     return lhs.raw == rhs.raw;
 }
 
+inline bool operator!=(const DETAIL& lhs, const DETAIL& rhs) {
+    return lhs.raw != rhs.raw;
+}
+
 class ChessPosition {
 public:
     // Who to play
