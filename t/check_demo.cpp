@@ -8,28 +8,19 @@
 #include "../src/thc/ChessRules.h"
 #include "doctest.h"
 
-#include <iostream>
-
 using namespace std;
 using namespace thc;
 
 // Adapted from THC demo.cpp
 TEST_CASE("test Italian opening") {
     ChessRules p;
-    Move m;
 
-    m.NaturalIn(&p, "e4");
-    p.PlayMove(m);
-    m.NaturalIn(&p, "e5");
-    p.PlayMove(m);
-    m.NaturalIn(&p, "Nf3");
-    p.PlayMove(m);
-    m.NaturalIn(&p, "Nc6");
-    p.PlayMove(m);
-    m.NaturalIn(&p, "Bc4");
-    p.PlayMove(m);
-    m.NaturalIn(&p, "Bc5");
-    p.PlayMove(m);
+    p.play_san_move("e4");
+    p.play_san_move("e5");
+    p.play_san_move("Nf3");
+    p.play_san_move("Nc6");
+    p.play_san_move("Bc4");
+    p.play_san_move("Bc5");
     CHECK(p.fen() == "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4");
 
     vector<Move> moves;
@@ -92,10 +83,10 @@ TEST_CASE("test fool's mate") {
     p.PlayMove(m);
     CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/6P1/8/PPPPPP1P/RNBQKBNR w KQkq e6 0 2");
 
-    m.TerseIn(&p, "f2f4");
-    CHECK(m.NaturalOut(&p) == "f4");
+    m.TerseIn(&p, "f2f3");
+    CHECK(m.NaturalOut(&p) == "f3");
     p.PlayMove(m);
-    CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/5PP1/8/PPPPP2P/RNBQKBNR b KQkq f3 0 2");
+    CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2");
 
     TERMINAL eval_penultimate_position;
     CHECK(p.Evaluate(eval_penultimate_position));
@@ -104,7 +95,7 @@ TEST_CASE("test fool's mate") {
     m.TerseIn(&p, "d8h4");
     CHECK(m.NaturalOut(&p) == "Qh4#");
     p.PlayMove(m);
-    CHECK(p.fen() == "rnb1kbnr/pppp1ppp/8/4p3/5PPq/8/PPPPP2P/RNBQKBNR w KQkq - 1 3");
+    CHECK(p.fen() == "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
 
     TERMINAL eval_final_position;
     CHECK(p.Evaluate(eval_final_position));

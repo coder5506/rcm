@@ -80,13 +80,6 @@ inline int SE(int sq) { return sq + 9; }  // eg c5->d4
 inline int NW(int sq) { return sq - 9; }  // eg c5->b6
 inline int NE(int sq) { return sq - 7; }  // eg c5->d6
 
-// thc::Square utilities
-inline char get_file(Square sq) { return FILE(sq); }  // eg c5->'c'
-inline char get_rank(Square sq) { return RANK(sq); }  // eg c5->'5'
-inline Square make_square(char file, char rank) {     // eg ('c','5') -> c5
-    return SQ(file, rank);
-}
-
 // Special (i.e. not ordinary) move types
 enum SPECIAL {
     NOT_SPECIAL = 0,

@@ -22,9 +22,6 @@ TEST_CASE("test square utilities") {
     CHECK(SE(c5) == d4);
     CHECK(NW(c5) == b6);
     CHECK(NE(c5) == d6);
-    CHECK(get_file(c5) == 'c');
-    CHECK(get_rank(c5) == '5');
-    CHECK(make_square('c', '5') == c5);
 
     CHECK(FILE(a1) == 'a');
     CHECK(RANK(a1) == '1');

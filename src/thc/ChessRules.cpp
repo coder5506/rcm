@@ -43,6 +43,18 @@ void ChessRules::PlayMove(Move imove) {
     PushMove(imove);
 }
 
+void ChessRules::play_san_move(string_view san_move) {
+    Move move;
+    move.NaturalIn(this, san_move.data());
+    PlayMove(move);
+}
+
+void ChessRules::play_uci_move(string_view uci_move) {
+    Move move;
+    move.TerseIn(this, uci_move.data());
+    PlayMove(move);
+}
+
 // Create a list of all legal moves in this position
 void ChessRules::GenLegalMoveList(vector<Move>& moves) {
     moves.clear();
