@@ -287,10 +287,10 @@ void StandardGame::run() {
         //     centaur_led(move->dst);
         // } else  if (takeback) {
         if (takeback) {
-            centaur.game->apply_takeback(*takeback);
+            centaur.game->play_takeback(*takeback);
             centaur.led(takeback->src);
         } else if (move) {
-            centaur.game->apply_move(*move);
+            centaur.game->play_move(*move);
             centaur.led(move->dst);
         }
 

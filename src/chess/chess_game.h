@@ -31,12 +31,23 @@ public:
     void fen(std::string_view fen);
     void pgn(std::string_view pgn);
 
+    std::string& tag(const std::string& key);
+
+    void model_changed(Game&) override;
+
     std::string fen() const;
     std::string pgn() const;
 
     PositionPtr current() const;
     PositionPtr previous() const;
     PositionPtr start() const;
+
+    char at(thc::Square square) const;
+
+    Bitmap bitmap() const { return current()->bitmap(); }
+    inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
+
+    const MoveList& legal_moves() const;
 
     thc::Move san_move(std::string_view san_move) const;
     thc::Move uci_move(std::string_view uci_move) const;
@@ -46,27 +57,13 @@ public:
     void play_uci_move(std::string_view uci_move);
 
     void play_takeback();
-
-    void model_changed(Game&) override;
-
-    std::string& tag(const std::string& key);
-
-    const MoveList& legal_moves() const;
-
-    inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
-
-    char at(thc::Square square) const;
-
-    void apply_move(thc::Move move);
-    void apply_takeback(thc::Move takeback);
+    void play_takeback(thc::Move move);
 
     bool read_move(
         Bitmap            boardstate,
         const ActionList& actions,
         MoveList&         candidates,
         std::optional<thc::Move>& takeback);
-
-    Bitmap bitmap() const { return current()->bitmap(); }
 
 private:
     // Write PGN

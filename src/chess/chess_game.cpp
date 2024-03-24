@@ -13,45 +13,6 @@
 using namespace std;
 using namespace thc;
 
-string& Game::tag(const string& key) {
-    return tags[key];
-}
-
-PositionPtr Game::current() const {
-    return history.back();
-}
-
-PositionPtr Game::previous() const {
-    return history.size() > 1 ? history.at(history.size() - 2) : nullptr;
-}
-
-PositionPtr Game::start() const {
-    return history.front();
-}
-
-const MoveList& Game::legal_moves() const {
-    return current()->legal_moves();
-}
-
-string Game::fen() const {
-    return current()->fen();
-}
-
-char Game::at(thc::Square square) const {
-    return current()->at(square);
-}
-
-void Game::model_changed(Game&) {
-    if (started > 0) {
-        return;
-    }
-
-    started = time(nullptr);
-    ostringstream date;
-    date << put_time(localtime(&started), "%Y.%m.%d");
-    tag("Date") = date.str();
-}
-
 void Game::clear() {
     history.clear();
     started  = 0;
@@ -68,8 +29,9 @@ void Game::clear() {
     tags["Result"] = "*";
 }
 
-static void game_reset(Game* game) {
-    game->clear();
+void Game::fen(string_view fen) {
+    clear();
+    history.push_back(std::make_shared<Position>(fen));
 }
 
 Game::Game(string_view fen) {
@@ -78,9 +40,43 @@ Game::Game(string_view fen) {
     this->fen(fen);
 }
 
-void Game::fen(string_view fen) {
-    clear();
-    history.push_back(std::make_shared<Position>(fen));
+void Game::model_changed(Game&) {
+    if (started > 0) {
+        return;
+    }
+
+    started = time(nullptr);
+    ostringstream date;
+    date << put_time(localtime(&started), "%Y.%m.%d");
+    tags["Date"] = date.str();
+}
+
+string& Game::tag(const string& key) {
+    return tags[key];
+}
+
+PositionPtr Game::current() const {
+    return history.back();
+}
+
+PositionPtr Game::previous() const {
+    return history.size() > 1 ? history.at(history.size() - 2) : nullptr;
+}
+
+PositionPtr Game::start() const {
+    return history.front();
+}
+
+char Game::at(thc::Square square) const {
+    return current()->at(square);
+}
+
+string Game::fen() const {
+    return current()->fen();
+}
+
+const MoveList& Game::legal_moves() const {
+    return current()->legal_moves();
 }
 
 Move Game::san_move(string_view san_move) const {
@@ -93,6 +89,7 @@ Move Game::uci_move(string_view uci_move) const {
 
 void Game::play_move(Move move) {
     history.push_back(current()->play_move(move));
+    changed();
 }
 
 void Game::play_san_move(string_view san_move) {
@@ -106,18 +103,13 @@ void Game::play_uci_move(string_view uci_move) {
 void Game::play_takeback() {
     if (history.size() > 1) {
         history.pop_back();
+        changed();
     }
 }
 
-
-void Game::apply_move(Move move) {
-    play_move(move);
-}
-
-void Game::apply_takeback(Move takeback) {
-    const auto after = previous()->move_played(takeback);
-    if (after) {
-        history.pop_back();
+void Game::play_takeback(Move takeback) {
+    if (previous()->move_played(takeback)) {
+        play_takeback();
     }
 }
 

@@ -270,10 +270,10 @@ bool Centaur::read_move(
 
             // Simulate move
             if (local_takeback) {
-                game->apply_takeback(local_takeback.value());
+                game->play_takeback(local_takeback.value());
             }
             if (!local_candidates.empty()) {
-                game->apply_move(local_candidates.front());
+                game->play_move(local_candidates.front());
             }
         }
 
