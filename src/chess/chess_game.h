@@ -32,6 +32,8 @@ public:
     PositionPtr current() const;
     PositionPtr previous() const;
 
+    const MoveList& legal_moves() const;
+
     inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
 
     std::string fen() const;
@@ -40,6 +42,9 @@ public:
 
     void apply_move(thc::Move move);
     void apply_takeback(thc::Move takeback);
+
+    void play_move(thc::Move move);
+    void play_uci_move(std::string_view uci_move);
 
     bool read_move(
         Bitmap            boardstate,

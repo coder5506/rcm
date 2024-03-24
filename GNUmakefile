@@ -28,7 +28,10 @@ clean:
 bin/rcm: $(objects)
 	$(LINK.cc) $^ $(LDLIBS) -o $@
 
-test_sources = $(wildcard src/thc/*.cpp)
+test_sources = \
+	$(wildcard src/chess/*.cpp)   \
+	$(wildcard src/thc/*.cpp)     \
+	$(wildcard src/utility/*.cpp)
 bin/check: $(wildcard t/*.cpp) $(test_sources)
 	$(LINK.cc) $^ -o $@
 

@@ -21,6 +21,10 @@ PositionPtr Game::previous() const {
     return history.size() > 1 ? history.at(history.size() - 2) : nullptr;
 }
 
+const MoveList& Game::legal_moves() const {
+    return current()->legal_moves();
+}
+
 std::string Game::fen() const {
     return current()->fen();
 }
@@ -71,6 +75,16 @@ void Game::apply_takeback(thc::Move takeback) {
     if (after) {
         history.pop_back();
     }
+}
+
+void Game::play_move(thc::Move move) {
+    apply_move(move);
+}
+
+void Game::play_uci_move(std::string_view uci_move) {
+    thc::Move move;
+    move.TerseIn(const_cast<Position*>(current().get()), uci_move.data());
+    play_move(move);
 }
 
 // Here we try to interpret the move at a higher-level than the position,

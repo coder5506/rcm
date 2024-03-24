@@ -89,7 +89,8 @@ TEST_CASE("test fool's mate") {
     CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2");
 
     TERMINAL eval_penultimate_position;
-    CHECK(p.Evaluate(eval_penultimate_position));
+    auto legal1 = p.Evaluate(eval_penultimate_position);
+    CHECK(legal1);
     CHECK(eval_penultimate_position == NOT_TERMINAL);
 
     m.TerseIn(&p, "d8h4");
@@ -98,6 +99,7 @@ TEST_CASE("test fool's mate") {
     CHECK(p.fen() == "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
 
     TERMINAL eval_final_position;
-    CHECK(p.Evaluate(eval_final_position));
+    auto legal2 = p.Evaluate(eval_final_position);
+    CHECK(legal2);
     CHECK(eval_final_position == TERMINAL_WCHECKMATE);
 }
