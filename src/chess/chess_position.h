@@ -30,13 +30,17 @@ using MovePair = std::pair<const thc::Move, PositionPtr>;
 class Position : public thc::ChessRules {
 private:
     mutable MoveList legal_moves_;
+
+public:
     mutable std::vector<MovePair> moves_played;
 
 public:
-    explicit Position(const char* txt = nullptr);
+    explicit Position(std::string_view fen = {});
+    Position(const Position& other);
+
+    PositionPtr play_move(thc::Move move) const;
 
     PositionPtr move_played(thc::Move move) const;
-    PositionPtr apply_move(thc::Move move) const;
 
     Bitmap white_bitmap() const;
     Bitmap black_bitmap() const;

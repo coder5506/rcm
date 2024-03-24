@@ -9,13 +9,19 @@
 using namespace std;
 using namespace thc;
 
-Position::Position(const char* txt) {
-    if (txt) {
-        Forsyth(txt);
+Position::Position(string_view fen) {
+    if (!fen.empty()) {
+        Forsyth(fen.data());
     }
 }
 
-PositionPtr Position::move_played(thc::Move move) const {
+Position::Position(const Position& other)
+    : ChessRules(other), legal_moves_(other.legal_moves_), moves_played{}
+{
+    // Does not copy moves_played
+}
+
+PositionPtr Position::move_played(Move move) const {
     auto existing = std::find_if(
         moves_played.begin(),
         moves_played.end(),
@@ -26,20 +32,21 @@ PositionPtr Position::move_played(thc::Move move) const {
     return existing != moves_played.end() ? existing->second : nullptr;
 }
 
-PositionPtr Position::apply_move(thc::Move move) const {
+PositionPtr Position::play_move(Move move) const {
     if (auto existing = move_played(move)) {
         return existing;
     }
 
     auto after = std::make_shared<Position>(*this);
     after->PlayMove(move);
+    moves_played.push_back({move, after});
     return after;
 }
 
 Bitmap Position::white_bitmap() const {
     Bitmap bitmap{0};
     Bitmap mask{1};
-    for (thc::Square sq = thc::a8; sq <= thc::h1; ++sq) {
+    for (Square sq = a8; sq <= h1; ++sq) {
         switch (at(sq)) {
         case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
             bitmap |= mask;
@@ -55,7 +62,7 @@ Bitmap Position::white_bitmap() const {
 Bitmap Position::black_bitmap() const {
     Bitmap bitmap{0};
     Bitmap mask{1};
-    for (thc::Square sq = thc::a8; sq <= thc::h1; ++sq) {
+    for (Square sq = a8; sq <= h1; ++sq) {
         switch (at(sq)) {
         case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
             bitmap |= mask;
