@@ -11,8 +11,6 @@
 
 #include "ChessDefs.h"
 
-#include <cstddef>
-#include <cstring>
 #include <string>
 
 namespace thc {

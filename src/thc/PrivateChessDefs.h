@@ -39,9 +39,6 @@ extern const lte* pawn_white_lookup[];
 // Lookup squares a black pawn can move to
 extern const lte* pawn_black_lookup[];
 
-// Lookup good squares for enemy king when a king is on a square in an endgame
-extern const lte* good_king_position_lookup[];
-
 // Lookup squares from which an enemy pawn attacks white
 extern const lte* pawn_attacks_white_lookup[];
 

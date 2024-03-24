@@ -10,7 +10,6 @@
 #define CHESSDEFS_H
 
 #include <cctype>
-#include <cstdint>
 
 // Simple definition to aid platform portability (only remains of former Portability.h)
 int strcmp_ignore(const char* s, const char* t); // return 0 if case-insensitive match
@@ -131,12 +130,6 @@ enum TERMINAL {
     TERMINAL_BCHECKMATE =  1,   // Black is checkmated
     TERMINAL_BSTALEMATE =  2    // Black is stalemated
 };
-
-// Calculate an upper limit to the length of a list of moves
-#define MAXMOVES (27 + 2*13 + 2*14 + 2*8 + 8 + 8*4  +  3*27)
-                //[Q   2*B    2*R    2*N   K   8*P] +  [3*Q]
-                //             ^                         ^
-                //[calculated practical maximum   ] + [margin]
 
 // Types we'd really rather have in PrivateChessDefs.h, but not possible
 //  at the moment, so we reluctantly expose them to users of the chess

@@ -12,11 +12,8 @@
 #include "ChessDefs.h"
 
 #include <string>
-#include <string_view>
 
 namespace thc {
-
-class ChessRules;
 
 class Move {
 public:
@@ -32,20 +29,9 @@ public:
     };
 
     Move(Square src, Square dst, SPECIAL special = NOT_SPECIAL, int capture = ' ');
-    explicit Move(std::string_view uci_move);
+    explicit Move(std::string_view uci);
 
-    // Use these sparingly when you need to specifically mark
-    //  a move as not yet set up (defined when we got rid of
-    //  16 bit FMOVEs, we could always set and test 0 with those)
-    void Invalid() { src = a8; dst = a8; }
-    bool Valid()   { return src != a8 || dst != a8; }
-
-    // Convert to natural string
-    //  eg "Nf3"
-    std::string NaturalOut(ChessRules* cr);
-
-    // Convert to terse string eg "e7e8q"
-    std::string TerseOut();
+    std::string uci() const;
 
     bool is_promotion() const {
         return SPECIAL_PROMOTION_QUEEN <= special && special <= SPECIAL_PROMOTION_KNIGHT;

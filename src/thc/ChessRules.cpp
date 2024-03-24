@@ -986,6 +986,10 @@ Move ChessRules::uci_move(string_view uci_move) {
     throw domain_error("Invalid UCI move: " + string(uci_move));
 }
 
+string ChessRules::move_uci(Move move) {
+    return move.uci();
+}
+
 // Read natural string move eg "Nf3"
 //  return bool okay
 Move ChessRules::san_move(string_view natural_in) {
@@ -1358,4 +1362,187 @@ Move ChessRules::san_move(string_view natural_in) {
         throw std::domain_error("Invalid SAN move: " + string(natural_in));
     }
     return *found;
+}
+
+string ChessRules::move_san(Move move) {
+// Improved algorithm
+
+    /* basic procedure is run the following algorithms in turn:
+        pawn move     ?
+        castling      ?
+        Nd2 or Nxd2   ? (loop through all legal moves check if unique)
+        Nbd2 or Nbxd2 ? (loop through all legal moves check if unique)
+        N1d2 or N1xd2 ? (loop through all legal moves check if unique)
+        Nb1d2 or Nb1xd2 (fallback if nothing else works)
+    */
+
+    char nmove[10];
+    nmove[0] = '-';
+    nmove[1] = '-';
+    nmove[2] = '\0';
+    vector<Move> list;
+    vector<bool> check;
+    vector<bool> mate;
+    vector<bool> stalemate;
+    enum
+    {
+        ALG_PAWN_MOVE,
+        ALG_CASTLING,
+        ALG_ND2,
+        ALG_NBD2,
+        ALG_N1D2,
+        ALG_NB1D2
+    };
+    bool done=false;
+    bool found = false;
+    char append='\0';
+    GenLegalMoveList(list, check, mate, stalemate);
+    for (int i = 0; i != list.size(); ++i) {
+        Move mfound = list[i];
+        if( mfound == move )
+        {
+            found = true;
+            if( mate[i] )
+                append = '#';
+            else if( check[i] )
+                append = '+';
+        }
+    }
+
+    // Loop through algorithms
+    for( int alg=ALG_PAWN_MOVE; found && !done && alg<=ALG_NB1D2; alg++ )
+    {
+        bool do_loop = (alg==ALG_ND2 || alg==ALG_NBD2 || alg==ALG_N1D2);
+        int matches=0;
+
+        // Run the algorithm on the input move (i=-1) AND on all legal moves
+        //  in a loop if do_loop set for this algorithm (i=0 to i=count-1)
+        for (auto i = -1; !done && i < (do_loop ? int(list.size()) : 0); i++) {
+            char compare[10];
+            char *str_dst = (i == -1) ? nmove : compare;
+            Move m = (i == -1) ? move : list[i];
+            Square src_ = m.src;
+            Square dst_ = m.dst;
+            char t, p = squares[src_];
+            if( islower(p) )
+                p = (char)toupper(p);
+            if( !IsEmptySquare(m.capture) ) // until we did it this way, enpassant was '-' instead of 'x'
+                t = 'x';
+            else
+                t = '-';
+            switch( alg )
+            {
+                // pawn move ? "e4" or "exf6", plus "=Q" etc if promotion
+                case ALG_PAWN_MOVE:
+                {
+                    if( p == 'P' )
+                    {
+                        done = true;
+                        if( t == 'x' )
+                            sprintf( nmove, "%cx%c%c", FILE(src_),FILE(dst_),RANK(dst_) );
+                        else
+                            sprintf( nmove, "%c%c",FILE(dst_),RANK(dst_) );
+                        char *s = strchr(nmove,'\0');
+                        switch( m.special )
+                        {
+                            case SPECIAL_PROMOTION_QUEEN:
+                                strcpy( s, "=Q" );  break;
+                            case SPECIAL_PROMOTION_ROOK:
+                                strcpy( s, "=R" );  break;
+                            case SPECIAL_PROMOTION_BISHOP:
+                                strcpy( s, "=B" );  break;
+                            case SPECIAL_PROMOTION_KNIGHT:
+                                strcpy( s, "=N" );  break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                }
+
+                // castling ?
+                case ALG_CASTLING:
+                {
+                    if( m.special==SPECIAL_WK_CASTLING || m.special==SPECIAL_BK_CASTLING )
+                    {
+                        strcpy( nmove, "O-O" );
+                        done = true;
+                    }
+                    else if( m.special==SPECIAL_WQ_CASTLING || m.special==SPECIAL_BQ_CASTLING )
+                    {
+                        strcpy( nmove, "O-O-O" );
+                        done = true;
+                    }
+                    break;
+                }
+
+                // Nd2 or Nxd2
+                case ALG_ND2:
+                {
+                    if( t == 'x' )
+                        sprintf( str_dst, "%cx%c%c", p, FILE(dst_), RANK(dst_) );
+                    else
+                        sprintf( str_dst, "%c%c%c", p, FILE(dst_), RANK(dst_) );
+                    if( i >= 0 )
+                    {
+                        if( 0 == strcmp(nmove,compare) )
+                            matches++;
+                    }
+                    break;
+                }
+
+                // Nbd2 or Nbxd2
+                case ALG_NBD2:
+                {
+                    if( t == 'x' )
+                        sprintf( str_dst, "%c%cx%c%c", p, FILE(src_), FILE(dst_), RANK(dst_) );
+                    else
+                        sprintf( str_dst, "%c%c%c%c", p, FILE(src_), FILE(dst_), RANK(dst_) );
+                    if( i >= 0 )
+                    {
+                        if( 0 == strcmp(nmove,compare) )
+                            matches++;
+                    }
+                    break;
+                }
+
+                // N1d2 or N1xd2
+                case ALG_N1D2:
+                {
+                    if( t == 'x' )
+                        sprintf( str_dst, "%c%cx%c%c", p, RANK(src_), FILE(dst_), RANK(dst_) );
+                    else
+                        sprintf( str_dst, "%c%c%c%c", p, RANK(src_), FILE(dst_), RANK(dst_) );
+                    if( i >= 0 )
+                    {
+                        if( 0 == strcmp(nmove,compare) )
+                            matches++;
+                    }
+                    break;
+                }
+
+                //  Nb1d2 or Nb1xd2
+                case ALG_NB1D2:
+                {
+                    done = true;
+                    if( t == 'x' )
+                        sprintf( nmove, "%c%c%cx%c%c", p, FILE(src_), RANK(src_), FILE(dst_), RANK(dst_) );
+                    else
+                        sprintf( nmove, "%c%c%c%c%c", p, FILE(src_), RANK(src_), FILE(dst_), RANK(dst_) );
+                    break;
+                }
+            }
+        }   // end loop for all legal moves with given algorithm
+
+        // If it's a looping algorithm and only one move matches nmove, we're done
+        if( do_loop && matches==1 )
+            done = true;
+    }   // end loop for all algorithms
+    if( append )
+    {
+        char *s = strchr(nmove,'\0');
+        *s++ = append;
+        *s = '\0';
+    }
+    return nmove;
 }

@@ -27,26 +27,26 @@ TEST_CASE("starting position") {
     CHECK(moves.size() == 20);
 
     auto p = const_cast<Position*>(g.current().get());
-    CHECK(moves.at( 0).NaturalOut(p) == "a3");
-    CHECK(moves.at( 1).NaturalOut(p) == "a4");
-    CHECK(moves.at( 2).NaturalOut(p) == "b3");
-    CHECK(moves.at( 3).NaturalOut(p) == "b4");
-    CHECK(moves.at( 4).NaturalOut(p) == "c3");
-    CHECK(moves.at( 5).NaturalOut(p) == "c4");
-    CHECK(moves.at( 6).NaturalOut(p) == "d3");
-    CHECK(moves.at( 7).NaturalOut(p) == "d4");
-    CHECK(moves.at( 8).NaturalOut(p) == "e3");
-    CHECK(moves.at( 9).NaturalOut(p) == "e4");
-    CHECK(moves.at(10).NaturalOut(p) == "f3");
-    CHECK(moves.at(11).NaturalOut(p) == "f4");
-    CHECK(moves.at(12).NaturalOut(p) == "g3");
-    CHECK(moves.at(13).NaturalOut(p) == "g4");
-    CHECK(moves.at(14).NaturalOut(p) == "h3");
-    CHECK(moves.at(15).NaturalOut(p) == "h4");
-    CHECK(moves.at(16).NaturalOut(p) == "Na3");
-    CHECK(moves.at(17).NaturalOut(p) == "Nc3");
-    CHECK(moves.at(18).NaturalOut(p) == "Nf3");
-    CHECK(moves.at(19).NaturalOut(p) == "Nh3");
+    CHECK(p->move_san(moves.at( 0)) == "a3");
+    CHECK(p->move_san(moves.at( 1)) == "a4");
+    CHECK(p->move_san(moves.at( 2)) == "b3");
+    CHECK(p->move_san(moves.at( 3)) == "b4");
+    CHECK(p->move_san(moves.at( 4)) == "c3");
+    CHECK(p->move_san(moves.at( 5)) == "c4");
+    CHECK(p->move_san(moves.at( 6)) == "d3");
+    CHECK(p->move_san(moves.at( 7)) == "d4");
+    CHECK(p->move_san(moves.at( 8)) == "e3");
+    CHECK(p->move_san(moves.at( 9)) == "e4");
+    CHECK(p->move_san(moves.at(10)) == "f3");
+    CHECK(p->move_san(moves.at(11)) == "f4");
+    CHECK(p->move_san(moves.at(12)) == "g3");
+    CHECK(p->move_san(moves.at(13)) == "g4");
+    CHECK(p->move_san(moves.at(14)) == "h3");
+    CHECK(p->move_san(moves.at(15)) == "h4");
+    CHECK(p->move_san(moves.at(16)) == "Na3");
+    CHECK(p->move_san(moves.at(17)) == "Nc3");
+    CHECK(p->move_san(moves.at(18)) == "Nf3");
+    CHECK(p->move_san(moves.at(19)) == "Nh3");
 }
 
 TEST_CASE("play 1. e4 e5") {
@@ -70,7 +70,7 @@ TEST_CASE("read 1. e4 from bitmap") {
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
-    CHECK(candidates.at(0).NaturalOut(p) == "e4");
+    CHECK(p->move_san(candidates.at(0)) == "e4");
     CHECK(!takeback.has_value());
 }
 
@@ -86,7 +86,7 @@ TEST_CASE("read 1... e5 from bitmap") {
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
-    CHECK(candidates.at(0).NaturalOut(p) == "e5");
+    CHECK(p->move_san(candidates.at(0)) == "e5");
     CHECK(!takeback.has_value());
 }
 

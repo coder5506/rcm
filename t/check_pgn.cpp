@@ -2,6 +2,7 @@
 #include "doctest.h"
 
 #include <cstdarg>
+#include <cstring>
 
 static void play_san_moves(Game& game, ...) {
     va_list args;

@@ -26,13 +26,15 @@ public:
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
     bool IsLegal(ILLEGAL_REASON& reason);
 
+    Move uci_move(std::string_view uci_move);
+    Move san_move(std::string_view san_move);
+    std::string move_uci(Move move);
+    std::string move_san(Move move);
+
     // Play a move
     void PlayMove(Move imove);
     void play_san_move(std::string_view san_move);
     void play_uci_move(std::string_view uci_move);
-
-    Move uci_move(std::string_view uci_move);
-    Move san_move(std::string_view natural_in);
 
     // Check draw rules (50 move rule etc.)
     bool IsDraw(bool white_asks, DRAWTYPE& result);
