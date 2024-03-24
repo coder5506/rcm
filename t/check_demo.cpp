@@ -69,21 +69,20 @@ TEST_CASE("test Italian opening") {
 // Adapted from THC demo.cpp
 TEST_CASE("test fool's mate") {
     ChessRules p;
-    Move m;
 
     CHECK(p.fen() == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    m.TerseIn(&p, "g2g4");
+    auto m = p.uci_move("g2g4");
     CHECK(m.NaturalOut(&p) == "g4");
     p.PlayMove(m);
     CHECK(p.fen() == "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq g3 0 1");
 
-    m.TerseIn(&p, "e7e5");
+    m = p.uci_move("e7e5");
     CHECK(m.NaturalOut(&p) == "e5");
     p.PlayMove(m);
     CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/6P1/8/PPPPPP1P/RNBQKBNR w KQkq e6 0 2");
 
-    m.TerseIn(&p, "f2f3");
+    m = p.uci_move("f2f3");
     CHECK(m.NaturalOut(&p) == "f3");
     p.PlayMove(m);
     CHECK(p.fen() == "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2");
@@ -93,7 +92,7 @@ TEST_CASE("test fool's mate") {
     CHECK(legal1);
     CHECK(eval_penultimate_position == NOT_TERMINAL);
 
-    m.TerseIn(&p, "d8h4");
+    m = p.uci_move("d8h4");
     CHECK(m.NaturalOut(&p) == "Qh4#");
     p.PlayMove(m);
     CHECK(p.fen() == "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");

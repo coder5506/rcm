@@ -9,6 +9,9 @@
 #include <iomanip>
 #include <sstream>
 
+using namespace std;
+using namespace thc;
+
 std::string& Game::tag(const std::string& key) {
     return tags[key];
 }
@@ -66,25 +69,27 @@ Game::Game(const char* txt) {
     history.push_back(std::make_shared<Position>(txt));
 }
 
-void Game::apply_move(thc::Move move) {
+Move Game::uci_move(string_view uci_move) const {
+    return const_cast<Position*>(current().get())->uci_move(uci_move);
+}
+
+void Game::play_move(Move move) {
     history.push_back(current()->apply_move(move));
 }
 
-void Game::apply_takeback(thc::Move takeback) {
+void Game::play_uci_move(string_view uci_move) {
+    play_move(this->uci_move(uci_move));
+}
+
+void Game::apply_move(Move move) {
+    play_move(move);
+}
+
+void Game::apply_takeback(Move takeback) {
     const auto after = previous()->move_played(takeback);
     if (after) {
         history.pop_back();
     }
-}
-
-void Game::play_move(thc::Move move) {
-    apply_move(move);
-}
-
-void Game::play_uci_move(std::string_view uci_move) {
-    thc::Move move;
-    move.TerseIn(const_cast<Position*>(current().get()), uci_move.data());
-    play_move(move);
 }
 
 // Here we try to interpret the move at a higher-level than the position,

@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <cassert>
 
+using namespace std;
+using namespace thc;
+
 Position::Position(const char* txt) {
     if (txt) {
         Forsyth(txt);

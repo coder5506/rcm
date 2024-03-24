@@ -14,14 +14,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 using namespace std;
 using namespace thc;
 
 // Play a move
-void ChessRules::PlayMove(Move imove) {
+void ChessRules::PlayMove(Move move) {
     // Legal move - save it in history
-    history[history_idx++] = imove; // ring array
+    history.push_back(move);
 
     // Update full move count
     if (!white) {
@@ -29,10 +30,10 @@ void ChessRules::PlayMove(Move imove) {
     }
 
     // Update half move clock
-    if (squares[imove.src] == 'P' || squares[imove.src] == 'p') {
+    if (squares[move.src] == 'P' || squares[move.src] == 'p') {
         half_move_clock = 0;   // pawn move
     }
-    else if (!IsEmptySquare(imove.capture)) {
+    else if (!IsEmptySquare(move.capture)) {
         half_move_clock = 0;   // capture
     }
     else {
@@ -40,19 +41,15 @@ void ChessRules::PlayMove(Move imove) {
     }
 
     // Actually play the move
-    PushMove(imove);
+    PushMove(move);
 }
 
 void ChessRules::play_san_move(string_view san_move) {
-    Move move;
-    move.NaturalIn(this, san_move.data());
-    PlayMove(move);
+    PlayMove(this->san_move(san_move));
 }
 
 void ChessRules::play_uci_move(string_view uci_move) {
-    Move move;
-    move.TerseIn(this, uci_move.data());
-    PlayMove(move);
+    PlayMove(this->uci_move(uci_move));
 }
 
 // Create a list of all legal moves in this position
@@ -149,24 +146,17 @@ int ChessRules::GetRepetitionCount() {
     //  detail, detail_idx)
     char save_squares[sizeof(squares)];
     memcpy(save_squares, squares, sizeof save_squares);
-    unsigned char save_detail_idx = detail_idx;  // must be unsigned char
-    bool          save_white      = white;
-    unsigned char idx             = history_idx; // must be unsigned char
+    const auto save_detail_stack = detail_stack;
+    bool          save_white     = white;
     DETAIL tmp{d};
 
     // Search backwards ....
-    auto nbr_half_moves = (full_move_count-1)*2 + (!white?1:0);
-    if (nbr_half_moves > history.size()-1) {
-        nbr_half_moves = history.size()-1;
-    }
-    if (nbr_half_moves > detail_stack.size()-1) {
-        nbr_half_moves = detail_stack.size()-1;
-    }
+    size_t nbr_half_moves = (full_move_count - 1) * 2 + (!white ? 1 : 0);
+    nbr_half_moves = std::min(nbr_half_moves, history.size());
+    nbr_half_moves = std::min(nbr_half_moves, detail_stack.size());
+    auto idx = history.size();
     for (auto i = 0; i < nbr_half_moves; i++) {
         Move m = history[--idx];
-        if (m.src == m.dst) {
-            break;  // unused history is set to zeroed memory
-        }
         PopMove(m);
 
         // ... looking for matching positions
@@ -269,7 +259,7 @@ int ChessRules::GetRepetitionCount() {
     // Restore current position
     memcpy(squares, save_squares, sizeof squares);
     white      = save_white;
-    detail_idx = save_detail_idx;
+    detail_stack = save_detail_stack;
     d = tmp;
     return matches+1;  // +1 counts original position
 }
@@ -582,7 +572,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
 // Make a move (with the potential to undo)
 void ChessRules::PushMove(Move m) {
     // Push old details onto stack
-    detail_stack[detail_idx++] = d;
+    detail_stack.push_back(d);
 
     // Update castling prohibited flags for destination square, eg h8 -> bking
     switch (m.dst) {
@@ -712,7 +702,8 @@ void ChessRules::PushMove(Move m) {
 // Undo a move
 void ChessRules::PopMove(Move m) {
     // Previous detail field
-    d = detail_stack[--detail_idx];
+    d = detail_stack.back();
+    detail_stack.pop_back();
 
     // Toggle who-to-move
     Toggle();
@@ -974,4 +965,397 @@ bool ChessRules::IsLegal(ILLEGAL_REASON& reason) {
     }
     reason = static_cast<ILLEGAL_REASON>(ireason);
     return legal;
+}
+
+Move ChessRules::uci_move(string_view uci_move) {
+    vector<Move> legal_moves;
+    GenLegalMoveList(legal_moves);
+
+    const auto expected = Move(uci_move);
+    for (const auto move : legal_moves) {
+        if (move.src != expected.src || move.dst != expected.dst) {
+            continue;
+        }
+        if (move.is_promotion() || expected.is_promotion()) {
+            if (move.special != expected.special) {
+                continue;
+            }
+        }
+        return move;
+    }
+    throw domain_error("Invalid UCI move: " + string(uci_move));
+}
+
+// Read natural string move eg "Nf3"
+//  return bool okay
+Move ChessRules::san_move(string_view natural_in) {
+    vector<Move> list;
+    int  i, len=0;
+    char src_file='\0', src_rank='\0', dst_file='\0', dst_rank='\0';
+    char promotion='\0';
+    bool enpassant=false;
+    bool kcastling=false;
+    bool qcastling=false;
+    Square dst_=a8;
+    Move *m, *found=NULL;
+    char *s;
+    char  move[10];
+    bool  white=this->white;
+    char  piece=(white?'P':'p');
+    bool  default_piece=true;
+
+    // Indicate no move found (yet)
+    bool okay=true;
+
+    // Copy to read-write variable
+    okay = false;
+    for( i=0; i<sizeof(move); i++ )
+    {
+        move[i] = natural_in[i];
+        if( move[i]=='\0' || move[i]==' ' || move[i]=='\t' ||
+            move[i]=='\r' || move[i]=='\n' )
+        {
+            move[i] = '\0';
+            okay = true;
+            break;
+        }
+    }
+    if( okay )
+    {
+
+        // Trim string from end
+        s = strchr(move,'\0') - 1;
+        while( s>=move && !(isascii(*s) && isalnum(*s)) )
+            *s-- = '\0';
+
+        // Trim string from start
+        s = move;
+        while( *s==' ' || *s=='\t' )
+            s++;
+        len = (int)strlen(s);
+        for( i=0; i<len+1; i++ )  // +1 gets '\0' at end
+            move[i] = *s++;  // if no leading space this does
+                            //  nothing, but no harm either
+
+        // Trim enpassant
+        if( len>=2 && move[len-1]=='p' )
+        {
+            if( 0 == strcmp(&move[len-2],"ep") )
+            {
+                move[len-2] = '\0';
+                enpassant = true;
+            }
+            else if( len>=3 && 0==strcmp(&move[len-3],"e.p") )
+            {
+                move[len-3] = '\0';
+                enpassant = true;
+            }
+
+            // Trim string from end, again
+            s = strchr(move,'\0') - 1;
+            while( s>=move && !(isascii(*s) && isalnum(*s)) )
+                *s-- = '\0';
+            len = (int)strlen(move);
+        }
+
+        // Promotion
+        if( len>2 )  // We are supporting "ab" to mean Pawn a5xb6 (say), and this test makes sure we don't
+        {            // mix that up with a lower case bishop promotion, and that we don't reject "ef" say
+                     // on the basis that 'F' is not a promotion indication. We've never supported "abQ" say
+                     // as a7xb8=Q, and we still don't so "abb" as a bishop promotion doesn't work, but we
+                     // continue to support "ab=Q", and even "ab=b".
+                     // The test also ensures we can access move[len-2] below
+                     // These comments added when we changed the logic to support "b8Q" and "a7xb8Q", the
+                     // '=' can optionally be omitted in such cases, the first change in this code for many,
+                     // many years.
+            char last = move[len-1];
+            bool is_file = ('1'<=last && last<='8');
+            if( !is_file )
+            {
+                switch( last )
+                {
+                    case 'O':
+                    case 'o':   break;  // Allow castling!
+                    case 'q':
+                    case 'Q':   promotion='Q';  break;
+                    case 'r':
+                    case 'R':   promotion='R';  break;
+                    case 'b':   if( len==3 && '2'<=move[1] && move[1]<='7' )
+                                    break;  // else fall through to promotion - allows say "a5b" as disambiguating
+                                            //  version of "ab" if there's more than one "ab" available! Something
+                                            //  of an ultra refinement
+                    case 'B':   promotion='B';  break;
+                    case 'n':
+                    case 'N':   promotion='N';  break;
+                    default:    okay = false;   break;   // Castling and promotions are the only cases longer than 2
+                                                         //  chars where a non-file ends a move. (Note we still accept
+                                                         //  2 character pawn captures like "ef").
+                }
+                if( promotion )
+                {
+                    switch( move[len-2] )
+                    {
+                        case '=':
+                        case '1':   // we now allow '=' to be omitted, as e.g. ChessBase mobile seems to (sometimes?)
+                        case '8':   break;
+                        default:    okay = false;   break;
+                    }
+                    if( okay )
+                    {
+
+                        // Trim string from end, again
+                        move[len-1] = '\0';     // Get rid of 'Q', 'N' etc
+                        s = move + len-2;
+                        while( s>=move && !(isascii(*s) && isalnum(*s)) )
+                            *s-- = '\0';    // get rid of '=' but not '1','8'
+                        len = (int)strlen(move);
+                    }
+                }
+            }
+        }
+    }
+
+    // Castling
+    if( okay )
+    {
+        if( 0==strcmp_ignore(move,"oo") || 0==strcmp_ignore(move,"o-o") )
+        {
+            strcpy( move, (white?"e1g1":"e8g8") );
+            len       = 4;
+            piece     = (white?'K':'k');
+            default_piece = false;
+            kcastling = true;
+        }
+        else if( 0==strcmp_ignore(move,"ooo") || 0==strcmp_ignore(move,"o-o-o") )
+        {
+            strcpy( move, (white?"e1c1":"e8c8") );
+            len       = 4;
+            piece     = (white?'K':'k');
+            default_piece = false;
+            qcastling = true;
+        }
+    }
+
+    // Destination square for all except pawn takes pawn (eg "ef")
+    if( okay )
+    {
+        if( len==2 && 'a'<=move[0] && move[0]<='h'
+                   && 'a'<=move[1] && move[1]<='h' )
+        {
+            src_file = move[0]; // eg "ab" pawn takes pawn
+            dst_file = move[1];
+        }
+        else if( len==3 && 'a'<=move[0] && move[0]<='h'
+                        && '2'<=move[1] && move[1]<='7'
+                        && 'a'<=move[2] && move[2]<='h' )
+        {
+            src_file = move[0]; // eg "a3b"  pawn takes pawn
+            dst_file = move[2];
+        }
+        else if( len>=2 && 'a'<=move[len-2] && move[len-2]<='h'
+                        && '1'<=move[len-1] && move[len-1]<='8' )
+        {
+            dst_file = move[len-2];
+            dst_rank = move[len-1];
+            dst_ = SQ(dst_file,dst_rank);
+        }
+        else
+            okay = false;
+    }
+
+    // Source square and or piece
+    if( okay )
+    {
+        if( len > 2 )
+        {
+            if( 'a'<=move[0] && move[0]<='h' &&
+                '1'<=move[1] && move[1]<='8' )
+            {
+                src_file = move[0];
+                src_rank = move[1];
+            }
+            else
+            {
+                switch( move[0] )
+                {
+                    case 'K':   piece = (white?'K':'k');    default_piece=false; break;
+                    case 'Q':   piece = (white?'Q':'q');    default_piece=false; break;
+                    case 'R':   piece = (white?'R':'r');    default_piece=false; break;
+                    case 'N':   piece = (white?'N':'n');    default_piece=false; break;
+                    case 'P':   piece = (white?'P':'p');    default_piece=false; break;
+                    case 'B':   piece = (white?'B':'b');    default_piece=false; break;
+                    default:
+                    {
+                        if( 'a'<=move[0] && move[0]<='h' )
+                            src_file = move[0]; // eg "ef4"
+                        else
+                            okay = false;
+                        break;
+                    }
+                }
+                if( len>3  && src_file=='\0' )  // not eg "ef4" above
+                {
+                    if( '1'<=move[1] && move[1]<='8' )
+                        src_rank = move[1];
+                    else if( 'a'<=move[1] && move[1]<='h' )
+                    {
+                        src_file = move[1];
+                        if( len>4 && '1'<=move[2] && move[2]<='8' )
+                            src_rank = move[2];
+                    }
+                }
+            }
+        }
+    }
+
+    // Check against all possible moves
+    if( okay )
+    {
+        GenLegalMoveList(list);
+
+        // Have source and destination, eg "d2d3"
+        if( enpassant )
+            src_rank = dst_rank = '\0';
+        if( src_file && src_rank && dst_file && dst_rank )
+        {
+            for (auto& m : list) {
+                if( (default_piece || piece==squares[m.src])  &&
+                    src_file  ==   FILE(m.src)       &&
+                    src_rank  ==   RANK(m.src)       &&
+                    dst_       ==   m.dst
+                )
+                {
+                    if( kcastling )
+                    {
+                        if( m.special ==
+                             (white?SPECIAL_WK_CASTLING:SPECIAL_BK_CASTLING) )
+                            found = &m;
+                    }
+                    else if( qcastling )
+                    {
+                        if( m.special ==
+                             (white?SPECIAL_WQ_CASTLING:SPECIAL_BQ_CASTLING) )
+                            found = &m;
+                    }
+                    else
+                        found = &m;
+                    break;
+                }
+            }
+        }
+
+        // Have source file only, eg "Rae1"
+        else if( src_file && dst_file && dst_rank )
+        {
+            for (auto& m : list) {
+                if( piece     ==   squares[m.src]  &&
+                    src_file  ==   FILE(m.src)         &&
+                 /* src_rank  ==   RANK(m.src)  */
+                    dst_       ==   m.dst
+                )
+                {
+                    found = &m;
+                    break;
+                }
+            }
+        }
+
+        // Have source rank only, eg "R2d2"
+        else if( src_rank && dst_file && dst_rank )
+        {
+            for (auto& m : list) {
+                if( piece     ==   squares[m.src]   &&
+                 /* src_file  ==   FILE(m.src) */
+                    src_rank  ==   RANK(m.src)          &&
+                    dst_       ==   m.dst
+                )
+                {
+                    found = &m;
+                    break;
+                }
+            }
+        }
+
+        // Have destination file only eg e4f (because 2 ef moves are possible)
+        else if( src_file && src_rank && dst_file )
+        {
+            for (auto& m : list) {
+                if( piece     ==   squares[m.src]      &&
+                    src_file  ==   FILE(m.src)             &&
+                    src_rank  ==   RANK(m.src)             &&
+                    dst_file  ==   FILE(m.dst)
+                )
+                {
+                    found = &m;
+                    break;
+                }
+            }
+        }
+
+        // Have files only, eg "ef"
+        else if( src_file && dst_file )
+        {
+            for (auto& m : list) {
+                if( piece     ==   squares[m.src]      &&
+                    src_file  ==   FILE(m.src)             &&
+                 /* src_rank  ==   RANK(m.src) */
+                    dst_file  ==   FILE(m.dst)
+                )
+                {
+                    if( enpassant )
+                    {
+                        if( m.special ==
+                             (white?SPECIAL_WEN_PASSANT:SPECIAL_BEN_PASSANT) )
+                            found = &m;
+                    }
+                    else
+                        found = &m;
+                    break;
+                }
+            }
+        }
+
+        // Have destination square only eg "a4"
+        else if( dst_rank && dst_file )
+        {
+            for (auto& m : list) {
+                if( piece     ==   squares[m.src]          &&
+                    dst_       ==   m.dst
+                )
+                {
+                    found = &m;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Copy found move
+    if( okay && found )
+    {
+        bool found_promotion =
+            ( found->special == SPECIAL_PROMOTION_QUEEN ||
+              found->special == SPECIAL_PROMOTION_ROOK ||
+              found->special == SPECIAL_PROMOTION_BISHOP ||
+              found->special == SPECIAL_PROMOTION_KNIGHT
+            );
+        if( promotion && !found_promotion )
+            okay = false;
+        if( found_promotion )
+        {
+            switch( promotion )
+            {
+                default:
+                case 'Q': found->special = SPECIAL_PROMOTION_QUEEN;   break;
+                case 'R': found->special = SPECIAL_PROMOTION_ROOK;    break;
+                case 'B': found->special = SPECIAL_PROMOTION_BISHOP;  break;
+                case 'N': found->special = SPECIAL_PROMOTION_KNIGHT;  break;
+            }
+        }
+    }
+
+    if (!okay || !found) {
+        throw std::domain_error("Invalid SAN move: " + string(natural_in));
+    }
+    return *found;
 }

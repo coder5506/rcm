@@ -74,7 +74,6 @@ TEST_CASE("test castling internals: king moves") {
 // Adapted from ChessRules::TestInternals
 TEST_CASE("test internals") {
     ChessRules p;
-    Move m;
 
     p.Forsyth("b3k2r/8/8/8/8/8/8/R3K2R w KQk - 0 1");
     CHECK(p.white);
@@ -88,7 +87,7 @@ TEST_CASE("test internals") {
     CHECK(p.wking_allowed());
 
 
-    m.TerseIn(&p, "h1h2");  // 1. Rh2
+    auto m = p.uci_move("h1h2");  // 1. Rh2
     p.PushMove(m);
     CHECK(!p.white);
     CHECK(p.half_move_clock == 0);  // only updated by PlayMove
@@ -109,7 +108,7 @@ TEST_CASE("test internals") {
     CHECK(p.at(h1) == ' ');  CHECK(p.at(h2) == 'R');
 
 
-    m.TerseIn(&p, "a8h1");  // 1... Bh1
+    m = p.uci_move("a8h1");  // 1... Bh1
     p.PushMove(m);
     CHECK(p.white);
     CHECK(p.half_move_clock == 1);
@@ -130,7 +129,7 @@ TEST_CASE("test internals") {
     CHECK(p.at(a8) == ' ');  CHECK(p.at(h1) == 'b');
 
 
-    m.TerseIn(&p, "e1c1");  // 2. O-O-O
+    m = p.uci_move("e1c1");  // 2. O-O-O
     p.PushMove(m);
     CHECK(!p.white);
     CHECK(p.half_move_clock == 2);
@@ -157,7 +156,7 @@ TEST_CASE("test internals") {
     CHECK(p.at(c1) == 'K');  CHECK(p.at(e1) == ' ');
 
 
-    m.TerseIn(&p, "h1a8");  // 2... Ba8
+    m = p.uci_move("h1a8");  // 2... Ba8
     p.PushMove(m);
     CHECK(p.white);
     CHECK(p.half_move_clock == 3);
@@ -175,7 +174,7 @@ TEST_CASE("test internals") {
     CHECK(p.at(b1) == ' ');  CHECK(p.at(c1) == 'K');
 
 
-    m.TerseIn(&p, "c1b1");  // 3. Kb1
+    m = p.uci_move("c1b1");  // 3. Kb1
     p.PushMove(m);
     CHECK(!p.white);
     CHECK(p.half_move_clock == 4);
@@ -199,7 +198,7 @@ TEST_CASE("test internals") {
     CHECK(p.at(b1) == 'K');  CHECK(p.at(c1) == ' ');
 
 
-    m.TerseIn(&p, "e8g8");  // 3... O-O
+    m = p.uci_move("e8g8");  // 3... O-O
     p.PushMove(m);
     CHECK(p.white);
     CHECK(p.half_move_clock == 5);

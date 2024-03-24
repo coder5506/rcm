@@ -12,22 +12,15 @@
 #include "ChessPosition.h"
 #include "Move.h"
 
-#include <array>
 #include <vector>
 
 namespace thc {
 
-// Class encapsulates state of game and operations available
+// Encapsulates state of game and operations available
 class ChessRules: public ChessPosition {
 private:
-    // Move history is a ring array
-    std::array<Move, 256> history;        // must be 256 ..
-    unsigned char history_idx{1};         // .. so this loops around naturally
-    // 1 => prevent bogus repetition draws
-
-    // Detail stack is a ring array
-    std::array<DETAIL, 256> detail_stack;  // must be 256 ..
-    unsigned char detail_idx{0};           // .. so this loops around naturally
+    std::vector<Move>   history;
+    std::vector<DETAIL> detail_stack;
 
 public:
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
@@ -37,6 +30,9 @@ public:
     void PlayMove(Move imove);
     void play_san_move(std::string_view san_move);
     void play_uci_move(std::string_view uci_move);
+
+    Move uci_move(std::string_view uci_move);
+    Move san_move(std::string_view natural_in);
 
     // Check draw rules (50 move rule etc.)
     bool IsDraw(bool white_asks, DRAWTYPE& result);

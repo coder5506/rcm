@@ -13,6 +13,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class Game : public Model<Game>, public Observer<Game> {
@@ -31,6 +32,8 @@ public:
 
     PositionPtr current() const;
     PositionPtr previous() const;
+
+    thc::Move uci_move(std::string_view uci_move) const;
 
     const MoveList& legal_moves() const;
 

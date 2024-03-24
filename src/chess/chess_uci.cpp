@@ -14,6 +14,9 @@
 #include <time.h>
 #include <unistd.h>
 
+using namespace std;
+using namespace thc;
+
 std::unique_ptr<UCIMessage> UCIEngine::receive() {
     const std::lock_guard<std::mutex> lock{mutex};
     if (response_queue.empty()) {
@@ -87,12 +90,14 @@ int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
 
         char *const line = expect("bestmove ");
         if (line) {
-            thc::Move move;
-            auto current = request->game->current();
-            move.TerseIn(const_cast<Position*>(current.get()), line + 9);
-            request->move = std::move(move);
-            send_response(std::move(request));
-            return 0;
+            try {
+                request->move = request->game->uci_move(line + 9);
+                send_response(std::move(request));
+                return 0;
+            }
+            catch (const std::logic_error&) {
+                return 1;
+            }
         }
     }
 }

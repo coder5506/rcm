@@ -10,7 +10,9 @@
 #define MOVE_H
 
 #include "ChessDefs.h"
+
 #include <string>
+#include <string_view>
 
 namespace thc {
 
@@ -29,26 +31,14 @@ public:
         std::uint32_t raw;
     };
 
-    Move(Square src = a8, Square dst = a8, SPECIAL special = NOT_SPECIAL, int capture = ' ');
+    Move(Square src, Square dst, SPECIAL special = NOT_SPECIAL, int capture = ' ');
+    explicit Move(std::string_view uci_move);
 
     // Use these sparingly when you need to specifically mark
     //  a move as not yet set up (defined when we got rid of
     //  16 bit FMOVEs, we could always set and test 0 with those)
     void Invalid() { src = a8; dst = a8; }
     bool Valid()   { return src != a8 || dst != a8; }
-
-    // Read natural string move eg "Nf3"
-    //  return bool okay
-    bool NaturalIn(ChessRules* cr, const char* natural_in);
-
-    // Read natural string move eg "Nf3"
-    //  return bool okay
-    // Fast alternative for known good input
-    bool NaturalInFast(ChessRules* cr, const char* natural_in);
-
-    // Read terse string move eg "g1f3"
-    //  return bool okay
-    bool TerseIn(ChessRules* cr, const char* tmove);
 
     // Convert to natural string
     //  eg "Nf3"
