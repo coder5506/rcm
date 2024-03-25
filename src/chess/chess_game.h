@@ -78,8 +78,8 @@ private:
     void write_pgn(std::ostream&) const;
 
     // Read PGN
-    void read_tags(char**);
-    bool read_movetext(char**);
+    void read_tags(char*&);
+    bool read_movetext(char*&);
 };
 
 #endif

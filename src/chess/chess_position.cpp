@@ -15,12 +15,6 @@ Position::Position(string_view fen) {
     }
 }
 
-Position::Position(const Position& other)
-    : ChessRules(other), legal_moves_(other.legal_moves_), moves_played{}
-{
-    // Does not copy moves_played
-}
-
 PositionPtr Position::move_played(Move move) const {
     auto existing = std::find_if(
         moves_played.begin(),
@@ -38,6 +32,7 @@ PositionPtr Position::play_move(Move move) const {
     }
 
     auto after = std::make_shared<Position>(*this);
+    after->moves_played.clear();
     after->PlayMove(move);
     moves_played.push_back({move, after});
     return after;

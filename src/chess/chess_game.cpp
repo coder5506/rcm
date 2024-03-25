@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 using namespace std;
@@ -265,60 +266,57 @@ string Game::pgn() const {
 // Read PGN
 //
 
-static void skip_whitespace(char** pgn) {
-    while (std::isspace(**pgn)) {
-        ++*pgn;
+static void skip_whitespace(char*& pgn) {
+    while (std::isspace(*pgn)) {
+        ++pgn;
     }
 }
 
-static char* read_string(char** pgn) {
+static char* read_string(char*& pgn) {
     skip_whitespace(pgn);
-    if (**pgn != '"') {
+    if (*pgn != '"') {
         return nullptr;
     }
-    ++*pgn;
+    ++pgn;
 
-    auto begin = *pgn;
+    auto begin = pgn;
     auto end   = begin;
-    while (**pgn && **pgn != '"') {
-        if (**pgn == '\\') {
-            ++*pgn;
+    while (*pgn && *pgn != '"') {
+        if (*pgn == '\\') {
+            ++pgn;
         }
-        *end++ = **pgn;
-        ++*pgn;
+        *end++ = *pgn++;
     }
 
-    if (**pgn != '"') {
+    if (*pgn != '"') {
         return nullptr;
     }
 
     *end = '\0';
-    ++*pgn;
+    ++pgn;
     return begin;
 }
 
-static char* read_symbol(char** pgn) {
+static char* read_symbol(char*& pgn) {
     skip_whitespace(pgn);
-    if (!std::isalpha(**pgn)) {
+    if (!std::isalpha(*pgn)) {
         return nullptr;
     }
 
-    auto begin = *pgn;
-    while (**pgn && (std::isalnum(**pgn) || std::strchr("_+#=:-", **pgn))) {
-        ++*pgn;
+    auto begin = pgn;
+    while (*pgn && (std::isalnum(*pgn) || std::strchr("_+#=:-", *pgn))) {
+        ++pgn;
     }
 
-    **pgn = '\0';
-    ++*pgn;
     return begin;
 }
 
-static char* read_tag(char** value, char** pgn) {
+static char* read_tag(char** value, char*& pgn) {
     skip_whitespace(pgn);
-    if (**pgn != '[') {
+    if (*pgn != '[') {
         return nullptr;
     }
-    ++*pgn;
+    ++pgn;
 
     auto name = read_symbol(pgn);
     if (!name) {
@@ -331,15 +329,15 @@ static char* read_tag(char** value, char** pgn) {
     }
 
     skip_whitespace(pgn);
-    if (**pgn != ']') {
+    if (*pgn != ']') {
         return nullptr;
     }
-    ++*pgn;
+    ++pgn;
 
     return name;
 }
 
-void Game::read_tags(char** pgn) {
+void Game::read_tags(char*& pgn) {
     tags.clear();
 
     char* value = nullptr;
@@ -351,40 +349,40 @@ void Game::read_tags(char** pgn) {
     }
 }
 
-static int read_move_number(char** pgn) {
+static int read_move_number(char*& pgn) {
     skip_whitespace(pgn);
 
     auto n = 0;
-    while (std::isdigit(**pgn)) {
-        n = n * 10 + (**pgn - '0');
-        ++*pgn;
+    while (std::isdigit(*pgn)) {
+        n = n * 10 + (*pgn++ - '0');
     }
 
     skip_whitespace(pgn);
-    if (**pgn == '.') {
-        ++*pgn;
+    while (*pgn == '.') {
+        ++pgn;
     }
 
     return n;
 }
 
-bool Game::read_movetext(char** pgn) {
-    while (**pgn) {
+bool Game::read_movetext(char*& pgn) {
+    while (*pgn) {
         skip_whitespace(pgn);
-        if (**pgn == ')') {
+        if (*pgn == ')') {
             return true;
         }
 
-        if (**pgn == '(') {
+        if (*pgn == '(') {
             auto save_history = history;
             play_takeback();
+            ++pgn;
             if (!read_movetext(pgn)) {
                 return false;
             }
-            if (**pgn != ')') {
+            if (*pgn != ')') {
                 return false;
             }
-            ++*pgn;
+            ++pgn;
             history = save_history;
             continue;
         }
@@ -407,10 +405,13 @@ bool Game::read_movetext(char** pgn) {
 
 void Game::pgn(string_view pgn) {
     clear();
-    auto working = strdup(pgn.data());
-    read_tags(&working);
-    auto ok = read_movetext(&working);
-    free(working);
+    history.push_back(make_shared<Position>());
+
+    auto copy = strdup(pgn.data());
+    auto working = copy;
+    read_tags(working);
+    auto ok = read_movetext(working);
+    free(copy);
     if (!ok) {
         throw std::domain_error("Invalid PGN");
     }

@@ -36,11 +36,9 @@ public:
 
 public:
     explicit Position(std::string_view fen = {});
-    Position(const Position& other);
-
-    PositionPtr play_move(thc::Move move) const;
 
     PositionPtr move_played(thc::Move move) const;
+    PositionPtr play_move(thc::Move move) const;
 
     Bitmap white_bitmap() const;
     Bitmap black_bitmap() const;
