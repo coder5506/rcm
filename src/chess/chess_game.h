@@ -25,7 +25,7 @@ public:
     std::string   settings;  // Opaque
     std::map<std::string, std::string> tags;
 
-    explicit Game(std::string_view fen = {});
+    explicit Game(std::string_view pgn = {}, std::string_view fen = {});
 
     void clear();
     void fen(std::string_view fen);
@@ -80,6 +80,10 @@ private:
     // Read PGN
     void read_tags(char*&);
     bool read_movetext(char*&);
+
+    // Restore from PGN and FEN
+    bool recover_history(PositionPtr target);
+    void recover_position(std::string_view fen);
 };
 
 #endif

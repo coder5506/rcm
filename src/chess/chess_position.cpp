@@ -5,9 +5,18 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 using namespace std;
 using namespace thc;
+
+bool operator==(const Position& lhs, const Position& rhs) {
+    return lhs.white == rhs.white
+        && lhs.half_move_clock == rhs.half_move_clock
+        && lhs.full_move_count == rhs.full_move_count
+        && memcmp(lhs.squares, rhs.squares, sizeof lhs.squares) == 0
+        && lhs.d == rhs.d;
+}
 
 Position::Position(string_view fen) {
     if (!fen.empty()) {

@@ -51,6 +51,8 @@ public:
         Bitmap boardstate, const ActionList& actions, MoveList& candidates) const;
 };
 
+bool operator==(const Position& lhs, const Position& rhs);
+
 #endif
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

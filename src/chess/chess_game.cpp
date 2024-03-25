@@ -32,13 +32,47 @@ void Game::clear() {
 
 void Game::fen(string_view fen) {
     clear();
-    history.push_back(std::make_shared<Position>(fen));
+    history.push_back(make_shared<Position>(fen));
 }
 
-Game::Game(string_view fen) {
+bool Game::recover_history(PositionPtr target) {
+    if (*target == *current()) {
+        return true;
+    }
+
+    for (auto movepair : current()->moves_played) {
+        history.push_back(movepair.second);
+        if (recover_history(target)) {
+            return true;
+        }
+        history.pop_back();
+    }
+
+    return false;
+}
+
+void Game::recover_position(string_view fen) {
+    auto start = this->start();
+    history.clear();
+    history.push_back(start);
+    if (!recover_history(make_shared<Position>(fen))) {
+        throw std::domain_error("Invalid position");
+    }
+}
+
+Game::Game(string_view pgn, string_view fen) {
     clear();
     this->observe(this);
-    this->fen(fen);
+    if (pgn.empty()) {
+        // May be empty/start position
+        this->fen(fen);
+    } else {
+        this->pgn(pgn);
+        if (!fen.empty()) {
+            // Identifies current node in graph
+            recover_position(fen);
+        }
+    }
 }
 
 void Game::model_changed(Game&) {
