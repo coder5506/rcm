@@ -16,10 +16,12 @@
 
 namespace thc {
 
+using MoveList = std::vector<Move>;
+
 // Encapsulates state of game and operations available
 class ChessRules: public ChessPosition {
 private:
-    std::vector<Move>   history;
+    MoveList            history;
     std::vector<DETAIL> detail_stack;
 
 public:
@@ -49,6 +51,9 @@ public:
     bool Evaluate();
     bool Evaluate(TERMINAL& score_terminal);
 
+    bool is_legal();
+    bool is_legal(Move);
+
     // Is a square is attacked by enemy ?
     bool AttackedSquare(Square square, bool enemy_is_white);
 
@@ -56,10 +61,11 @@ public:
     bool AttackedPiece(Square square);
 
     // Create a list of all legal moves in this position
-    void GenLegalMoveList(std::vector<Move>& moves);
+    void GenLegalMoveList(MoveList& moves);
+    MoveList GenLegalMoveList();
 
     //  Create a list of all legal moves in this position, with extra info
-    void GenLegalMoveList(std::vector<Move>& moves,
+    void GenLegalMoveList(MoveList&          moves,
                           std::vector<bool>& check,
                           std::vector<bool>& mate,
                           std::vector<bool>& stalemate);
@@ -70,28 +76,31 @@ public:
     // Undo a move
     void PopMove(Move m);
 
-private:
+protected:
+    MoveList select_legal(const MoveList&);
+
     // Generate a list of all possible moves in a position (including
     //  illegally "moving into check")
-    void GenMoveList(std::vector<Move>& moves);
+    void GenMoveList(MoveList& moves);
+    MoveList GenMoveList();
 
     // Generate moves for pieces that move along multi-move rays (B,R,Q)
-    void LongMoves(std::vector<Move>& moves, Square square, const lte* ptr);
+    void LongMoves(MoveList& moves, Square square, const lte* ptr);
 
     // Generate moves for pieces that move along single-move rays (K,N,P)
-    void ShortMoves(std::vector<Move>& moves, Square square, const lte* ptr, SPECIAL special);
+    void ShortMoves(MoveList& moves, Square square, const lte* ptr, SPECIAL special);
 
     // Generate list of king moves
-    void KingMoves(std::vector<Move>& moves, Square square);
+    void KingMoves(MoveList& moves, Square square);
 
     // Generate list of white pawn moves
-    void WhitePawnMoves(std::vector<Move>& moves, Square square);
+    void WhitePawnMoves(MoveList& moves, Square square);
 
     // Generate list of black pawn moves
-    void BlackPawnMoves(std::vector<Move>& moves, Square square);
+    void BlackPawnMoves(MoveList& moves, Square square);
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
-    bool Evaluate(std::vector<Move> *p, TERMINAL& score_terminal);
+    bool Evaluate(MoveList *p, TERMINAL& score_terminal);
 };
 
 }

@@ -100,7 +100,8 @@ public:
     std::string fen() const;
 
     // Who's turn is it anyway
-    inline bool WhiteToPlay() const { return white; }
+    inline bool WhiteToPlay() const { return  white; }
+    inline bool BlackToPlay() const { return !white; }
     void Toggle() { white = !white; }
 };
 

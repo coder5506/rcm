@@ -13,44 +13,64 @@
 #include <utility>
 #include <vector>
 
+// State of board fields.  Set bit indicates presence of piece.
+// MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 using Bitmap = std::uint64_t;
 
+// An action can be either a lift or a place.
 struct Action {
     thc::Square lift{thc::SQUARE_INVALID};
     thc::Square place{thc::SQUARE_INVALID};
 };
+
+// Sequence of actions from oldest to newest.
 using ActionList = std::vector<Action>;
 
 class Position;
 using PositionPtr = std::shared_ptr<const Position>;
 
 using MoveList = std::vector<thc::Move>;
+
+// Represents both a move and the resulting position.
 using MovePair = std::pair<const thc::Move, PositionPtr>;
 
 class Position : public thc::ChessRules {
 private:
+    // Cache
     mutable MoveList legal_moves_;
 
 public:
     mutable std::vector<MovePair> moves_played;
 
-public:
     explicit Position(std::string_view fen = {});
 
+    // If move has previously been played in this position, return the shared
+    // resulting position.
     PositionPtr move_played(thc::Move move) const;
+
+    // Play move and return resulting position.  Result may be new or shared.
     PositionPtr play_move(thc::Move move) const;
 
-    Bitmap white_bitmap() const;
-    Bitmap black_bitmap() const;
     Bitmap bitmap() const;
+    Bitmap difference_bitmap(const Position& other) const;
 
     const MoveList& legal_moves() const;
-    bool incomplete(Bitmap boardstate) const;
-    bool read_moves(Bitmap boardstate, MoveList& candidates) const;
+    MoveList castle_moves() const;
+
+    bool incomplete(Bitmap boardstate, const Position& after) const;
+
+    // Yield list of legal moves matching both boardstate and action history.
     bool read_move(
-        Bitmap boardstate, const ActionList& actions, MoveList& candidates) const;
+        Bitmap            boardstate,
+        const ActionList& actions,
+        MoveList&         candidates) const;
+
+private:
+    // Yield list of legal moves matching boardstate.
+    bool read_moves(Bitmap boardstate, MoveList& candidates) const;
 };
 
+// True if two positions are equivalent, without considering moves played.
 bool operator==(const Position& lhs, const Position& rhs);
 
 #endif

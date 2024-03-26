@@ -52,23 +52,40 @@ void ChessRules::play_uci_move(string_view uci_move) {
     PlayMove(this->uci_move(uci_move));
 }
 
-// Create a list of all legal moves in this position
-void ChessRules::GenLegalMoveList(vector<Move>& moves) {
-    moves.clear();
+bool ChessRules::is_legal() {
+    return Evaluate();
+}
 
-    // Generate all moves, including illegal (e.g. put king in check) moves
-    vector<Move> list2;
-    GenMoveList(list2);
+bool ChessRules::is_legal(Move move) {
+    PushMove(move);
+    const auto okay = is_legal();
+    PopMove(move);
+    return okay;
+}
 
-    // Loop copying the proven good ones
-    for (auto move : list2) {
-        PushMove(move);
-        const auto okay = Evaluate();
-        PopMove(move);
-        if (okay) {
-            moves.push_back(move);
+MoveList ChessRules::select_legal(const MoveList& candidates) {
+    MoveList legal;
+    for (auto move : candidates) {
+        if (is_legal(move)) {
+            legal.push_back(move);
         }
     }
+    return legal;
+}
+
+MoveList ChessRules::GenMoveList() {
+    MoveList candidates;
+    GenMoveList(candidates);
+    return candidates;
+}
+
+MoveList ChessRules::GenLegalMoveList() {
+    return select_legal(GenMoveList());
+}
+
+// Create a list of all legal moves in this position
+void ChessRules::GenLegalMoveList(vector<Move>& moves) {
+    moves = GenLegalMoveList();
 }
 
 // Create a list of all legal moves in this position, with extra info

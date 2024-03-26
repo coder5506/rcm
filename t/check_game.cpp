@@ -1,16 +1,17 @@
 #include "../src/chess/chess_game.h"
 #include "doctest.h"
 
+using namespace std;
 using namespace thc;
 
-static const Bitmap START = 0xffff00000000ffff;
+static const Bitmap START = 0xFFFF00000000FFFF;
 
 inline Bitmap lift(Bitmap boardstate, Square square) {
-    return boardstate & ~(1ull << square);
+    return boardstate & ~(1ULL << square);
 }
 
 inline Bitmap place(Bitmap boardstate, Square square) {
-    return boardstate | (1ull << square);
+    return boardstate | (1ULL << square);
 }
 
 inline Bitmap move(Bitmap boardstate, Square from, Square to) {
@@ -64,9 +65,9 @@ TEST_CASE("play 1. e4 e5") {
 TEST_CASE("read 1. e4 from bitmap") {
     Game g;
     MoveList candidates;
-    std::optional<Move> takeback;
-    auto maybe_valid = g.read_move(move(START, e2, e4), ActionList{}, candidates, takeback);
+    optional<Move> takeback;
 
+    auto maybe_valid = g.read_move(move(START, e2, e4), ActionList{}, candidates, takeback);
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
@@ -80,9 +81,9 @@ TEST_CASE("read 1... e5 from bitmap") {
 
     const auto boardstate = move(move(START, e2, e4), e7, e5);
     MoveList candidates;
-    std::optional<Move> takeback;
-    auto maybe_valid = g.read_move(boardstate, ActionList{}, candidates, takeback);
+    optional<Move> takeback;
 
+    auto maybe_valid = g.read_move(boardstate, ActionList{}, candidates, takeback);
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
@@ -90,33 +91,26 @@ TEST_CASE("read 1... e5 from bitmap") {
     CHECK(!takeback.has_value());
 }
 
-TEST_CASE("takeback") {
+TEST_CASE("read takeback") {
     Game g;
     g.play_uci_move("e2e4");
     g.play_uci_move("e7e5");
 
     MoveList candidates;
-    std::optional<Move> takeback;
+    optional<Move> takeback;
+
     auto maybe_valid = g.read_move(move(START, e2, e4), ActionList{}, candidates, takeback);
-
-    auto p = const_cast<Position*>(g.current().get());
-    // CHECK(maybe_valid);
+    auto p = const_cast<Position*>(g.previous().get());
+    CHECK(maybe_valid);
     CHECK(candidates.empty());
-    // CHECK(takeback.has_value());
-    // CHECK(takeback.value().NaturalOut(p) == "e5");
+    CHECK(takeback.has_value());
+    CHECK(p->move_san(*takeback) == "e5");
 }
 
-TEST_CASE("illegal") {
+TEST_CASE("read incomplete move") {
     Game g;
     MoveList candidates;
-    std::optional<Move> takeback;
-    CHECK(!g.read_move(lift(START, f1), ActionList{}, candidates, takeback));
-}
-
-TEST_CASE("incomplete") {
-    Game g;
-    MoveList candidates;
-    std::optional<Move> takeback;
+    optional<Move> takeback;
 
     auto maybe_valid = g.read_move(lift(START, g1), ActionList{}, candidates, takeback);
     CHECK(maybe_valid);
@@ -124,9 +118,16 @@ TEST_CASE("incomplete") {
     CHECK(!takeback.has_value());
 }
 
-TEST_CASE("out-of-turn") {
+TEST_CASE("read illegal move") {
     Game g;
     MoveList candidates;
-    std::optional<Move> takeback;
+    optional<Move> takeback;
+    CHECK(!g.read_move(lift(START, f1), ActionList{}, candidates, takeback));
+}
+
+TEST_CASE("read out-of-turn move") {
+    Game g;
+    MoveList candidates;
+    optional<Move> takeback;
     CHECK(!g.read_move(lift(START, e7), ActionList{}, candidates, takeback));
 }

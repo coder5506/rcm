@@ -11,11 +11,11 @@ using namespace std;
 using namespace thc;
 
 bool operator==(const Position& lhs, const Position& rhs) {
-    return lhs.white == rhs.white
-        && lhs.half_move_clock == rhs.half_move_clock
-        && lhs.full_move_count == rhs.full_move_count
-        && memcmp(lhs.squares, rhs.squares, sizeof lhs.squares) == 0
-        && lhs.d == rhs.d;
+    return lhs.white == rhs.white &&
+        lhs.half_move_clock == rhs.half_move_clock &&
+        lhs.full_move_count == rhs.full_move_count &&
+        lhs.d == rhs.d &&
+        memcmp(lhs.squares, rhs.squares, sizeof lhs.squares) == 0;
 }
 
 Position::Position(string_view fen) {
@@ -25,6 +25,7 @@ Position::Position(string_view fen) {
 }
 
 PositionPtr Position::move_played(Move move) const {
+    // Find move in moves_played
     auto existing = std::find_if(
         moves_played.begin(),
         moves_played.end(),
@@ -47,40 +48,28 @@ PositionPtr Position::play_move(Move move) const {
     return after;
 }
 
-Bitmap Position::white_bitmap() const {
-    Bitmap bitmap{0};
-    Bitmap mask{1};
-    for (Square sq = a8; sq <= h1; ++sq) {
-        switch (at(sq)) {
-        case 'P': case 'N': case 'B': case 'R': case 'Q': case 'K':
-            bitmap |= mask;
-            break;
-        default:
-            break;
-        }
-        mask <<= 1;
-    }
-    return bitmap;
-}
-
-Bitmap Position::black_bitmap() const {
-    Bitmap bitmap{0};
-    Bitmap mask{1};
-    for (Square sq = a8; sq <= h1; ++sq) {
-        switch (at(sq)) {
-        case 'p': case 'n': case 'b': case 'r': case 'q': case 'k':
-            bitmap |= mask;
-            break;
-        default:
-            break;
-        }
-        mask <<= 1;
-    }
-    return bitmap;
-}
-
 Bitmap Position::bitmap() const {
-    return white_bitmap() | black_bitmap();
+    Bitmap bitmap{0};
+    Bitmap mask{1};
+    for (auto sq = a8; sq <= h1; ++sq) {
+        if (!IsEmptySquare(at(sq))) {
+            bitmap |= mask;
+        }
+        mask <<= 1;
+    }
+    return bitmap;
+}
+
+Bitmap Position::difference_bitmap(const Position& other) const {
+    Bitmap bitmap{0};
+    Bitmap mask{1};
+    for (auto sq = a8; sq <= h1; ++sq) {
+        if (at(sq) != other.at(sq)) {
+            bitmap |= mask;
+        }
+        mask <<= 1;
+    }
+    return bitmap;
 }
 
 const MoveList& Position::legal_moves() const {
@@ -90,89 +79,30 @@ const MoveList& Position::legal_moves() const {
     return legal_moves_;
 }
 
-// True if boardstate might represent a transition into this position
-bool Position::incomplete(Bitmap boardstate) const {
-    // The boardstate for a move in-progress can differ only in small ways from
-    // the boardstate of the completed move:
-    // - It can be missing up-to two pieces of the same color, but only when
-    //   castling.
-    // - It can be missing up-to one piece of each color, but only when capturing.
-    // - It can have up-to one extra piece of the opposite color, but only when
-    //   capturing en-passant.
-
-    // Present in position but not on board
-    const auto removed_bmp = bitmap() & ~boardstate;
-    const auto removed = __builtin_popcountll(removed_bmp);
-
-    // Present on board but not in position
-    const auto added   = __builtin_popcountll(boardstate & ~bitmap());
-
-    // First check: just count the differences
-    if (removed > 2 || added > 1 || removed + added > 2) {
-        return false;
+MoveList Position::castle_moves() const {
+    MoveList king_moves;
+    if (WhiteToPlay() && d.wking_square == e1) {
+        const_cast<Position*>(this)->KingMoves(king_moves, e1);
+    }
+    else if (BlackToPlay() && d.bking_square == e8) {
+        const_cast<Position*>(this)->KingMoves(king_moves, e8);
     }
 
-    // Second check: look at the colors involved
-    const auto white_removed = __builtin_popcountll(white_bitmap() & ~boardstate);
-    const auto black_removed = __builtin_popcountll(black_bitmap() & ~boardstate);
-    assert(removed == white_removed + black_removed);
-
-    if ( WhiteToPlay() && black_removed > 1) {
-        return false;
-    }
-    if (!WhiteToPlay() && white_removed > 1) {
-        return false;
-    }
-
-    if (white_removed == 2) {
-        if (wking_allowed()  && removed_bmp == (1ull << thc::e1 | 1ull << thc::h1)) {
-            return true;
+    MoveList result;
+    for (auto move : king_moves) {
+        if (SPECIAL_WK_CASTLING <= move.special && move.special <= SPECIAL_BQ_CASTLING) {
+            result.push_back(move);
         }
-        if (wqueen_allowed() && removed_bmp == (1ull << thc::e1 | 1ull << thc::a1)) {
-            return true;
-        }
-        return false;
     }
-    if (black_removed == 2) {
-        if (bking_allowed()  && removed_bmp == (1ull << thc::e8 | 1ull << thc::h8)) {
-            return true;
-        }
-        if (bqueen_allowed() && removed_bmp == (1ull << thc::e8 | 1ull << thc::a8)) {
-            return true;
-        }
-        return false;
-    }
-
-    // Third check: consider the possibility of en passant
-    if (added == 0) {
-        // i.e., we're unable to reject the possibility
-        return true;
-    }
-
-    assert(added == 1);
-    if (groomed_enpassant_target() == thc::SQUARE_INVALID) {
-        return false;
-    }
-
-    // // In mailbox coordinates...
-    // const int direction = position->turn == 'w' ? -10 : 10;
-    // const int captured  = mailbox_index[position->en_passant] - direction;
-
-    // uint64_t mask = 1 << position->en_passant | 1 << board_index[captured];
-    // if (board_index[captured-1] != thc::SQUARE_INVALID) {
-    //     mask |= 1 << board_index[captured-1];
-    // }
-    // if (board_index[captured+1] != thc::SQUARE_INVALID) {
-    //     mask |= 1 << board_index[captured+1];
-    // }
-
-    // const uint64_t diff = position->bitmap ^ boardstate;
-    // return (diff & ~mask) == 0;
-
-    return true;
+    return result;
 }
 
-// Construct a list of candidate moves in this position that match the given
+bool Position::incomplete(Bitmap boardstate, const Position& after) const {
+    const auto diff = boardstate ^ bitmap();
+    return (diff & ~difference_bitmap(after)) == 0;
+}
+
+// Construct list of candidate moves in this position that match the given
 // boardstate.  The return indicates if there are any viable candidates:
 // - true if any candidates are found OR if the boardstate could be in
 //   transition to a valid move,
@@ -180,18 +110,18 @@ bool Position::incomplete(Bitmap boardstate) const {
 //   position.
 bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
     auto maybe_valid = false;
-    Position before{*this};
+    Position after{*this};
 
     candidates.clear();
-    for (const auto move : legal_moves()) {
-        before.PushMove(move);
-        if (before.bitmap() == boardstate) {
+    for (auto move : legal_moves()) {
+        after.PushMove(move);
+        if (after.bitmap() == boardstate) {
             candidates.push_back(move);
             maybe_valid = true;
-        } else {
-            maybe_valid = maybe_valid || before.incomplete(boardstate);
+        } else if (!maybe_valid) {
+            maybe_valid = incomplete(boardstate, after);
         }
-        before.PopMove(move);
+        after.PopMove(move);
     }
 
     assert(maybe_valid || candidates.empty());
@@ -203,16 +133,18 @@ bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
 // generate a list, because (a) the candidates might be promotions which cannot
 // be resolved here and (b) the actions history might be incomplete.
 bool Position::read_move(
-    Bitmap boardstate, const ActionList& actions, MoveList& candidates) const
+    Bitmap            boardstate,
+    const ActionList& actions,
+    MoveList&         candidates) const
 {
     candidates.clear();
 
     MoveList local_candidates;
-    const bool maybe_valid = read_moves(boardstate, local_candidates);
+    const auto maybe_valid = read_moves(boardstate, local_candidates);
     if (local_candidates.empty()) {
+        // Nothing to disambiguate.
         return maybe_valid;
     }
-
     assert(maybe_valid);
 
     // This is a check.  When we're done, the list should contain either moves
@@ -220,7 +152,7 @@ bool Position::read_move(
     auto num_moves = 0;
     auto num_promotions = 0;
 
-    for (const auto move : local_candidates) {
+    for (auto move : local_candidates) {
         if (move.is_promotion()) {
             // Can't resolve promotion here
             candidates.push_back(move);
@@ -229,7 +161,7 @@ bool Position::read_move(
         }
 
         if (move.capture == ' ') {
-            // No capture, not ambiguous
+            // Not a capture, so not ambiguous
             candidates.push_back(move);
             ++num_moves;
             continue;
@@ -240,10 +172,10 @@ bool Position::read_move(
         auto got_place = false;
         for (auto p = actions.rbegin(); p != actions.rend(); ++p) {
             if (!got_place) {
-                got_place = p->place == move.capture;
+                got_place = p->place == move.dst;
             }
             else if (!got_lift) {
-                got_lift = p->lift == move.capture;
+                got_lift = p->lift == move.dst;
             }
         }
         if (got_lift && got_place) {

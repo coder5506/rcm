@@ -18,7 +18,7 @@ public:
 
     std::unique_ptr<Game> game;
     std::unique_ptr<View> screen_view;
-    std::vector<Action>   actions;
+    ActionList            actions;
 
     Centaur();
 
@@ -40,8 +40,8 @@ public:
     void purge_actions();
 
     bool read_move(
-        Bitmap                    boardstate,
-        std::vector<thc::Move>&   candidates,
+        Bitmap    boardstate,
+        MoveList& candidates,
         std::optional<thc::Move>& takeback);
 
     void clear_feedback();

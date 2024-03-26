@@ -26,6 +26,7 @@ public:
     std::map<std::string, std::string> tags;
 
     explicit Game(std::string_view pgn = {}, std::string_view fen = {});
+    Game(const Game&) = default;
 
     void clear();
     void fen(std::string_view fen);

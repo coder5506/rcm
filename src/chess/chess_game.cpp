@@ -14,6 +14,7 @@
 using namespace std;
 using namespace thc;
 
+// Reset game to initial state
 void Game::clear() {
     history.clear();
     started  = 0;
@@ -30,6 +31,7 @@ void Game::clear() {
     tags["Result"] = "*";
 }
 
+// Set position from FEN string
 void Game::fen(string_view fen) {
     clear();
     history.push_back(make_shared<Position>(fen));
@@ -156,72 +158,67 @@ bool Game::read_move(
     Bitmap            boardstate,
     const ActionList& actions,
     MoveList&         candidates,
-    std::optional<thc::Move>& takeback)
+    optional<Move>&   takeback)
 {
     candidates.clear();
     takeback.reset();
 
     // If boardstate matches current position, there's no move to read.
     if (bitmap() == boardstate) {
-        // i.e., not an error
         return true;
     }
 
     // Can boardstate be reached by a legal move?
-    bool maybe_valid = current()->read_move(boardstate, actions, candidates);
+    auto maybe_valid = current()->read_move(boardstate, actions, candidates);
     if (maybe_valid) {
         return true;
     }
 
-    // // Is this the completion of a castling move?
-    // struct List     *castling = list_new();
-    // struct Position *previous = game_previous(game);
-    // if (previous) {
-    //     generate_castle_moves(castling, previous);
-    // }
-    // for (struct List *each = castling->next; each != castling; each = each->next) {
-    //     struct Position *after = position_apply_move(previous, (struct Move*)each->data);
-    //     if (!position_legal(after)) {
-    //         continue;
-    //     }
-    //     if (after->bitmap != boardstate) {
-    //         maybe_valid = maybe_valid || position_incomplete(after, boardstate);
-    //         continue;
-    //     }
+    // All other checks require previous position
+    auto before = this->previous();
+    if (!before) {
+        return false;
+    }
 
-    //     // Find takeback move
-    //     struct List *it = list_begin(previous->moves_played);
-    //     for (; it != list_end(previous->moves_played); it = it->next) {
-    //         struct Move *move = (struct Move*)it->data;
-    //         if (position_equal(move->after, current)) {
-    //             *takeback = move;
-    //             break;
-    //         }
-    //     }
-    //     assert(*takeback);
+    // Is this the completion of a castling move?
+    for (auto castle : before->castle_moves()) {
+        Position after{*before};
+        after.PushMove(castle);
+        if (!after.is_legal()) {
+            continue;
+        }
 
-    //     // Undo previous move and apply castling move
-    //     list_push(candidates, each->data);
+        if (after.bitmap() != boardstate) {
+            maybe_valid = maybe_valid || before->incomplete(boardstate, after);
+            continue;
+        }
 
-    //     return true;
-    // }
+        // Find takeback move
+        for (auto movepair : before->moves_played) {
+            if (movepair.second == current()) {
+                takeback = movepair.first;
+                break;
+            }
+        }
+        assert(takeback.has_value());
 
-    // // Is this a takeback?
-    // if (previous && previous->bitmap == boardstate) {
-    //     struct List *each = previous->moves_played->next;
-    //     for (; each != previous->moves_played; each = each->next) {
-    //         struct Move *move = (struct Move*)each->data;
-    //         if (position_equal(move->after, current)) {
-    //             *takeback = move;
-    //             return true;
-    //         }
-    //     }
-    // }
+        // Undo previous move and apply castling move
+        candidates.push_back(castle);
+        return true;
+    }
 
-    // // Possibly a takeback in progress?
-    // return previous && position_incomplete(previous, boardstate);
+    // Is this a takeback?
+    if (before->bitmap() == boardstate) {
+        for (auto movepair : before->moves_played) {
+            if (movepair.second == current()) {
+                takeback = movepair.first;
+                return true;
+            }
+        }
+    }
 
-    return false;
+    // Possibly a takeback in progress?
+    return maybe_valid || before->incomplete(boardstate, *current());
 }
 
 //
