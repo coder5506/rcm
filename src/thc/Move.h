@@ -18,17 +18,12 @@ namespace thc {
 class Move {
 public:
     // Move is a lightweight type, it is accommodated in only 32 bits
-    union {
-        struct {
-            Square  src       : 8;
-            Square  dst       : 8;
-            SPECIAL special   : 8;
-            int     capture   : 8;  // ' ' (empty) if move not a capture
-        };
-        std::uint32_t raw;
-    };
+    Square  src;
+    Square  dst;
+    SPECIAL special{NOT_SPECIAL};
+    char    capture{' '};  // ' ' (empty) if move not a capture
 
-    Move(Square src, Square dst, SPECIAL special = NOT_SPECIAL, int capture = ' ');
+    Move(Square src, Square dst, SPECIAL special = NOT_SPECIAL, char capture = ' ');
     explicit Move(std::string_view uci);
 
     std::string uci() const;
@@ -38,12 +33,14 @@ public:
     }
 };
 
+static_assert(sizeof(Move) == sizeof(unsigned int));
+
 inline bool operator==(const Move& lhs, const Move& rhs) {
-    return lhs.raw == rhs.raw;
+    return reinterpret_cast<const unsigned int&>(lhs) == reinterpret_cast<const unsigned int&>(rhs);
 }
 
 inline bool operator!=(const Move& lhs, const Move& rhs) {
-    return lhs.raw != rhs.raw;
+    return reinterpret_cast<const unsigned int&>(lhs) != reinterpret_cast<const unsigned int&>(rhs);
 }
 
 }

@@ -11,40 +11,79 @@
 
 #include "ChessDefs.h"
 
+#include <bitset>
 #include <string>
 
 namespace thc {
 
 class Move;
 
-struct DETAIL {
-    union {
-        struct {
-            Square enpassant_target : 8;
-            Square wking_square     : 8;
-            Square bking_square     : 8;
-            unsigned int  wking     : 1;  // Castling still allowed flags
-            unsigned int  wqueen    : 1;
-            unsigned int  bking     : 1;
-            unsigned int  bqueen    : 1;
-        };
-        std::uint32_t raw;
+class Castling {
+    enum {
+        W_KING  = 1,
+        W_QUEEN = 2,
+        B_KING  = 4,
+        B_QUEEN = 8
     };
+    unsigned char flags;
 
-    DETAIL();
+public:
+    Castling() : flags{0x0F} {}
+
+    bool wking()  const { return flags & W_KING; }
+    bool wqueen() const { return flags & W_QUEEN; }
+    bool bking()  const { return flags & B_KING; }
+    bool bqueen() const { return flags & B_QUEEN; }
+
+    void wking(bool val)  { if (val) flags |= W_KING;  else flags &= ~W_KING; }
+    void wqueen(bool val) { if (val) flags |= W_QUEEN; else flags &= ~W_QUEEN; }
+    void bking(bool val)  { if (val) flags |= B_KING;  else flags &= ~B_KING; }
+    void bqueen(bool val) { if (val) flags |= B_QUEEN; else flags &= ~B_QUEEN; }
+
+    friend bool operator==(const Castling& lhs, const Castling& rhs);
+    friend bool operator!=(const Castling& lhs, const Castling& rhs);
 };
 
+static_assert(sizeof(Castling) == sizeof(unsigned char));
+
+inline bool operator==(const Castling& lhs, const Castling& rhs) {
+    return lhs.flags == rhs.flags;
+}
+
+inline bool operator!=(const Castling& lhs, const Castling& rhs) {
+    return lhs.flags != rhs.flags;
+}
+
+class DETAIL {
+public:
+    Square   enpassant_target{SQUARE_INVALID};
+    Square   wking_square{e1};
+    Square   bking_square{e8};
+    Castling castling;
+
+    bool wking()  const { return castling.wking(); }
+    bool wqueen() const { return castling.wqueen(); }
+    bool bking()  const { return castling.bking(); }
+    bool bqueen() const { return castling.bqueen(); }
+
+    void wking(bool val)  { castling.wking(val); }
+    void wqueen(bool val) { castling.wqueen(val); }
+    void bking(bool val)  { castling.bking(val); }
+    void bqueen(bool val) { castling.bqueen(val); }
+};
+
+static_assert(sizeof(DETAIL) == sizeof(unsigned int));
+
 inline bool eq_castling(const DETAIL& lhs, const DETAIL& rhs) {
-    // i.e., little-endian
-    return (lhs.raw & 0x0f000000) == (rhs.raw & 0x0f000000);
+    return lhs.castling == rhs.castling;
 }
 
 inline bool operator==(const DETAIL& lhs, const DETAIL& rhs) {
-    return lhs.raw == rhs.raw;
+    return reinterpret_cast<const unsigned int&>(lhs) == reinterpret_cast<const unsigned int&>(rhs);
 }
 
 inline bool operator!=(const DETAIL& lhs, const DETAIL& rhs) {
-    return lhs.raw != rhs.raw;
+    return reinterpret_cast<const unsigned int&>(lhs) != reinterpret_cast<const unsigned int&>(rhs);
 }
 
 class ChessPosition {
@@ -87,10 +126,10 @@ public:
     char at(Square sq) const { return squares[sq]; }
 
     // Castling allowed ?
-    bool wking_allowed()  const { return d.wking  && at(e1)=='K' && at(h1)=='R'; }
-    bool wqueen_allowed() const { return d.wqueen && at(e1)=='K' && at(a1)=='R'; }
-    bool bking_allowed()  const { return d.bking  && at(e8)=='k' && at(h8)=='r'; }
-    bool bqueen_allowed() const { return d.bqueen && at(e8)=='k' && at(a8)=='r'; }
+    bool wking_allowed()  const { return d.wking()  && at(e1)=='K' && at(h1)=='R'; }
+    bool wqueen_allowed() const { return d.wqueen() && at(e1)=='K' && at(a1)=='R'; }
+    bool bking_allowed()  const { return d.bking()  && at(e8)=='k' && at(h8)=='r'; }
+    bool bqueen_allowed() const { return d.bqueen() && at(e8)=='k' && at(a8)=='r'; }
 
     // Set up position on board from Forsyth string with extensions
     //  return bool okay

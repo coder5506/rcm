@@ -67,17 +67,6 @@
 using namespace std;
 using namespace thc;
 
-DETAIL::DETAIL()
-    : enpassant_target{SQUARE_INVALID},
-      wking_square{e1},
-      bking_square{e8},
-      wking{1},
-      wqueen{1},
-      bking{1},
-      bqueen{1}
-{
-}
-
 ChessPosition::ChessPosition()
 {
     memcpy(squares,
@@ -148,10 +137,10 @@ bool ChessPosition::Forsyth(const char* txt) {
             }
 
             // Clear the extension fields
-            d.wking  = false;
-            d.wqueen = false;
-            d.bking  = false;
-            d.bqueen = false;
+            d.wking(false);
+            d.wqueen(false);
+            d.bking(false);
+            d.bqueen(false);
             d.enpassant_target = SQUARE_INVALID;
             half_move_clock = 0;
             full_move_count = 1;
@@ -298,22 +287,22 @@ bool ChessPosition::Forsyth(const char* txt) {
                     if( *txt == 'K' )
                     {
                         if( store )
-                            d.wking = true;
+                            d.wking(true);
                     }
                     else if( *txt == 'Q' )
                     {
                         if( store )
-                            d.wqueen = true;
+                            d.wqueen(true);
                     }
                     else if( *txt == 'k' )
                     {
                         if( store )
-                            d.bking = true;
+                            d.bking(true);
                     }
                     else if( *txt == 'q' )
                     {
                         if( store )
-                            d.bqueen = true;
+                            d.bqueen(true);
                     }
                     else if( *txt == '-' )               // allow say "KQ-q "
                         ;

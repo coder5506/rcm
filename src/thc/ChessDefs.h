@@ -22,7 +22,7 @@ namespace thc {
 // Note that instead of defining a special piece type, we use the built-in
 //  char type, with 'N'=white knight, 'b'=black bishop etc. and ' '=an
 //  empty square.
-enum Square {
+enum Square : unsigned char {
     a8=0,
         b8, c8, d8, e8, f8, g8, h8,
     a7, b7, c7, d7, e7, f7, g7, h7,
@@ -80,7 +80,7 @@ inline int NW(int sq) { return sq - 9; }  // eg c5->b6
 inline int NE(int sq) { return sq - 7; }  // eg c5->d6
 
 // Special (i.e. not ordinary) move types
-enum SPECIAL {
+enum SPECIAL : unsigned char {
     NOT_SPECIAL = 0,
     SPECIAL_KING_MOVE,     // special only because it changes wking_square, bking_square
     SPECIAL_WK_CASTLING,

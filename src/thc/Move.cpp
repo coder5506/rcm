@@ -12,14 +12,12 @@
 using namespace std;
 using namespace thc;
 
-Move::Move(Square src, Square dst, SPECIAL special, int capture)
+Move::Move(Square src, Square dst, SPECIAL special, char capture)
     : src{src}, dst{dst}, special{special}, capture{capture}
 {
 }
 
-Move::Move(string_view uci_move)
-    : special{NOT_SPECIAL}, capture{' '}
-{
+Move::Move(string_view uci_move) {
     if (uci_move.size() < 4 ||
         uci_move[0] < 'a' || 'h' < uci_move[0] ||
         uci_move[1] < '1' || '8' < uci_move[1] ||

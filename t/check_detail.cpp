@@ -14,6 +14,6 @@ TEST_CASE("test DETAIL") {
     CHECK(d1 != d2);
     CHECK(eq_castling(d1, d2));
 
-    d1.wking = 0;
+    d1.wking(false);
     CHECK(!eq_castling(d1, d2));
 }

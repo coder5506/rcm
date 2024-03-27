@@ -242,14 +242,14 @@ int ChessRules::GetRepetitionCount() {
             // Revoke match if different value of castling flags means different
             //  castling possibilities
             if (!revoke_match && !eq_castling(d, tmp)) {
-                bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && tmp.wking;
-                bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && d.wking;
-                bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && tmp.bking;
-                bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && d.bking;
-                bool wqueen_saved = save_squares[e1]=='K' && save_squares[a1]=='R' && tmp.wqueen;
-                bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && d.wqueen;
-                bool bqueen_saved = save_squares[e8]=='k' && save_squares[a8]=='r' && tmp.bqueen;
-                bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && d.bqueen;
+                bool wking_saved  = save_squares[e1]=='K' && save_squares[h1]=='R' && tmp.wking();
+                bool wking_now    = squares[e1]=='K' && squares[h1]=='R' && d.wking();
+                bool bking_saved  = save_squares[e8]=='k' && save_squares[h8]=='r' && tmp.bking();
+                bool bking_now    = squares[e8]=='k' && squares[h8]=='r' && d.bking();
+                bool wqueen_saved = save_squares[e1]=='K' && save_squares[a1]=='R' && tmp.wqueen();
+                bool wqueen_now   = squares[e1]=='K' && squares[a1]=='R' && d.wqueen();
+                bool bqueen_saved = save_squares[e8]=='k' && save_squares[a8]=='r' && tmp.bqueen();
+                bool bqueen_now   = squares[e8]=='k' && squares[a8]=='r' && d.bqueen();
                 revoke_match = (
                     wking_saved  != wking_now  ||
                     bking_saved  != bking_now  ||
@@ -430,7 +430,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
         if (squares[g1] == ' '        &&
             squares[f1] == ' '        &&
             squares[h1] == 'R'        &&
-            (d.wking)                 &&
+            d.wking()                 &&
             !AttackedSquare(e1,false) &&
             !AttackedSquare(f1,false) &&
             !AttackedSquare(g1,false))
@@ -443,7 +443,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
             squares[c1] == ' '        &&
             squares[d1] == ' '        &&
             squares[a1] == 'R'        &&
-            (d.wqueen)                &&
+            d.wqueen()                &&
             !AttackedSquare(e1,false) &&
             !AttackedSquare(d1,false) &&
             !AttackedSquare(c1,false))
@@ -459,7 +459,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
         if (squares[g8] == ' '       &&
             squares[f8] == ' '       &&
             squares[h8] == 'r'       &&
-            (d.bking)                &&
+            d.bking()                &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(f8,true) &&
             !AttackedSquare(g8,true))
@@ -472,7 +472,7 @@ void ChessRules::KingMoves(vector<Move>& moves, Square square) {
             squares[c8] == ' '       &&
             squares[d8] == ' '       &&
             squares[a8] == 'r'       &&
-            (d.bqueen)               &&
+            d.bqueen()               &&
             !AttackedSquare(e8,true) &&
             !AttackedSquare(d8,true) &&
             !AttackedSquare(c8,true))
@@ -494,7 +494,7 @@ void ChessRules::WhitePawnMoves(vector<Move>& moves, Square square) {
             moves.push_back({square, dst, SPECIAL_WEN_PASSANT, 'p'});
         }
         else if (IsBlack(squares[dst])) {
-            const int capture = squares[dst];
+            const auto capture = squares[dst];
             if (!promotion) {
                 moves.push_back({square, dst, NOT_SPECIAL, capture});
             }
@@ -546,7 +546,7 @@ void ChessRules::BlackPawnMoves(vector<Move>& moves, Square square) {
             moves.push_back({square, dst, SPECIAL_BEN_PASSANT, 'P'});
         }
         else if (IsWhite(squares[dst])) {
-            const int capture = squares[dst];
+            const auto capture = squares[dst];
             if (!promotion) {
                 moves.push_back({square, dst, NOT_SPECIAL, capture});
             }
@@ -593,12 +593,12 @@ void ChessRules::PushMove(Move m) {
 
     // Update castling prohibited flags for destination square, eg h8 -> bking
     switch (m.dst) {
-    case a8: d.bqueen = 0; break;
-    case e8: d.bqueen = 0;
-    case h8: d.bking  = 0; break;
-    case a1: d.wqueen = 0; break;
-    case e1: d.wqueen = 0;
-    case h1: d.wking  = 0; break;
+    case a8: d.bqueen(false); break;
+    case e8: d.bqueen(false);
+    case h8: d.bking(false);  break;
+    case a1: d.wqueen(false); break;
+    case e1: d.wqueen(false);
+    case h1: d.wking(false);  break;
     default:        // IMPORTANT - only dst is required since we also qualify
         break;      //  castling with presence of rook and king on right squares.
     }               //  (I.E. if a rook or king leaves its original square, the
