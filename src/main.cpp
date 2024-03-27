@@ -1,19 +1,10 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-#include "centaur.h"
-#include "db.h"
 #include "httpd.h"
 #include "standard.h"
 
-#include <cstdlib>
-
 int main() {
-    if (db_open() != 0) {
-        // Required
-        return EXIT_FAILURE;
-    }
-
     // Optional, can ignore failure
     httpd_start();
 
@@ -21,7 +12,6 @@ int main() {
     standard.main();
 
     httpd_stop();
-    db_close();
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

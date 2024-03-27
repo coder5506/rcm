@@ -149,7 +149,7 @@ void StandardGame::model_changed(Game& game) {
     }
 
     game.settings = settings_to_json();
-    db_save_game(&game);
+    db.save_game(game);
 }
 
 StandardGame::~StandardGame() {
@@ -182,10 +182,10 @@ static int poll_for_keypress(int timeout_ms) {
 }
 
 void StandardGame::start() {
-    std::unique_ptr<Game> game{db_load_latest()};
-    // if (game && game->settings) {
-    //     settings_from_json(game->settings);
-    // }
+    auto game = db.load_latest();
+    if (static_cast<bool>(game) && !game->settings.empty()) {
+        settings_from_json(game->settings.data());
+    }
     if (!game) {
         game = std::make_unique<Game>();
     }
@@ -223,8 +223,6 @@ void StandardGame::run() {
     std::vector<thc::Move>   candidates;
     std::optional<thc::Move> takeback;
 
-    // const struct Position *current = game_current(centaur.game);
-    // const struct Player   *player  = current->turn == 'w' ? &standard.white : &standard.black;
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
     // If camputer has first move, see what it wants to do
@@ -236,8 +234,6 @@ void StandardGame::run() {
     }
 
     for (;;) {
-        // current = game_current(centaur.game);
-        // player  = current->turn == 'w' ? &standard.white : &standard.black;
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
         // Check if computer has move to play

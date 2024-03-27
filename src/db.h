@@ -5,16 +5,28 @@
 #ifndef DB_H
 #define DB_H
 
-#include <cstdint>
+#include <memory>
+#include <sqlite3.h>
 
 struct Game;
 
-void db_close(void);
-int db_open(void);
+class Database {
+    sqlite3 *db;
 
-int db_save_game(struct Game *game);
-struct Game *db_load_game(int64_t rowid);
-struct Game *db_load_latest(void);
+public:
+    ~Database();
+    Database();
+
+    int save_game(Game&);
+    std::unique_ptr<Game> load_game(sqlite3_int64 rowid);
+    std::unique_ptr<Game> load_latest();
+
+private:
+    int insert_game(Game&);
+    int update_game(Game&);
+};
+
+extern Database db;
 
 #endif
 

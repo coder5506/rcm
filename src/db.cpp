@@ -9,10 +9,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
-#include <sqlite3.h>
+using namespace std;
 
-static const char *SCHEMA =
+Database db;
+
+static auto SCHEMA =
     "CREATE TABLE IF NOT EXISTS games ("
     "  event    TEXT,"  // Seven Tag Roster (STR)
     "  site     TEXT,"  // For convenience.  Both the STR and all other tags are
@@ -26,101 +29,90 @@ static const char *SCHEMA =
     "  settings TEXT"   // JSON string describing game settings
     ");";
 
-static sqlite3 *db = NULL;
-
-void db_close(void) {
+Database::~Database() {
     sqlite3_close(db);
-    db = NULL;
 }
 
-int db_open(void) {
-    char *path = NULL;
+Database::Database() {
+    char* path = nullptr;
     asprintf(&path, "%s/rcm.db", cfg_data_dir());
-    int rc = sqlite3_open(path, &db);
-    if (rc != SQLITE_OK) {
-        db_close();
-        return 1;
+    if (sqlite3_open(path, &db) != SQLITE_OK) {
+        throw runtime_error("Failed to open database");
     }
-    sqlite3_exec(db, SCHEMA, NULL, NULL, NULL);
-    return 0;
+    sqlite3_exec(db, SCHEMA, nullptr, nullptr, nullptr);
 }
 
-static int insert_game(Game* game) {
-    assert(db);
-
-    const char *sql =
+int Database::insert_game(Game& game) {
+    auto sql =
         "INSERT INTO games"
         "  (event, site, date, round, white, black, result, pgn, fen, settings)"
         " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_stmt* stmt = nullptr;
+    auto rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt,  1, game->tag("Event").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  2, game->tag("Site").data(),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  3, game->tag("Date").data(),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  4, game->tag("Round").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  5, game->tag("White").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  6, game->tag("Black").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  7, game->tag("Result").data(), -1, SQLITE_STATIC);
-    // sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
-    // sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game->settings.data(),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  1, game.tag("Event").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  2, game.tag("Site").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  3, game.tag("Date").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  4, game.tag("Round").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  5, game.tag("White").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  6, game.tag("Black").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  7, game.tag("Result").data(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  8, game.pgn().data(),         -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt,  9, game.fen().data(),         -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, game.settings.data(),      -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    game->rowid = sqlite3_last_insert_rowid(db);
+    game.rowid = sqlite3_last_insert_rowid(db);
     return rc != SQLITE_DONE;
 }
 
-static int update_game(Game* game) {
-    assert(db);
-
-    const char *sql =
+int Database::update_game(Game& game) {
+    auto sql =
         "UPDATE games SET"
         "  event = ?, site  = ?, date     = ?, round = ?,"
         "  white = ?, black = ?, result   = ?,"
         "  pgn   = ?, fen   = ?, settings = ?"
         " WHERE rowid = ?";
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_stmt* stmt = nullptr;
+    auto rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         return 1;
     }
 
-    sqlite3_bind_text(stmt,  1, game->tag("Event").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  2, game->tag("Site").data(),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  3, game->tag("Date").data(),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  4, game->tag("Round").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  5, game->tag("White").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  6, game->tag("Black").data(),  -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt,  7, game->tag("Result").data(), -1, SQLITE_STATIC);
-    // sqlite3_bind_text(stmt,  8, game_pgn(game),           -1, SQLITE_STATIC);
-    // sqlite3_bind_text(stmt,  9, game_fen(game),           -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, game->settings.data(),      -1, SQLITE_STATIC);
-    sqlite3_bind_int64(stmt, 11, game->rowid);
+    sqlite3_bind_text( stmt,  1, game.tag("Event").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  2, game.tag("Site").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  3, game.tag("Date").data(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  4, game.tag("Round").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  5, game.tag("White").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  6, game.tag("Black").data(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  7, game.tag("Result").data(), -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  8, game.pgn().data(),         -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt,  9, game.fen().data(),         -1, SQLITE_STATIC);
+    sqlite3_bind_text( stmt, 10, game.settings.data(),      -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 11, game.rowid);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     return rc != SQLITE_DONE;
 }
 
-int db_save_game(Game* game) {
-    return game->rowid ? update_game(game) : insert_game(game);
+int Database::save_game(Game& game) {
+    return game.rowid ? update_game(game) : insert_game(game);
 }
 
-Game* db_load_game(int64_t rowid) {
+unique_ptr<Game> Database::load_game(sqlite3_int64 rowid) {
     assert(rowid > 0);
-    assert(db);
 
-    const char *sql = "SELECT pgn, fen, settings FROM games WHERE rowid = ?";
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    auto sql = "SELECT pgn, fen, settings FROM games WHERE rowid = ?";
+    sqlite3_stmt* stmt = nullptr;
+    auto rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        return NULL;
+        return nullptr;
     }
 
     sqlite3_bind_int64(stmt, 1, rowid);
@@ -128,50 +120,45 @@ Game* db_load_game(int64_t rowid) {
 
     if (rc != SQLITE_ROW) {
         sqlite3_finalize(stmt);
-        return NULL;
+        return nullptr;
     }
 
-    const char *pgn = (const char*)sqlite3_column_text(stmt, 0);
-    const char *fen = (const char*)sqlite3_column_text(stmt, 1);
+    auto pgn = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+    auto fen = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
 
-    return NULL;
+    auto game = make_unique<Game>(pgn, fen);
+    if (!game) {
+        sqlite3_finalize(stmt);
+        return nullptr;
+    }
 
-    // Game* game = game_from_pgn_and_fen(pgn, fen);
-    // if (!game) {
-    //     sqlite3_finalize(stmt);
-    //     return NULL;
-    // }
+    game->rowid    = rowid;
+    game->settings = nullptr;
+    if (sqlite3_column_bytes(stmt, 2) > 0) {
+        game->settings = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+    }
 
-    // game->id = rowid;
-    // game->settings = NULL;
-    // if (sqlite3_column_bytes(stmt, 2) > 0) {
-    //     game->settings = (const char*)malloc(sqlite3_column_bytes(stmt, 2) + 1);
-    //     strcpy((char*)game->settings, (const char*)sqlite3_column_text(stmt, 2));
-    // }
-
-    // sqlite3_finalize(stmt);
-    // return game;
+    sqlite3_finalize(stmt);
+    return game;
 }
 
-Game* db_load_latest(void) {
-    assert(db);
-
-    const char *sql = "SELECT MAX(rowid) FROM games";
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+unique_ptr<Game> Database::load_latest(void) {
+    const char* sql = "SELECT MAX(rowid) FROM games";
+    sqlite3_stmt* stmt = nullptr;
+    auto rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        return NULL;
+        return nullptr;
     }
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_ROW) {
         sqlite3_finalize(stmt);
-        return NULL;
+        return nullptr;
     }
 
-    int64_t rowid = sqlite3_column_int64(stmt, 0);
+    sqlite3_int64 rowid = sqlite3_column_int64(stmt, 0);
     sqlite3_finalize(stmt);
-    return rowid > 0 ? db_load_game(rowid) : NULL;
+    return rowid > 0 ? load_game(rowid) : nullptr;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
