@@ -71,28 +71,43 @@ std::unique_ptr<UCIMessage> UCIEngine::peek_request() {
     return request;
 }
 
-void UCIEngine::send_response(std::unique_ptr<UCIMessage> response) {
-    const std::lock_guard<std::mutex> lock{mutex};
-    response_queue.push(std::move(response));
+int UCIMessage::handle_exchange(UCIEngine& engine) {
+    engine.uci_printf("uci\n");
+    const auto timeout = time(NULL) + 5;
+    while (time(NULL) < timeout) {
+        const char* line = engine.getline();
+        if (line && strcmp(line, "uciok") == 0) {
+            goto success;
+        }
+    }
+    return 1;
+
+success:
+    engine.uci_printf("setoption name Threads value 2\n");
+    engine.uci_printf("setoption name Hash value 192\n");
+    return 0;
 }
 
-int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
-    uci_printf("setoption MultiPV 1\n");
-    uci_printf("position fen %s\n", request->game->fen().data());
+int UCIQuitMessage::handle_exchange(UCIEngine& engine) {
+    return 1;
+}
 
-    char color = request->game->WhiteToPlay() ? 'w' : 'b';
-    uci_printf("go %ctime 60000 %cinc 600\n", color, color);
+int UCIPlayMessage::expect_bestmove(UCIEngine& engine) {
+    engine.uci_printf("setoption MultiPV 1\n");
+    engine.uci_printf("position fen %s\n", game->fen().data());
+
+    char color = game->WhiteToPlay() ? 'w' : 'b';
+    engine.uci_printf("go %ctime 60000 %cinc 600\n", color, color);
 
     for (;;) {
-        if (peek_request()) {
+        if (engine.peek_request()) {
             return 0;
         }
 
-        char *const line = expect("bestmove ");
+        char *const line = engine.expect("bestmove ");
         if (line) {
             try {
-                request->move = request->game->uci_move(line + 9);
-                send_response(std::move(request));
+                move = game->uci_move(line + 9);
                 return 0;
             }
             catch (const std::logic_error&) {
@@ -102,49 +117,28 @@ int UCIEngine::expect_bestmove(std::unique_ptr<UCIPlayMessage> request) {
     }
 }
 
-int UCIEngine::handle_hint(std::unique_ptr<UCIPlayMessage> request) {
-    uci_printf("setoption name UCI_LimitStrength value false\n");
-    return expect_bestmove(std::move(request));
+int UCIPlayMessage::handle_exchange(UCIEngine& engine) {
+    engine.uci_printf("setoption name UCI_Elo value %d\n", elo);
+    engine.uci_printf("setoption name UCI_LimitStrength value true\n");
+    return expect_bestmove(engine);
 }
 
-int UCIEngine::handle_play(std::unique_ptr<UCIPlayMessage> request) {
-    uci_printf("setoption name UCI_Elo value %d\n", request->elo);
-    uci_printf("setoption name UCI_LimitStrength value true\n");
-    return expect_bestmove(std::move(request));
+int UCIHintMessage::handle_exchange(UCIEngine& engine) {
+    engine.uci_printf("setoption name UCI_LimitStrength value false\n");
+    return expect_bestmove(engine);
 }
 
-int UCIEngine::handle_uci(std::unique_ptr<UCIMessage> request) {
-    (void)request;
-
-    uci_printf("uci\n");
-    const time_t timeout = time(NULL) + 5;
-    while (time(NULL) < timeout) {
-        const char *line = getline();
-        if (line && strcmp(line, "uciok") == 0) {
-            goto success;
-        }
-    }
-    return 1;
-
-success:
-    uci_printf("setoption name Threads value 2\n");
-    uci_printf("setoption name Hash value 192\n");
-    return 0;
+void UCIEngine::send_response(std::unique_ptr<UCIMessage> response) {
+    const std::lock_guard<std::mutex> lock{mutex};
+    response_queue.push(std::move(response));
 }
 
 int UCIEngine::handle_request(std::unique_ptr<UCIMessage> request) {
-    auto req = request.release();
-    if (auto hint = dynamic_cast<UCIHintMessage*>(req)) {
-        return handle_hint(std::unique_ptr<UCIHintMessage>(hint));
+    const auto result = request->handle_exchange(*this);
+    if (result == 0) {
+        send_response(std::move(request));
     }
-    if (auto play = dynamic_cast<UCIPlayMessage*>(req)) {
-        return handle_play(std::unique_ptr<UCIPlayMessage>(play));
-    }
-    if (auto quit = dynamic_cast<UCIQuitMessage*>(req)) {
-        delete quit;
-        return 1;
-    }
-    return handle_uci(std::unique_ptr<UCIMessage>(req));
+    return result;
 }
 
 void UCIEngine::engine_thread() {
