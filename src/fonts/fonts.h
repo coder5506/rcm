@@ -39,10 +39,8 @@
 #ifndef FONTS_H
 #define FONTS_H
 
-#include <cstdint>
-
 struct sFONT {
-    const std::uint8_t *table;
+    const unsigned char* table;
     int Width;
     int Height;
 };

@@ -10,6 +10,8 @@
 
 #include <png.h>
 
+using namespace std;
+
 bool Image::is_valid() const {
     return
         width  > 0 &&
@@ -69,7 +71,7 @@ struct BMPRGBQUAD {
     uint8_t rgbReversed;
 } __attribute__((packed));
 
-std::unique_ptr<Image> Image::readbmp(const char* path) {
+unique_ptr<Image> Image::readbmp(const char* path) {
     auto fp = fopen(path, "rb");
     if (!fp) {
         return NULL;
@@ -106,7 +108,7 @@ std::unique_ptr<Image> Image::readbmp(const char* path) {
         colors[1] = PIXEL_BLACK;
     }
 
-    auto image = std::make_unique<Image>(int(info.biWidth), int(info.biHeight));
+    auto image = make_unique<Image>(int(info.biWidth), int(info.biHeight));
     fseek(fp, header.bOffset, SEEK_SET);
 
     // Bitmap pads each row out to 4 bytes
@@ -115,7 +117,7 @@ std::unique_ptr<Image> Image::readbmp(const char* path) {
     // Bitmap starts with lower-left corner
     for (auto y = image->height - 1 ; y >= 0; --y) {
         for (auto x = 0; x < row_bytes; ++x) {
-            std::uint8_t Rdata;
+            uint8_t Rdata;
             if (fread((char*)&Rdata, 1, 1, fp) != 1) {
                 fclose(fp);
                 return NULL;
@@ -144,7 +146,7 @@ std::unique_ptr<Image> Image::readbmp(const char* path) {
     return image;
 }
 
-int Image::png(std::uint8_t** png, std::size_t* size) const {
+int Image::png(uint8_t** png, size_t* size) const {
     assert(is_valid());
     assert(png && !*png);
     assert(size && !*size);
@@ -189,7 +191,7 @@ int Image::png(std::uint8_t** png, std::size_t* size) const {
 
     png_bytep* row_pointers = (png_bytep*)alloca(height * sizeof(png_bytep));
     for (auto y = 0; y != height; ++y) {
-        row_pointers[y] = const_cast<std::uint8_t*>(data()) + y * width_bytes;
+        row_pointers[y] = const_cast<uint8_t*>(data()) + y * width_bytes;
     }
     png_write_image(png_ptr, row_pointers);
 

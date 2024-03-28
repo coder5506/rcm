@@ -8,19 +8,21 @@
 #include <cstdio>
 #include <cstring>
 
+using namespace std;
+
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
 void Screen::update_epd2in9d() {
     const auto width_bytes = (Epd2in9d::SCREEN_WIDTH + 7) / 8;
     const auto size_bytes  = width_bytes * Epd2in9d::SCREEN_HEIGHT;
 
-    std::uint8_t *const new_image = (std::uint8_t*)alloca(size_bytes);
-    std::uint8_t *const old_image = (std::uint8_t*)alloca(size_bytes);
+    uint8_t *const new_image = (uint8_t*)alloca(size_bytes);
+    uint8_t *const old_image = (uint8_t*)alloca(size_bytes);
     memset(old_image, -1, size_bytes);
     memset(new_image, -1, size_bytes);
 
     {
-        std::lock_guard<std::mutex> lock(mutex);
+        lock_guard<std::mutex> lock(mutex);
         memcpy(new_image, image[0]->data(), size_bytes);
     }
     memcpy(old_image, new_image, size_bytes);
@@ -30,9 +32,9 @@ void Screen::update_epd2in9d() {
     clock_gettime(CLOCK_REALTIME, &last_render);
 
     while (!shutdown) {
-        auto timeout = std::chrono::system_clock::now() + std::chrono::seconds(100);
+        auto timeout = chrono::system_clock::now() + chrono::seconds(100);
         {
-            std::unique_lock<std::mutex> lock(mutex);
+            unique_lock<std::mutex> lock(mutex);
             cond.wait_until(lock, timeout);
             if (shutdown) {
                 break;
@@ -61,17 +63,17 @@ Screen::~Screen() {
 
 Screen::Screen()
 {
-    image[0] = std::make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
-    image[1] = std::make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
+    image[0] = make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
+    image[1] = make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
     context.rotate = ROTATE_180;
     thread = std::thread(&Screen::update_epd2in9d, this);
 }
 
 void Screen::render(View& view) {
     {
-        std::lock_guard<std::mutex> lock(mutex);
+        lock_guard<std::mutex> lock(mutex);
 
-        std::swap(image[0], image[1]);
+        swap(image[0], image[1]);
         context.image = image[0].get();
         context.clear();
         view.render(context);
@@ -83,8 +85,8 @@ void Screen::render(View& view) {
     }
 }
 
-int Screen::png(std::uint8_t** png, std::size_t* size) const {
-    std::lock_guard<std::mutex> lock(mutex);
+int Screen::png(uint8_t** png, size_t* size) const {
+    lock_guard<std::mutex> lock(mutex);
     return image[0]->png(png, size);
 }
 

@@ -58,7 +58,7 @@ void Game::recover_position(string_view fen) {
     history.clear();
     history.push_back(start);
     if (!recover_history(make_shared<Position>(fen))) {
-        throw std::domain_error("Invalid position");
+        throw domain_error("Invalid position");
     }
 }
 
@@ -104,7 +104,7 @@ PositionPtr Game::start() const {
     return history.front();
 }
 
-char Game::at(thc::Square square) const {
+char Game::at(Square square) const {
     return current()->at(square);
 }
 
@@ -298,7 +298,7 @@ string Game::pgn() const {
 //
 
 static void skip_whitespace(char*& pgn) {
-    while (std::isspace(*pgn)) {
+    while (isspace(*pgn)) {
         ++pgn;
     }
 }
@@ -330,12 +330,12 @@ static char* read_string(char*& pgn) {
 
 static char* read_symbol(char*& pgn) {
     skip_whitespace(pgn);
-    if (!std::isalpha(*pgn)) {
+    if (!isalpha(*pgn)) {
         return nullptr;
     }
 
     auto begin = pgn;
-    while (*pgn && (std::isalnum(*pgn) || std::strchr("_+#=:-", *pgn))) {
+    while (*pgn && (isalnum(*pgn) || strchr("_+#=:-", *pgn))) {
         ++pgn;
     }
 
@@ -384,7 +384,7 @@ static int read_move_number(char*& pgn) {
     skip_whitespace(pgn);
 
     auto n = 0;
-    while (std::isdigit(*pgn)) {
+    while (isdigit(*pgn)) {
         n = n * 10 + (*pgn++ - '0');
     }
 
@@ -427,7 +427,7 @@ bool Game::read_movetext(char*& pgn) {
         try {
             play_san_move(san);
         }
-        catch (const std::logic_error&) {
+        catch (const logic_error&) {
             return false;
         }
     }
@@ -444,7 +444,7 @@ void Game::pgn(string_view pgn) {
     auto ok = read_movetext(working);
     free(copy);
     if (!ok) {
-        throw std::domain_error("Invalid PGN");
+        throw domain_error("Invalid PGN");
     }
 }
 

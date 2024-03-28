@@ -9,6 +9,9 @@
 #include <cstring>
 #include <ctime>
 
+using namespace std;
+using namespace thc;
+
 // Return battery status
 int Board::batterylevel() {
     const auto charging = boardserial.chargingstate();
@@ -42,8 +45,8 @@ Bitmap Board::getstate() {
     return reversed ? reverse_bits(boardstate) : boardstate;
 }
 
-int Board::read_actions(std::vector<Action>& actions) {
-    std::uint8_t buf[256];
+int Board::read_actions(vector<Action>& actions) {
+    uint8_t buf[256];
     const auto num_read = boardserial.readdata(buf, sizeof buf);
     if (num_read <= 6) {
         // Failed to read data packet
@@ -55,21 +58,21 @@ int Board::read_actions(std::vector<Action>& actions) {
         switch (buf[i++]) {
         case 64:
             if (0 <= buf[i] && buf[i] < 64) {
-                thc::Square lift = static_cast<thc::Square>(buf[i++]);
+                Square lift = static_cast<Square>(buf[i++]);
                 if (reversed) {
                     lift = rotate_square(lift);
                 }
-                actions.push_back(Action{lift, thc::SQUARE_INVALID});
+                actions.push_back(Action{lift, SQUARE_INVALID});
                 ++n;
             }
             break;
         case 65:
             if (0 <= buf[i] && buf[i] < 64) {
-                thc::Square place = static_cast<thc::Square>(buf[i++]);
+                Square place = static_cast<Square>(buf[i++]);
                 if (reversed) {
                     place = rotate_square(place);
                 }
-                actions.push_back(Action{thc::SQUARE_INVALID, place});
+                actions.push_back(Action{SQUARE_INVALID, place});
                 ++n;
             }
             break;
@@ -89,14 +92,14 @@ int Board::led_flash() {
     return boardserial.led_flash();
 }
 
-int Board::led(thc::Square square) {
+int Board::led(Square square) {
     if (reversed) {
         square = rotate_square(square);
     }
     return boardserial.led(square);
 }
 
-int Board::led_array(const std::vector<thc::Square>& squares) {
+int Board::led_array(const vector<Square>& squares) {
     int rotated_squares[squares.size()];
     for (auto i = 0; i != squares.size(); ++i) {
         if (reversed) {
@@ -108,7 +111,7 @@ int Board::led_array(const std::vector<thc::Square>& squares) {
     return boardserial.led_array(rotated_squares, squares.size());
 }
 
-int Board::led_from_to(thc::Square from, thc::Square to) {
+int Board::led_from_to(Square from, Square to) {
     if (reversed) {
         from = rotate_square(from);
         to   = rotate_square(to);

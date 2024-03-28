@@ -26,7 +26,7 @@ Position::Position(string_view fen) {
 
 PositionPtr Position::move_played(Move move) const {
     // Find move in moves_played
-    auto existing = std::find_if(
+    auto existing = find_if(
         moves_played.begin(),
         moves_played.end(),
         [move](const MovePair& pair) {
@@ -41,7 +41,7 @@ PositionPtr Position::play_move(Move move) const {
         return existing;
     }
 
-    auto after = std::make_shared<Position>(*this);
+    auto after = make_shared<Position>(*this);
     after->moves_played.clear();
     after->PlayMove(move);
     moves_played.push_back({move, after});

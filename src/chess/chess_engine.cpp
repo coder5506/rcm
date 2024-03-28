@@ -6,7 +6,10 @@
 
 #include <cstdlib>
 
-static std::unique_ptr<UCIEngine> engine;
+using namespace std;
+using namespace thc;
+
+static unique_ptr<UCIEngine> engine;
 
 static UCIEngine* start_engine() {
     if (!engine) {
@@ -21,7 +24,7 @@ static UCIEngine* get_engine(const char* name) {
     return start_engine();
 }
 
-std::optional<thc::Move> engine_move(const Game& game, const char* engine_name) {
+optional<Move> engine_move(const Game& game, const char* engine_name) {
     (void)game;
 
     auto engine = get_engine(engine_name);
@@ -42,7 +45,7 @@ void engine_play(const Game& game, const char* engine_name, int elo) {
         return;
     }
 
-    engine->send(std::make_unique<UCIPlayMessage>(&game, elo));
+    engine->send(make_unique<UCIPlayMessage>(&game, elo));
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

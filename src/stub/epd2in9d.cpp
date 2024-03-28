@@ -9,6 +9,8 @@
 
 #include <cstdio>
 
+using namespace std;
+
 const int Epd2in9d::SCREEN_WIDTH  = 128;
 const int Epd2in9d::SCREEN_HEIGHT = 296;
 
@@ -31,11 +33,11 @@ void Epd2in9d::init() {
 
 void Epd2in9d::init_lut() {}
 
-void Epd2in9d::display(const std::uint8_t* data) {
+void Epd2in9d::display(const uint8_t* data) {
     printf("epd2in9d_display(%p)\n", (void*)data);
 }
 
-void Epd2in9d::update(const std::uint8_t* data) {
+void Epd2in9d::update(const uint8_t* data) {
     printf("epd2in9d_update(%p)\n", (void*)data);
     sleep_ms(100);
 }

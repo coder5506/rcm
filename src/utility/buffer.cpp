@@ -12,6 +12,8 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+using namespace std;
+
 bool Buffer::invariant() const {
     return (
         begin  <= read  &&
@@ -22,7 +24,7 @@ bool Buffer::invariant() const {
     );
 }
 
-Buffer::Buffer(std::size_t size, int fd) : fd{fd} {
+Buffer::Buffer(size_t size, int fd) : fd{fd} {
     data.resize(size + 1);
     begin = data.data();
     read  = begin;

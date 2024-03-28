@@ -15,6 +15,9 @@
 
 #include <jansson.h>
 
+using namespace std;
+using namespace thc;
+
 StandardGame::StandardGame() {
     white = {
         .type = COMPUTER,
@@ -158,7 +161,7 @@ StandardGame::~StandardGame() {
     }
 }
 
-void StandardGame::set_game(std::unique_ptr<Game> game) {
+void StandardGame::set_game(unique_ptr<Game> game) {
     if (centaur.game) {
         centaur.game->unobserve(this);
     }
@@ -187,7 +190,7 @@ void StandardGame::start() {
         settings_from_json(game->settings.data());
     }
     if (!game) {
-        game = std::make_unique<Game>();
+        game = make_unique<Game>();
     }
 
     // Switch pieces around if human is playing black against computer
@@ -220,8 +223,8 @@ void StandardGame::start() {
 
 // Gameplay loop: Read and interpret user actions to update game state
 void StandardGame::run() {
-    std::vector<thc::Move>   candidates;
-    std::optional<thc::Move> takeback;
+    vector<Move>   candidates;
+    optional<Move> takeback;
 
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
@@ -237,7 +240,7 @@ void StandardGame::run() {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
         // Check if computer has move to play
-        std::optional<thc::Move> move;
+        optional<Move> move;
         if (player->type == COMPUTER) {
             move = engine_move(*centaur.game, player->computer.engine);
         }
@@ -261,7 +264,7 @@ void StandardGame::run() {
             centaur.actions.clear();
             if (centaur.game->started) {
                 // Replace in-progress game with new game
-                set_game(std::make_unique<Game>());
+                set_game(make_unique<Game>());
             }
             goto next;
         }

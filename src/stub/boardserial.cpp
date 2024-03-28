@@ -7,6 +7,8 @@
 #include "../boardserial.h"
 #include <cstdio>
 
+using namespace std;
+
 // Default: no pieces on board
 static Bitmap boardstate = 0llu;
 
@@ -20,13 +22,13 @@ BoardSerial::BoardSerial() {
     printf("boardserial_open() => 0\n");
 }
 
-void BoardSerial::build_packet(std::uint8_t* buf, int addr_pos, int len) {
+void BoardSerial::build_packet(uint8_t* buf, int addr_pos, int len) {
     (void)buf;
     (void)addr_pos;
     (void)len;
 }
 
-int BoardSerial::write_board(std::uint8_t* buf, int addr_pos, int len) {
+int BoardSerial::write_board(uint8_t* buf, int addr_pos, int len) {
     (void)buf;
     (void)addr_pos;
     (void)len;
@@ -43,7 +45,7 @@ Bitmap BoardSerial::boardstate() {
     return ::boardstate;
 }
 
-int BoardSerial::readdata(std::uint8_t* buf, int len) {
+int BoardSerial::readdata(uint8_t* buf, int len) {
     printf("boardserial_readdata(%p, %d) => 6\n", (void*)buf, len);
     return 6;  // Idle
 }

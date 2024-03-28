@@ -17,8 +17,8 @@
 using namespace std;
 using namespace thc;
 
-std::unique_ptr<UCIMessage> UCIEngine::receive() {
-    const std::lock_guard<std::mutex> lock{mutex};
+unique_ptr<UCIMessage> UCIEngine::receive() {
+    const lock_guard<std::mutex> lock{mutex};
     if (response_queue.empty()) {
         return nullptr;
     }
@@ -27,8 +27,8 @@ std::unique_ptr<UCIMessage> UCIEngine::receive() {
     return response;
 }
 
-void UCIEngine::send(std::unique_ptr<UCIMessage> request) {
-    const std::lock_guard<std::mutex> lock{mutex};
+void UCIEngine::send(unique_ptr<UCIMessage> request) {
+    const lock_guard<std::mutex> lock{mutex};
     request_queue.push(std::move(request));
     cond.notify_one();
 }
@@ -61,8 +61,8 @@ void UCIEngine::uci_printf(const char* format, ...) {
     va_end(args);
 }
 
-std::unique_ptr<UCIMessage> UCIEngine::peek_request() {
-    const std::lock_guard<std::mutex> lock{mutex};
+unique_ptr<UCIMessage> UCIEngine::peek_request() {
+    const lock_guard<std::mutex> lock{mutex};
     if (request_queue.empty()) {
         return nullptr;
     }
@@ -110,7 +110,7 @@ int UCIPlayMessage::expect_bestmove(UCIEngine& engine) {
                 move = game->uci_move(line + 9);
                 return 0;
             }
-            catch (const std::logic_error&) {
+            catch (const logic_error&) {
                 return 1;
             }
         }
@@ -128,12 +128,12 @@ int UCIHintMessage::handle_exchange(UCIEngine& engine) {
     return expect_bestmove(engine);
 }
 
-void UCIEngine::send_response(std::unique_ptr<UCIMessage> response) {
-    const std::lock_guard<std::mutex> lock{mutex};
+void UCIEngine::send_response(unique_ptr<UCIMessage> response) {
+    const lock_guard<std::mutex> lock{mutex};
     response_queue.push(std::move(response));
 }
 
-int UCIEngine::handle_request(std::unique_ptr<UCIMessage> request) {
+int UCIEngine::handle_request(unique_ptr<UCIMessage> request) {
     const auto result = request->handle_exchange(*this);
     if (result == 0) {
         send_response(std::move(request));
@@ -143,9 +143,9 @@ int UCIEngine::handle_request(std::unique_ptr<UCIMessage> request) {
 
 void UCIEngine::engine_thread() {
     for (;;) {
-        std::unique_ptr<UCIMessage> request;
+        unique_ptr<UCIMessage> request;
         {
-            std::unique_lock<std::mutex> lock{mutex};
+            unique_lock<std::mutex> lock{mutex};
             request = peek_request();
             while (!request) {
                 cond.wait(lock);
@@ -172,10 +172,10 @@ UCIEngine::UCIEngine(int read_fd, int write_fd)
     assert(read_fd  >= 0);
     assert(write_fd >= 0);
 
-    send(std::make_unique<UCIMessage>());
+    send(make_unique<UCIMessage>());
 }
 
-std::unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
+unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
     assert(file && *file);
     assert(argv);
 
@@ -196,7 +196,7 @@ std::unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[
     if (pid > 0) {
         close(read_pipe[1]);
         close(write_pipe[0]);
-        return std::make_unique<UCIEngine>(read_pipe[0], write_pipe[1]);
+        return make_unique<UCIEngine>(read_pipe[0], write_pipe[1]);
     }
 
     dup2(read_pipe[1], STDOUT_FILENO);
@@ -218,7 +218,7 @@ error:
 }
 
 void UCIEngine::quit() {
-    send(std::make_unique<UCIQuitMessage>());
+    send(make_unique<UCIQuitMessage>());
     thread.join();
 }
 

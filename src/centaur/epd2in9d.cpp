@@ -20,6 +20,8 @@
 
 #include <pigpio.h>
 
+using namespace std;
+
 //
 // GPIO
 //
@@ -31,7 +33,7 @@ enum Pin {
     PIN_BUSY          = 13,
 };
 
-static void delay_ms(std::uint32_t ms) {
+static void delay_ms(uint32_t ms) {
     gpioDelay(1000 * ms /* micros */);
 }
 
@@ -98,7 +100,7 @@ static void spi_send_data(int data) {
     spi_send_byte(data, 1);
 }
 
-static int spi_send_array(const std::uint8_t* buf, size_t len) {
+static int spi_send_array(const uint8_t* buf, size_t len) {
     int err = gpioWrite(PIN_COMMAND_DATA, 1);
     if (!err) {
         err = gpioWrite(PIN_CLEAR_TO_SEND, 0);
@@ -126,13 +128,13 @@ Epd2in9d::~Epd2in9d() {
 // Connect to display
 Epd2in9d::Epd2in9d() {
     if (epd2in9d_open() < 0) {
-        throw std::runtime_error("Failed to open e-Paper display");
+        throw runtime_error("Failed to open e-Paper display");
     }
 
     spi_open();
     if (SPI_Handle < 0) {
         gpio_close();
-        throw std::runtime_error("Failed to open e-Paper display");
+        throw runtime_error("Failed to open e-Paper display");
     }
 }
 
@@ -346,10 +348,10 @@ static void refresh_screen(void) {
 
 #define WIDTH_BYTES  ((SCREEN_WIDTH + 7) / 8)
 #define SCREEN_BYTES (WIDTH_BYTES * SCREEN_HEIGHT)
-static const std::uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
+static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
 
 // Fully refresh display
-void Epd2in9d::display(const std::uint8_t* data) {
+void Epd2in9d::display(const uint8_t* data) {
     send_command(COMMAND_DTM1);
     spi_send_array(black_buffer, SCREEN_BYTES);
 
@@ -360,7 +362,7 @@ void Epd2in9d::display(const std::uint8_t* data) {
 }
 
 // Partially update display
-void Epd2in9d::update(const std::uint8_t* data) {
+void Epd2in9d::update(const uint8_t* data) {
     init_lut();
     send_command(COMMAND_PTIN);
     send_command(COMMAND_PTL);
