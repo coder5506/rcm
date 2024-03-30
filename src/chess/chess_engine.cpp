@@ -20,13 +20,10 @@ static UCIEngine* start_engine() {
 }
 
 static UCIEngine* get_engine(const char* name) {
-    (void)name;
     return start_engine();
 }
 
 optional<Move> engine_move(const Game& game, const char* engine_name) {
-    (void)game;
-
     auto engine = get_engine(engine_name);
     if (!engine) {
         return {};

@@ -10,28 +10,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
-#include <time.h>
 #include <unistd.h>
 
 using namespace std;
 using namespace thc;
-
-unique_ptr<UCIMessage> UCIEngine::receive() {
-    const lock_guard<std::mutex> lock{mutex};
-    if (response_queue.empty()) {
-        return nullptr;
-    }
-    auto response = std::move(response_queue.front());
-    response_queue.pop();
-    return response;
-}
-
-void UCIEngine::send(unique_ptr<UCIMessage> request) {
-    const lock_guard<std::mutex> lock{mutex};
-    request_queue.push(std::move(request));
-    cond.notify_one();
-}
 
 char* UCIEngine::getline() {
     return buffer.getline(1000 /* milliseconds */);
@@ -45,7 +29,7 @@ char* UCIEngine::expect(const char* startswith) {
     return nullptr;
 }
 
-void UCIEngine::uci_printf(const char* format, ...) {
+void UCIEngine::printf(const char* format, ...) {
     assert(format);
 
     va_list args;
@@ -61,7 +45,7 @@ void UCIEngine::uci_printf(const char* format, ...) {
     va_end(args);
 }
 
-unique_ptr<UCIMessage> UCIEngine::peek_request() {
+unique_ptr<UCIMessage> UCIEngine::read_request() {
     const lock_guard<std::mutex> lock{mutex};
     if (request_queue.empty()) {
         return nullptr;
@@ -71,61 +55,9 @@ unique_ptr<UCIMessage> UCIEngine::peek_request() {
     return request;
 }
 
-int UCIMessage::handle_exchange(UCIEngine& engine) {
-    engine.uci_printf("uci\n");
-    const auto timeout = time(NULL) + 5;
-    while (time(NULL) < timeout) {
-        const char* line = engine.getline();
-        if (line && strcmp(line, "uciok") == 0) {
-            goto success;
-        }
-    }
-    return 1;
-
-success:
-    engine.uci_printf("setoption name Threads value 2\n");
-    engine.uci_printf("setoption name Hash value 192\n");
-    return 0;
-}
-
-int UCIQuitMessage::handle_exchange(UCIEngine& engine) {
-    return 1;
-}
-
-int UCIPlayMessage::expect_bestmove(UCIEngine& engine) {
-    engine.uci_printf("setoption MultiPV 1\n");
-    engine.uci_printf("position fen %s\n", game->fen().data());
-
-    char color = game->WhiteToPlay() ? 'w' : 'b';
-    engine.uci_printf("go %ctime 60000 %cinc 600\n", color, color);
-
-    for (;;) {
-        if (engine.peek_request()) {
-            return 0;
-        }
-
-        char *const line = engine.expect("bestmove ");
-        if (line) {
-            try {
-                move = game->uci_move(line + 9);
-                return 0;
-            }
-            catch (const logic_error&) {
-                return 1;
-            }
-        }
-    }
-}
-
-int UCIPlayMessage::handle_exchange(UCIEngine& engine) {
-    engine.uci_printf("setoption name UCI_Elo value %d\n", elo);
-    engine.uci_printf("setoption name UCI_LimitStrength value true\n");
-    return expect_bestmove(engine);
-}
-
-int UCIHintMessage::handle_exchange(UCIEngine& engine) {
-    engine.uci_printf("setoption name UCI_LimitStrength value false\n");
-    return expect_bestmove(engine);
+UCIMessage* UCIEngine::peek_request() {
+    const lock_guard<std::mutex> lock{mutex};
+    return request_queue.empty() ? nullptr : request_queue.front().get();
 }
 
 void UCIEngine::send_response(unique_ptr<UCIMessage> response) {
@@ -133,9 +65,9 @@ void UCIEngine::send_response(unique_ptr<UCIMessage> response) {
     response_queue.push(std::move(response));
 }
 
-int UCIEngine::handle_request(unique_ptr<UCIMessage> request) {
+bool UCIEngine::handle_request(unique_ptr<UCIMessage> request) {
     const auto result = request->handle_exchange(*this);
-    if (result == 0) {
+    if (result) {
         send_response(std::move(request));
     }
     return result;
@@ -146,20 +78,20 @@ void UCIEngine::engine_thread() {
         unique_ptr<UCIMessage> request;
         {
             unique_lock<std::mutex> lock{mutex};
-            request = peek_request();
+            request = read_request();
             while (!request) {
                 cond.wait(lock);
-                request = peek_request();
+                request = read_request();
             }
         }
-        if (handle_request(std::move(request)) != 0) {
+        if (!handle_request(std::move(request))) {
             break;
         }
     }
 
     buffer.close();
 
-    uci_printf("quit\n");
+    printf("quit\n");
     close(write_fd);
     write_fd = -1;
 }
@@ -171,7 +103,6 @@ UCIEngine::UCIEngine(int read_fd, int write_fd)
 {
     assert(read_fd  >= 0);
     assert(write_fd >= 0);
-
     send(make_unique<UCIMessage>());
 }
 
@@ -217,9 +148,80 @@ error:
     return nullptr;
 }
 
+void UCIEngine::send(unique_ptr<UCIMessage> request) {
+    const lock_guard<std::mutex> lock{mutex};
+    request_queue.push(std::move(request));
+    cond.notify_one();
+}
+
+unique_ptr<UCIMessage> UCIEngine::receive() {
+    const lock_guard<std::mutex> lock{mutex};
+    if (response_queue.empty()) {
+        return nullptr;
+    }
+    auto response = std::move(response_queue.front());
+    response_queue.pop();
+    return response;
+}
+
 void UCIEngine::quit() {
     send(make_unique<UCIQuitMessage>());
     thread.join();
+}
+
+bool UCIMessage::handle_exchange(UCIEngine& engine) {
+    engine.printf("uci\n");
+    const auto timeout = time(NULL) + 5;
+    while (time(NULL) < timeout) {
+        if (auto line = engine.expect("uciok")) {
+            goto success;
+        }
+    }
+    return false;
+
+success:
+    engine.printf("setoption name Threads value 2\n");
+    engine.printf("setoption name Hash value 192\n");
+    return true;
+}
+
+bool UCIQuitMessage::handle_exchange(UCIEngine& engine) {
+    return false;
+}
+
+bool UCIPlayMessage::expect_bestmove(UCIEngine& engine) {
+    engine.printf("setoption MultiPV 1\n");
+    engine.printf("position fen %s\n", game->fen().data());
+
+    char color = game->WhiteToPlay() ? 'w' : 'b';
+    engine.printf("go %ctime 60000 %cinc 600\n", color, color);
+
+    for (;;) {
+        if (engine.peek_request()) {
+            return true;
+        }
+
+        if (auto line = engine.expect("bestmove ")) {
+            try {
+                move = game->uci_move(line + 9);
+                return true;
+            }
+            catch (const logic_error&) {
+                return false;
+            }
+        }
+    }
+}
+
+bool UCIPlayMessage::handle_exchange(UCIEngine& engine) {
+    engine.printf("setoption name UCI_Elo value %d\n", elo);
+    engine.printf("setoption name UCI_LimitStrength value true\n");
+    return expect_bestmove(engine);
+}
+
+bool UCIHintMessage::handle_exchange(UCIEngine& engine) {
+    engine.printf("setoption name UCI_LimitStrength value false\n");
+    return expect_bestmove(engine);
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

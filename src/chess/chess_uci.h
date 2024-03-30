@@ -17,10 +17,8 @@
 
 class Game;
 class UCIMessage;
-class UCIPlayMessage;
 
 class UCIEngine {
-private:
     std::mutex              mutex; // Lock request and response queues
     std::condition_variable cond;  // Signal new request
     std::thread             thread;
@@ -30,13 +28,14 @@ private:
     int    write_fd;
 
 public:
-    char* getline();
     char* expect(const char* startswith);
-    void uci_printf(const char* format, ...);
-    std::unique_ptr<UCIMessage> peek_request();
-    void send_response(std::unique_ptr<UCIMessage> response);
+    char* getline();
+    void  printf(const char* format, ...);
 
-    int handle_request(std::unique_ptr<UCIMessage> request);
+    std::unique_ptr<UCIMessage> read_request();
+    UCIMessage* peek_request();
+    void send_response(std::unique_ptr<UCIMessage> response);
+    bool handle_request(std::unique_ptr<UCIMessage> request);
 
     void engine_thread();
 
@@ -45,8 +44,8 @@ public:
 
     UCIEngine(int read_fd, int write_fd);
 
-    std::unique_ptr<UCIMessage> receive();
     void send(std::unique_ptr<UCIMessage> request);
+    std::unique_ptr<UCIMessage> receive();
 
     void quit();
 };
@@ -54,12 +53,12 @@ public:
 class UCIMessage {
 public:
     virtual ~UCIMessage() = default;
-    virtual int handle_exchange(UCIEngine&);
+    virtual bool handle_exchange(UCIEngine&);
 };
 
 class UCIQuitMessage : public UCIMessage {
 public:
-    int handle_exchange(UCIEngine& engine) override;
+    bool handle_exchange(UCIEngine& engine) override;
 };
 
 class UCIPlayMessage : public UCIMessage {
@@ -69,15 +68,15 @@ public:
     std::optional<thc::Move> move;
 
     UCIPlayMessage(const Game* game, int elo) : game{game}, elo{elo} {}
-    int handle_exchange(UCIEngine& engine) override;
+    bool handle_exchange(UCIEngine& engine) override;
 
 protected:
-    int expect_bestmove(UCIEngine& engine);
+    bool expect_bestmove(UCIEngine& engine);
 };
 
 class UCIHintMessage : public UCIPlayMessage {
 public:
-    int handle_exchange(UCIEngine& engine) override;
+    bool handle_exchange(UCIEngine& engine) override;
 };
 
 #endif
