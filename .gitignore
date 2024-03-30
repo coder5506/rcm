@@ -1,5 +1,7 @@
 *.o
+.vscode/
 TODO
 a.out
 bin/
+build/
 obj/
