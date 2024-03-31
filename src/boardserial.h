@@ -28,14 +28,14 @@ public:
     Buttons(unsigned long value = 0) noexcept : buttons(value) {}
 };
 
-enum class Sound {
-    GENERAL    = 0,
-    FACTORY    = 1,
-    POWER_OFF  = 2,
-    POWER_ON   = 3,
-    WRONG      = 4,
-    WRONG_MOVE = 5,
-    NONE       = 6,
+enum Sound {
+    SOUND_GENERAL    = 0,
+    SOUND_FACTORY    = 1,
+    SOUND_POWER_OFF  = 2,
+    SOUND_POWER_ON   = 3,
+    SOUND_WRONG      = 4,
+    SOUND_WRONG_MOVE = 5,
+    SOUND_NONE       = 6,
 };
 
 class BoardSerial {

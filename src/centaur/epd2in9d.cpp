@@ -17,6 +17,7 @@
 #include <cstdbool>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 
 #include <pigpio.h>
 
@@ -127,7 +128,7 @@ Epd2in9d::~Epd2in9d() {
 
 // Connect to display
 Epd2in9d::Epd2in9d() {
-    if (epd2in9d_open() < 0) {
+    if (gpio_open() < 0) {
         throw runtime_error("Failed to open e-Paper display");
     }
 

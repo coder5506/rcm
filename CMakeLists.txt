@@ -2,10 +2,15 @@ cmake_minimum_required(VERSION 3.14)
 
 project(rcm LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 
@@ -14,6 +19,8 @@ pkg_search_module(LIBPNG     REQUIRED IMPORTED_TARGET libpng)
 pkg_search_module(MICROHTTPD REQUIRED IMPORTED_TARGET libmicrohttpd)
 pkg_search_module(PCRE2      REQUIRED IMPORTED_TARGET libpcre2-8)
 pkg_search_module(SQLITE3    REQUIRED IMPORTED_TARGET sqlite3)
+
+find_library(PIGPIO pigpio)
 
 add_compile_definitions(
   _GNU_SOURCE
@@ -26,9 +33,23 @@ link_libraries(
   PkgConfig::MICROHTTPD
   PkgConfig::PCRE2
   PkgConfig::SQLITE3
+  Threads::Threads
+  ${PIGPIO}
+)
+
+if(PIGPIO)
+  set(CENTAUR centaur)
+else()
+  set(CENTAUR stub)
+endif()
+
+set(BOARD_SOURCES
+  src/${CENTAUR}/boardserial.cpp
+  src/${CENTAUR}/epd2in9d.cpp
 )
 
 add_executable(rcm
+  ${BOARD_SOURCES}
   src/chess/chess_engine.cpp
   src/chess/chess_engine.h
   src/chess/chess_game.cpp
@@ -43,8 +64,6 @@ add_executable(rcm
   src/fonts/font20.cpp
   src/fonts/font24.cpp
   src/fonts/fonts.h
-  src/stub/boardserial.cpp
-  src/stub/epd2in9d.cpp
   src/thc/ChessDefs.h
   src/thc/ChessPosition.cpp
   src/thc/ChessPosition.h
@@ -85,7 +104,7 @@ add_executable(rcm
   src/standard.h
 )
 
-add_executable(check EXCLUDE_FROM_ALL
+add_executable(check # EXCLUDE_FROM_ALL
   src/chess/chess_engine.cpp
   src/chess/chess_engine.h
   src/chess/chess_game.cpp
@@ -121,3 +140,6 @@ add_executable(check EXCLUDE_FROM_ALL
   t/check_pgn.cpp
   t/doctest.h
 )
+
+add_test(NAME check COMMAND check)
+enable_testing()

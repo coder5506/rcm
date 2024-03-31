@@ -13,8 +13,8 @@ using namespace std;
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
 void Screen::update_epd2in9d() {
-    const auto width_bytes = (Epd2in9d::SCREEN_WIDTH + 7) / 8;
-    const auto size_bytes  = width_bytes * Epd2in9d::SCREEN_HEIGHT;
+    const auto width_bytes = (SCREEN_WIDTH + 7) / 8;
+    const auto size_bytes  = width_bytes * SCREEN_HEIGHT;
 
     uint8_t *const new_image = (uint8_t*)alloca(size_bytes);
     uint8_t *const old_image = (uint8_t*)alloca(size_bytes);
@@ -63,8 +63,8 @@ Screen::~Screen() {
 
 Screen::Screen()
 {
-    image[0] = make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
-    image[1] = make_unique<Image>(Epd2in9d::SCREEN_WIDTH, Epd2in9d::SCREEN_HEIGHT);
+    image[0] = make_unique<Image>(SCREEN_WIDTH, SCREEN_HEIGHT);
+    image[1] = make_unique<Image>(SCREEN_WIDTH, SCREEN_HEIGHT);
     context.rotate = ROTATE_180;
     thread = std::thread(&Screen::update_epd2in9d, this);
 }

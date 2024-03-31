@@ -9,13 +9,13 @@
 
 #include <cstdint>
 
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 296
+
 class Epd2in9d {
     bool lut_ready{false};
 
 public:
-    static const int SCREEN_WIDTH;
-    static const int SCREEN_HEIGHT;
-
     // Shutdown display
     ~Epd2in9d() noexcept;
 

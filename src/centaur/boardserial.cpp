@@ -309,7 +309,7 @@ void BoardSerial::build_packet(uint8_t* buf, int addr_pos, int len) {
 
 int BoardSerial::write_board(uint8_t* buf, int addr_pos, int len) {
     build_packet(buf, addr_pos, len);
-    const auto num_written = write_serial(boardserial.fd, buf, len);
+    const auto num_written = write_serial(fd, buf, len);
     return num_written == len ? 0 : 1;
 }
 
@@ -417,7 +417,7 @@ int BoardSerial::led_flash() {
 
 int BoardSerial::led(int square) {
     const auto intensity = 5;
-    uint8_t request[11] = {176, 0, 11, 0, 0, 5, 10, 1, intensity, square, 0};
+    uint8_t request[11] = {176, 0, 11, 0, 0, 5, 10, 1, intensity, uint8_t(square), 0};
     return write_board(request, 3, sizeof request);
 }
 
@@ -426,7 +426,7 @@ int BoardSerial::led_array(const int* squares, int num_squares) {
 
     const auto speed     = 3;
     const auto intensity = 5;
-    uint8_t request[128] = {[0] = 176, [5] = 5, [6] = speed, [8] = intensity};
+    uint8_t request[128] = {176, 0, 0, 0, 0, 5, speed, 0, intensity};
 
     auto len = 9;
     for (auto i = 0; i != num_squares; ++i) {
@@ -438,33 +438,33 @@ int BoardSerial::led_array(const int* squares, int num_squares) {
 }
 
 int BoardSerial::led_from_to(int from, int to) {
-    const auto squares[2] = {from, to};
+    const int squares[2] = {from, to};
     return led_array(squares, 2);
 }
 
 // pitch, duration pairs
 static const uint8_t sound_data[] = {
-    76,  8,          // GENERAL
-    76, 64,          // FACTORY
-    76,  8, 72,  8,  // POWER_OFF
-    72,  8, 76,  8,  // POWER_ON
-    78, 12, 72, 16,  // WRONG
-    72,  8,          // WRONG_MOVE
+    76,  8,          // SOUND_GENERAL
+    76, 64,          // SOUND_FACTORY
+    76,  8, 72,  8,  // SOUND_POWER_OFF
+    72,  8, 76,  8,  // SOUND_POWER_ON
+    78, 12, 72, 16,  // SOUND_WRONG
+    72,  8,          // SOUND_WRONG_MOVE
 };
 
 // Index into sound_data
 static const int sounds[] = {
-     0,  // GENERAL
-     2,  // FACTORY
-     4,  // POWER_OFF
-     8,  // POWER_ON
-    12,  // WRONG
-    16,  // WRONG_MOVE
-    18,  // NONE
+     0,  // SOUND_GENERAL
+     2,  // SOUND_FACTORY
+     4,  // SOUND_POWER_OFF
+     8,  // SOUND_POWER_ON
+    12,  // SOUND_WRONG
+    16,  // SOUND_WRONG_MOVE
+    18,  // SOUND_NONE
 };
 
 int BoardSerial::play_sound(Sound sound) {
-    if (sound < Sound.GENERAL || Sound.NONE <= sound) {
+    if (sound < SOUND_GENERAL || SOUND_NONE <= sound) {
         return 0;
     }
 
