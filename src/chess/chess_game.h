@@ -28,29 +28,42 @@ public:
     explicit Game(std::string_view pgn = {}, std::string_view fen = {});
     Game(const Game&) = default;
 
+    // Re-initialize to start new game
     void clear();
+
+    // Initialize new game with starting position given as FEN
     void fen(std::string_view fen);
+
+    // Restore game from PGN
     void pgn(std::string_view pgn);
 
     std::string& tag(const std::string& key);
 
-    void model_changed(Game&) override;
+    void on_changed(Game&) override;
 
+    // Current position as Forsyth-Edwards Notation
     std::string fen() const;
+
+    // Game as Portable Game Notation
     std::string pgn() const;
 
     PositionPtr current() const;
     PositionPtr previous() const;
     PositionPtr start() const;
 
+    // Piece at square
     char at(thc::Square square) const;
 
     Bitmap bitmap() const { return current()->bitmap(); }
     inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
 
+    // Legal moves in current position
     const MoveList& legal_moves() const;
 
+    // Parse move given in Standard Algebraic Notation
     thc::Move san_move(std::string_view san_move) const;
+
+    // Parse move given in pure coordinate notation (as used in UCI)
     thc::Move uci_move(std::string_view uci_move) const;
 
     void play_move(thc::Move move);
@@ -59,6 +72,8 @@ public:
 
     void play_takeback();
     void play_takeback(thc::Move move);
+
+    void revise_move(thc::Move takeback, thc::Move move);
 
     bool read_move(
         Bitmap            boardstate,

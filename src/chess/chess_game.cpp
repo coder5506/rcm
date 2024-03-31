@@ -31,12 +31,16 @@ void Game::clear() {
     tags["Result"] = "*";
 }
 
-// Set position from FEN string
+// Set start position from FEN string
 void Game::fen(string_view fen) {
     clear();
     history.push_back(make_shared<Position>(fen));
 }
 
+// Because we support takebacks and multiple variations, the position on the
+// board is not necessarily the result of the last move in the PGN.  So given
+// both the PGN for the game and the FEN for a specific position, we search
+// through all positions in the game to select the position matching FEN.
 bool Game::recover_history(PositionPtr target) {
     if (*target == *current()) {
         return true;
@@ -77,7 +81,7 @@ Game::Game(string_view pgn, string_view fen) {
     }
 }
 
-void Game::model_changed(Game&) {
+void Game::on_changed(Game&) {
     if (started > 0) {
         return;
     }
@@ -129,14 +133,17 @@ void Game::play_move(Move move) {
     changed();
 }
 
+// Play move given in Standard Algebraic Notation
 void Game::play_san_move(string_view san_move) {
     play_move(this->san_move(san_move));
 }
 
+// Play move given in pure coordinate notation (as in UCI)
 void Game::play_uci_move(string_view uci_move) {
     play_move(this->uci_move(uci_move));
 }
 
+// Non-validating: just updates game to use previous position
 void Game::play_takeback() {
     if (history.size() > 1) {
         history.pop_back();
@@ -144,10 +151,21 @@ void Game::play_takeback() {
     }
 }
 
+// Validating: takeback must match move played
 void Game::play_takeback(Move takeback) {
     if (previous()->move_played(takeback)) {
         play_takeback();
     }
+}
+
+// *Corrects* the last move.  We're not taking back one move and playing
+// another, we're asserting the last move should be stricken from the record.
+// This is really only an issue with castling rook-first, which can
+// legitimately be taken as a rook move until the player moves the king.
+void Game::revise_move(Move takeback, Move move) {
+    play_takeback(takeback);
+    current()->remove_move_played(takeback);
+    play_move(move);
 }
 
 // Here we try to interpret the move at a higher-level than the position,
@@ -189,17 +207,13 @@ bool Game::read_move(
         }
 
         if (after.bitmap() != boardstate) {
+            // Castling may still be in-progress
             maybe_valid = maybe_valid || before->incomplete(boardstate, after);
             continue;
         }
 
         // Find takeback move
-        for (auto movepair : before->moves_played) {
-            if (movepair.second == current()) {
-                takeback = movepair.first;
-                break;
-            }
-        }
+        takeback = before->find_move_played(current());
         assert(takeback.has_value());
 
         // Undo previous move and apply castling move
@@ -209,13 +223,13 @@ bool Game::read_move(
 
     // Is this a takeback?
     if (before->bitmap() == boardstate) {
-        for (auto movepair : before->moves_played) {
-            if (movepair.second == current()) {
-                takeback = movepair.first;
-                return true;
-            }
-        }
+        takeback = before->find_move_played(current());
     }
+
+    // TODO consider extending search for takebacks, i.e., if boardstate matches
+    // *any* previous position, takeback one move.  Multiple iterations will
+    // eventually get us back to the position, and should be safe because this
+    // is the last thing we check for.
 
     // Possibly a takeback in progress?
     return maybe_valid || before->incomplete(boardstate, *current());

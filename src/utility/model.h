@@ -11,11 +11,10 @@
 template<typename T> class Observer {
 public:
     virtual ~Observer() = default;
-    virtual void model_changed(T& model) = 0;
+    virtual void on_changed(T& model) = 0;
 };
 
 template<typename T> class Model {
-private:
     std::vector<Observer<T>*> observers;
 
 public:
@@ -33,7 +32,7 @@ public:
 
     void changed() {
         for (auto observer : observers) {
-            observer->model_changed(*dynamic_cast<T*>(this));
+            observer->on_changed(*dynamic_cast<T*>(this));
         }
     }
 };

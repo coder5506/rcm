@@ -41,17 +41,20 @@ class StandardGame : public Observer<Game> {
     Player black;
 
 public:
-    ~StandardGame();
+    virtual ~StandardGame();
     StandardGame();
 
     void main();
 
-    void model_changed(Game&) override;
+    void on_changed(Game&) override;
     void set_game(std::unique_ptr<Game>);
 
 private:
+    // To/from JSON for persistence
     char* settings_to_json();
-    int settings_from_json(const char*);
+    int   settings_from_json(const char*);
+
+    // Implementation of main()
     void start();
     void run();
 };

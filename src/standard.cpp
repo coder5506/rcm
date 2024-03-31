@@ -35,19 +35,19 @@ StandardGame::StandardGame() {
     };
 }
 
-static json_t* player_to_json(const Player* player) {
+static json_t* player_to_json(const Player& player) {
     json_t *data = json_object();
     json_object_set_new(data, "player",
-        json_string(player->type == COMPUTER ? "computer" : "human"));
+        json_string(player.type == COMPUTER ? "computer" : "human"));
 
-    switch (player->type) {
+    switch (player.type) {
     case COMPUTER:
-        json_object_set_new(data, "engine", json_string(player->computer.engine));
-        json_object_set_new(data, "elo", json_integer(player->computer.elo));
+        json_object_set_new(data, "engine", json_string(player.computer.engine));
+        json_object_set_new(data, "elo", json_integer(player.computer.elo));
         break;
     case HUMAN:
-        json_object_set_new(data, "error", json_integer(player->human.error));
-        json_object_set_new(data, "opportunity", json_integer(player->human.opportunity));
+        json_object_set_new(data, "error", json_integer(player.human.error));
+        json_object_set_new(data, "opportunity", json_integer(player.human.opportunity));
         break;
     }
 
@@ -57,8 +57,8 @@ static json_t* player_to_json(const Player* player) {
 char* StandardGame::settings_to_json() {
     json_t *settings = json_object();
     json_object_set_new(settings, "module", json_string("standard"));
-    json_object_set_new(settings, "white", player_to_json(&white));
-    json_object_set_new(settings, "black", player_to_json(&black));
+    json_object_set_new(settings, "white", player_to_json(white));
+    json_object_set_new(settings, "black", player_to_json(black));
 
     char *json = json_dumps(settings, 0);
     json_decref(settings);
@@ -66,38 +66,38 @@ char* StandardGame::settings_to_json() {
     return json;
 }
 
-static int player_from_json(Player* player, json_t* data) {
+static int player_from_json(Player& player, json_t* data) {
     const char* type = json_string_value(json_object_get(data, "player"));
     if (!type) {
         return 1;
     }
 
     if (strcmp(type, "computer") == 0) {
-        player->type = COMPUTER;
+        player.type = COMPUTER;
 
         const char *engine = json_string_value(json_object_get(data, "engine"));
         if (!engine) {
             engine = "stockfish";
         }
-        player->computer.engine = engine;
+        player.computer.engine = engine;
 
         int elo = json_integer_value(json_object_get(data, "elo"));
         if (elo < 1400 || 2800 < elo) {
             elo = 2000;  // for no other reason than this is the ELO basis
         }
-        player->computer.elo = elo;
+        player.computer.elo = elo;
 
         return 0;
     }
 
     if (strcmp(type, "human") == 0) {
-        player->type = HUMAN;
+        player.type = HUMAN;
 
         int error = json_integer_value(json_object_get(data, "error"));
-        player->human.error = error < 0 ? 0 : error;
+        player.human.error = error < 0 ? 0 : error;
 
         int opportunity = json_integer_value(json_object_get(data, "opportunity"));
-        player->human.opportunity = opportunity < 0 ? 0 : opportunity;
+        player.human.opportunity = opportunity < 0 ? 0 : opportunity;
 
         return 0;
     }
@@ -124,9 +124,9 @@ int StandardGame::settings_from_json(const char* json) {
         return 1;
     }
 
-    int err = player_from_json(&white, white_settings);
+    int err = player_from_json(white, white_settings);
     if (!err) {
-        err = player_from_json(&black, black_settings);
+        err = player_from_json(black, black_settings);
     }
 
     json_decref(data);
@@ -134,7 +134,7 @@ int StandardGame::settings_from_json(const char* json) {
 }
 
 // Ensure game and current settings are persisted to database
-void StandardGame::model_changed(Game& game) {
+void StandardGame::on_changed(Game& game) {
     if (!game.started) {
         return;
     }
@@ -185,11 +185,14 @@ static int poll_for_keypress(int timeout_ms) {
 }
 
 void StandardGame::start() {
+    // Resume last game whenever possible
     auto game = db.load_latest();
     if (static_cast<bool>(game) && !game->settings.empty()) {
         settings_from_json(game->settings.data());
     }
+
     if (!game) {
+        // Start new game if unable to resume
         game = make_unique<Game>();
     }
 
@@ -218,6 +221,8 @@ void StandardGame::start() {
         }
     }
 
+    // To this point, we've just been waiting for the pieces to get setup on
+    // the board.  Any actions generated in the process can be ignored.
     centaur.purge_actions();
 }
 
@@ -229,6 +234,9 @@ void StandardGame::run() {
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
     // If camputer has first move, see what it wants to do
+    // N.B., this check is necessary b/c in the main loop (below) we read the
+    // computer's move at the top but request it at the bottom.  When computer
+    // moves first, we need this extra request to kick things off.
     if (player->type == COMPUTER) {
         // In case human played for computer and something is left in the queue
         (void)engine_move(*centaur.game, player->computer.engine);
@@ -249,7 +257,7 @@ void StandardGame::run() {
             centaur.led_from_to(move->src, move->dst);
         }
 
-        Bitmap boardstate = 0;
+        Bitmap boardstate{0};
         auto maybe_valid = false;
 
         // Check if there are user actions to process
@@ -281,14 +289,16 @@ void StandardGame::run() {
         if (!candidates.empty()) {
             move = candidates.front();
         }
-        // if (takeback && move) {
-        //     err = game_complete_move(centaur.game, takeback, move);
-        //     centaur_led(move->dst);
-        // } else  if (takeback) {
-        if (takeback) {
+
+        if (takeback && move) {
+            centaur.game->revise_move(*takeback, *move);
+            centaur.led(move->dst);
+        }
+        else if (takeback) {
             centaur.game->play_takeback(*takeback);
             centaur.led(takeback->src);
-        } else if (move) {
+        }
+        else if (move) {
             centaur.game->play_move(*move);
             centaur.led(move->dst);
         }

@@ -229,17 +229,17 @@ public:
     ~EventStream();
     EventStream();
 
-    void model_changed(Game&) override;
-    void model_changed(Screen&) override;
+    void on_changed(Game&) override;
+    void on_changed(Screen&) override;
 };
 
-void EventStream::model_changed(Game&) {
+void EventStream::on_changed(Game&) {
     std::lock_guard<std::mutex> lock(mutex);
     events.push("game_changed");
     cond.notify_one();
 }
 
-void EventStream::model_changed(Screen&) {
+void EventStream::on_changed(Screen&) {
     std::lock_guard<std::mutex> lock(mutex);
     events.push("screen_changed");
     cond.notify_one();

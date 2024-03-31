@@ -92,7 +92,7 @@ void Centaur::render() {
     screen.render(centaur_view);
 }
 
-void Centaur::model_changed(Game&) {
+void Centaur::on_changed(Game&) {
     render();
 }
 

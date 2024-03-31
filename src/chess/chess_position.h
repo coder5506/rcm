@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,10 +33,9 @@ using PositionPtr = std::shared_ptr<const Position>;
 using MoveList = std::vector<thc::Move>;
 
 // Represents both a move and the resulting position.
-using MovePair = std::pair<const thc::Move, PositionPtr>;
+using MovePair = std::pair<thc::Move, PositionPtr>;
 
 class Position : public thc::ChessRules {
-private:
     // Cache
     mutable MoveList legal_moves_;
 
@@ -51,12 +51,16 @@ public:
     // Play move and return resulting position.  Result may be new or shared.
     PositionPtr play_move(thc::Move move) const;
 
+    std::optional<thc::Move> find_move_played(PositionPtr after) const;
+    void remove_move_played(thc::Move move) const;
+
     Bitmap bitmap() const;
     Bitmap difference_bitmap(const Position& other) const;
 
     const MoveList& legal_moves() const;
     MoveList castle_moves() const;
 
+    // True if boardstate might represent a transition into position `after`
     bool incomplete(Bitmap boardstate, const Position& after) const;
 
     // Yield list of legal moves matching both boardstate and action history.

@@ -20,6 +20,15 @@ board, try one of these:
 
 In development.
 
+## Building
+
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
 ## References
 
 -   [2.9inch e-Paper HAT (D) Manual](<https://www.waveshare.com/wiki/2.9inch_e-Paper_HAT_(D)>)

@@ -25,7 +25,7 @@ public:
     bool reversed() const;
     void reversed(bool);
 
-    void model_changed(Game&) override;
+    void on_changed(Game&) override;
     void render();
     void set_game(std::unique_ptr<Game>);
 

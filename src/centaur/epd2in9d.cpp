@@ -17,6 +17,7 @@
 #include <cstdbool>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 
 #include <pigpio.h>
@@ -48,6 +49,7 @@ static void gpio_close() {
 static int gpio_open() {
     int err = gpioInitialise();
     if (err < 0) {
+        cout << "gpioInitialize() failed: " << err << "\n";
         return err;
     }
     gpioSetMode(PIN_RESET, PI_OUTPUT);
@@ -129,13 +131,13 @@ Epd2in9d::~Epd2in9d() {
 // Connect to display
 Epd2in9d::Epd2in9d() {
     if (gpio_open() < 0) {
-        throw runtime_error("Failed to open e-Paper display");
+        throw runtime_error("Failed to open e-Paper display(1)");
     }
 
     spi_open();
     if (SPI_Handle < 0) {
         gpio_close();
-        throw runtime_error("Failed to open e-Paper display");
+        throw runtime_error("Failed to open e-Paper display(2)");
     }
 }
 

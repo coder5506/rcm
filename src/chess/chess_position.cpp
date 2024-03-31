@@ -48,6 +48,36 @@ PositionPtr Position::play_move(Move move) const {
     return after;
 }
 
+optional<Move> Position::find_move_played(PositionPtr after) const {
+    // Find move in moves_played
+    auto existing = find_if(
+        moves_played.begin(),
+        moves_played.end(),
+        [after](const MovePair& pair) {
+            return pair.second == after;
+        }
+    );
+    if (existing != moves_played.end()) {
+        return existing->first;
+    }
+    else {
+        return nullopt;
+    }
+}
+
+void Position::remove_move_played(Move move) const {
+    moves_played.erase(
+        remove_if(
+            moves_played.begin(),
+            moves_played.end(),
+            [move](const MovePair& pair) {
+                return pair.first == move;
+            }
+        ),
+        moves_played.end()
+    );
+}
+
 Bitmap Position::bitmap() const {
     Bitmap bitmap{0};
     Bitmap mask{1};
