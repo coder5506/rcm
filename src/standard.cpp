@@ -8,7 +8,6 @@
 #include "db.h"
 
 #include <cassert>
-#include <cstdio>
 #include <cstring>
 
 #include <sys/select.h>
@@ -211,6 +210,8 @@ void StandardGame::start() {
         }
         if (boardstate == Board::STARTING_POSITION) {
             // Start new game
+            centaur.game->fen("");
+            centaur.render();
             break;
         }
 

@@ -42,6 +42,7 @@ PositionPtr Position::play_move(Move move) const {
     }
 
     auto after = make_shared<Position>(*this);
+    after->legal_moves_.clear();
     after->moves_played.clear();
     after->PlayMove(move);
     moves_played.push_back({move, after});

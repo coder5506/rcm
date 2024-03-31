@@ -3,21 +3,24 @@
 
 #include "screen.h"
 
-#include <alloca.h>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+
+#include <alloca.h>
 
 using namespace std;
 
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
 void Screen::update_epd2in9d() {
+    epd2in9d.init();
+
     const auto width_bytes = (SCREEN_WIDTH + 7) / 8;
     const auto size_bytes  = width_bytes * SCREEN_HEIGHT;
 
-    uint8_t *const new_image = (uint8_t*)alloca(size_bytes);
-    uint8_t *const old_image = (uint8_t*)alloca(size_bytes);
+    const auto new_image = (uint8_t*)alloca(size_bytes);
+    const auto old_image = (uint8_t*)alloca(size_bytes);
     memset(old_image, -1, size_bytes);
     memset(new_image, -1, size_bytes);
 
@@ -80,7 +83,7 @@ void Screen::render(View& view) {
     }
 
     if (*image[0] != *image[1]) {
-        cond.notify_one();
+        cond.notify_all();
         changed();
     }
 }

@@ -12,7 +12,15 @@
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 296
 
+// For RAII
+class Gpio {
+public:
+    ~Gpio();
+    Gpio();
+};
+
 class Epd2in9d {
+    Gpio gpio;
     bool lut_ready{false};
 
 public:

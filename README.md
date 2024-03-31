@@ -23,10 +23,11 @@ In development.
 ## Building
 
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
+mkdir bin
+cmake -DCMAKE_BUILD_TYPE=Debug -B bin
+cmake --build bin
+bin/check
+sudo bin/rcm
 ```
 
 ## References

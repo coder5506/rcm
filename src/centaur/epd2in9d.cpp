@@ -1,8 +1,7 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// This file provides access to the Waveshare 2.9 inch e-Paper display
-// on a DGT Centaur board.
+// Provides access to the Waveshare 2.9 inch e-Paper display on a DGT Centaur
 //
 // The display is documented at:
 // - https://www.waveshare.com/wiki/2.9inch_e-Paper_HAT_(D)
@@ -14,10 +13,8 @@
 #include "../epd2in9d.h"
 
 #include <alloca.h>
-#include <cstdbool>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
 
 #include <pigpio.h>
@@ -39,18 +36,18 @@ static void delay_ms(uint32_t ms) {
     gpioDelay(1000 * ms /* micros */);
 }
 
-static void gpio_close() {
+// Use destructor to ensure gpioTerminate() is always called, otherwise crashes
+// result in DMA memory leaks which can only be recovered via reboot.
+Gpio::~Gpio() {
     gpioWrite(PIN_RESET, 0);
     gpioWrite(PIN_COMMAND_DATA, 0);
 	gpioWrite(PIN_CLEAR_TO_SEND, 0);
     gpioTerminate();
 }
 
-static int gpio_open() {
-    int err = gpioInitialise();
-    if (err < 0) {
-        cout << "gpioInitialize() failed: " << err << "\n";
-        return err;
+Gpio::Gpio() {
+    if (gpioInitialise() < 0) {
+        throw runtime_error("Failed to initialize GPIO");
     }
     gpioSetMode(PIN_RESET, PI_OUTPUT);
     gpioSetMode(PIN_COMMAND_DATA, PI_OUTPUT);
@@ -58,10 +55,9 @@ static int gpio_open() {
     gpioSetMode(PIN_BUSY, PI_INPUT);
     gpioSetPullUpDown(PIN_BUSY, PI_PUD_UP);
     gpioWrite(PIN_CLEAR_TO_SEND, 1);
-    return 0;
 }
 
-// Software reset
+// Trigger software reset of e-Paper display
 static void gpio_reset() {
     for (int i = 0; i != 3; ++i) {
         gpioWrite(PIN_RESET, 1);
@@ -125,19 +121,13 @@ static int spi_send_array(const uint8_t* buf, size_t len) {
 // Shutdown display
 Epd2in9d::~Epd2in9d() {
     spi_close();
-    gpio_close();
 }
 
 // Connect to display
 Epd2in9d::Epd2in9d() {
-    if (gpio_open() < 0) {
-        throw runtime_error("Failed to open e-Paper display(1)");
-    }
-
     spi_open();
     if (SPI_Handle < 0) {
-        gpio_close();
-        throw runtime_error("Failed to open e-Paper display(2)");
+        throw runtime_error("Failed to open e-Paper display");
     }
 }
 

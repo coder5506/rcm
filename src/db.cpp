@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 
 using namespace std;
@@ -133,7 +134,7 @@ unique_ptr<Game> Database::load_game(sqlite3_int64 rowid) {
     }
 
     game->rowid    = rowid;
-    game->settings = nullptr;
+    game->settings = "";
     if (sqlite3_column_bytes(stmt, 2) > 0) {
         game->settings = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
     }
