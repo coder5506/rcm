@@ -9,40 +9,21 @@
 using namespace std;
 using namespace thc;
 
-static unique_ptr<UCIEngine> engine;
-
-static UCIEngine* start_engine() {
-    if (!engine) {
-        char *argv[] = {(char*)"stockfish", NULL};
-        engine = UCIEngine::execvp("/usr/games/stockfish", argv);
-    }
-    return engine.get();
+Engine::Engine(string_view name) {
+    char *argv[] = {(char*)"stockfish", NULL};
+    uci = UCIEngine::execvp("/usr/games/stockfish", argv);
 }
 
-static UCIEngine* get_engine(const char* name) {
-    return start_engine();
+void Engine::play(const Game& game, int elo) {
+    uci->send(make_unique<UCIPlayMessage>(&game, elo));
 }
 
-optional<Move> engine_move(const Game& game, const char* engine_name) {
-    auto engine = get_engine(engine_name);
-    if (!engine) {
-        return {};
-    }
-
-    auto response = engine->receive();
+optional<Move> Engine::move() {
+    auto response = uci->receive();
     if (auto play = dynamic_cast<UCIPlayMessage*>(response.get())) {
         return play->move;
     }
-    return {};
-}
-
-void engine_play(const Game& game, const char* engine_name, int elo) {
-    auto engine = get_engine(engine_name);
-    if (!engine) {
-        return;
-    }
-
-    engine->send(make_unique<UCIPlayMessage>(&game, elo));
+    return nullopt;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

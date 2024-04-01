@@ -228,6 +228,8 @@ void StandardGame::run() {
     vector<Move>   candidates;
     optional<Move> takeback;
 
+    Engine engine{"stockfish"};
+
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
     // If camputer has first move, see what it wants to do
@@ -238,10 +240,10 @@ void StandardGame::run() {
     //
     if (player->type == COMPUTER) {
         // In case human played for computer and something is left in the queue
-        (void)engine_move(*centaur.game, player->computer.engine);
+        (void)engine.move();
 
         // Ask for new move
-        engine_play(*centaur.game, player->computer.engine, player->computer.elo);
+        engine.play(*centaur.game, player->computer.elo);
     }
 
     while (!poll_for_keypress(200)) {
@@ -250,7 +252,7 @@ void StandardGame::run() {
         // Check if computer has move to play
         optional<Move> move;
         if (player->type == COMPUTER) {
-            move = engine_move(*centaur.game, player->computer.engine);
+            move = engine.move();
         }
         if (move) {
             // Prompt user to move piece
@@ -304,10 +306,10 @@ void StandardGame::run() {
         player = centaur.game->WhiteToPlay() ? &white : &black;
         if (player->type == COMPUTER) {
             // In case human played for computer and something is left in the queue
-            (void)engine_move(*centaur.game, player->computer.engine);
+            (void)engine.move();
 
             // Ask for new move
-            engine_play(*centaur.game, player->computer.engine, player->computer.elo);
+            engine.play(*centaur.game, player->computer.elo);
         }
     }
 }

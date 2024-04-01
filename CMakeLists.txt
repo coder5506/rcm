@@ -29,10 +29,10 @@ link_libraries(
   PkgConfig::PCRE2
   PkgConfig::SQLITE3
   Threads::Threads
-  ${PIGPIO}
 )
 
 if(PIGPIO)
+  link_libraries(${PIGPIO})
   set(CENTAUR centaur)
 else()
   set(CENTAUR stub)

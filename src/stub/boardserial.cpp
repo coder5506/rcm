@@ -4,7 +4,7 @@
 // Stubs out serial communication with DGT Centaur board.  Used for development
 // and testing on Linux systems where board is not available.
 
-#include "../boardserial.h"
+#include "boardserial.h"
 #include <cstdio>
 
 using namespace std;
@@ -16,23 +16,8 @@ BoardSerial::~BoardSerial() {
     printf("boardserial_close()\n");
 }
 
-void BoardSerial::read_address() {}
-
 BoardSerial::BoardSerial() {
     printf("boardserial_open() => 0\n");
-}
-
-void BoardSerial::build_packet(uint8_t* buf, int addr_pos, int len) {
-    (void)buf;
-    (void)addr_pos;
-    (void)len;
-}
-
-int BoardSerial::write_board(uint8_t* buf, int addr_pos, int len) {
-    (void)buf;
-    (void)addr_pos;
-    (void)len;
-    return 0;  // Success
 }
 
 int BoardSerial::chargingstate() {

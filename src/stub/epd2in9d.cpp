@@ -4,15 +4,12 @@
 // Stubs out communication with e-Paper display on DGT Centaur board.  Used for
 // development and testing on Linux systems where board is not available.
 
-#include "../epd2in9d.h"
+#include "epd2in9d.h"
 #include "../utility/sleep.h"
 
 #include <cstdio>
 
 using namespace std;
-
-const int Epd2in9d::SCREEN_WIDTH  = 128;
-const int Epd2in9d::SCREEN_HEIGHT = 296;
 
 Epd2in9d::~Epd2in9d() {
     printf("epd2in9d_close()\n");
@@ -27,11 +24,9 @@ void Epd2in9d::sleep() {
     sleep_ms(2000);  // Simulate delay
 }
 
-void Epd2in9d::init() {
+void Epd2in9d::wake() {
     printf("epd2in9d_init()\n");
 }
-
-void Epd2in9d::init_lut() {}
 
 void Epd2in9d::display(const uint8_t* data) {
     printf("epd2in9d_display(%p)\n", (void*)data);

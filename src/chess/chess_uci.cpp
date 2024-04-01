@@ -91,9 +91,14 @@ void UCIEngine::engine_thread() {
 
     buffer.close();
 
-    printf("quit\n");
     close(write_fd);
     write_fd = -1;
+}
+
+UCIEngine::~UCIEngine() {
+    if (write_fd >= 0) {
+        quit();
+    }
 }
 
 UCIEngine::UCIEngine(int read_fd, int write_fd)

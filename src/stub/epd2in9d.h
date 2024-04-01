@@ -2,30 +2,38 @@
 // See license at end of file
 #pragma once
 
-#ifndef CHESS_ENGINE_H
-#define CHESS_ENGINE_H
+// API for communication with e-Paper display on DGT Centaur board
 
-#include "../thc/thc.h"
+#ifndef EPD2IN9D_H
+#define EPD2IN9D_H
 
-#include <memory>
-#include <optional>
-#include <string_view>
+#include <cstdint>
 
-class Game;
-class UCIEngine;
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 296
 
-// Higher-level interface to UCI engines
-class Engine {
-    std::unique_ptr<UCIEngine> uci;
+//
+// e-Paper Display
+//
 
+class Epd2in9d {
 public:
-    Engine(std::string_view name);
+    ~Epd2in9d();
+    Epd2in9d();
 
-    // Request engine to select a move
-    void play(const Game& game, int elo);
+    // Put display to sleep
+    void sleep();
 
-    // Ask if engine has a move ready
-    std::optional<thc::Move> move();
+    // Initialize display
+    void wake();
+
+    // Fully refresh display.  This is slower and draws more power than partial
+    // updates, but should be done occassionally to cleanup e-Paper artifacts.
+    void display(const std::uint8_t* data);
+
+    // Partially update display.  That is, instruct the e-Paper to make the
+    // minimal changes necessary to display the new image.
+    void update(const std::uint8_t* data);
 };
 
 #endif

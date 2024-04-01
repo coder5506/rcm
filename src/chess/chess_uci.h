@@ -19,8 +19,8 @@ class Game;
 class UCIMessage;
 
 class UCIEngine {
-    std::mutex              mutex; // Lock request and response queues
-    std::condition_variable cond;  // Signal new request
+    std::mutex              mutex;  // Lock request and response queues
+    std::condition_variable cond;   // Signal new request
     std::thread             thread;
     std::queue<std::unique_ptr<UCIMessage>> request_queue;
     std::queue<std::unique_ptr<UCIMessage>> response_queue;
@@ -42,6 +42,7 @@ public:
 public:
     static std::unique_ptr<UCIEngine> execvp(const char* file, char *const argv[]);
 
+    ~UCIEngine();
     UCIEngine(int read_fd, int write_fd);
 
     void send(std::unique_ptr<UCIMessage> request);
