@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Eric Sessoms
 // See license at end of file
 
-// Provides access to the Waveshare 2.9 inch e-Paper display on a DGT Centaur
+// Access the Waveshare 2.9 inch e-Paper display on a DGT Centaur
 //
 // The display is documented at:
 // - https://www.waveshare.com/wiki/2.9inch_e-Paper_HAT_(D)
@@ -22,7 +22,7 @@
 using namespace std;
 
 //
-// GPIO
+// General Purpose Input Output
 //
 
 enum Pin {
@@ -31,10 +31,6 @@ enum Pin {
     PIN_CLEAR_TO_SEND = 18,
     PIN_BUSY          = 13,
 };
-
-static void delay_ms(uint32_t ms) {
-    gpioDelay(1000 * ms /* micros */);
-}
 
 // Use destructor to ensure gpioTerminate() is always called, otherwise crashes
 // result in DMA memory leaks which can only be recovered via reboot.
@@ -57,6 +53,10 @@ Gpio::Gpio() {
     gpioWrite(PIN_CLEAR_TO_SEND, 1);
 }
 
+static void delay_ms(uint32_t ms) {
+    gpioDelay(1000 * ms /* micros */);
+}
+
 // Trigger software reset of e-Paper display
 static void gpio_reset() {
     for (int i = 0; i != 3; ++i) {
@@ -70,66 +70,51 @@ static void gpio_reset() {
 }
 
 //
-// SPI
+// Serial Peripheral Interface
 //
 
-static int SPI_Handle = -1;
+Spi::~Spi() {
+    spiClose(handle);
+}
 
-static void spi_close() {
-    if (SPI_Handle >= 0) {
-        spiClose(SPI_Handle);
+Spi::Spi() {
+    // e-Paper display is on the auxilliary SPI peripheral
+    const auto SPI_AUX = 0x100;
+    handle = spiOpen(0, 4'000'000, SPI_AUX);
+    if (handle < 0) {
+        throw runtime_error("Failed to initialize SPI");
     }
-    SPI_Handle = -1;
 }
 
-static void spi_open() {
-    const int SPI_AUX = 0x100;
-    SPI_Handle = spiOpen(0, 4000000, SPI_AUX);
-}
-
-static void spi_send_byte(int value, int command_data) {
+void Spi::send_byte(int value, int command_data) {
     uint8_t byte = value;
     gpioWrite(PIN_COMMAND_DATA, command_data);
     gpioWrite(PIN_CLEAR_TO_SEND, 0);
-    spiWrite(SPI_Handle, (char*)&byte, 1);
+    spiWrite(handle, (char*)&byte, 1);
     gpioWrite(PIN_CLEAR_TO_SEND, 1);
 }
 
-static void spi_send_data(int data) {
-    spi_send_byte(data, 1);
+void Spi::send_command(int command) {
+    send_byte(command, 0);
 }
 
-static int spi_send_array(const uint8_t* buf, size_t len) {
-    int err = gpioWrite(PIN_COMMAND_DATA, 1);
-    if (!err) {
-        err = gpioWrite(PIN_CLEAR_TO_SEND, 0);
-    }
+void Spi::send_data(int data) {
+    send_byte(data, 1);
+}
 
-    int num_written = 0;
-    if (!err) {
-        num_written = spiWrite(SPI_Handle, (char*)buf, len);
-        gpioWrite(PIN_CLEAR_TO_SEND, 1);
-    }
+int Spi::send_array(const uint8_t* buf, size_t len) {
+    gpioWrite(PIN_COMMAND_DATA, 1);
+    gpioWrite(PIN_CLEAR_TO_SEND, 0);
+
+    auto num_written = spiWrite(handle, (char*)buf, len);
+    gpioWrite(PIN_CLEAR_TO_SEND, 1);
 
     return num_written;
 }
 
 //
-// Screen
+// e-Paper Display
 //
-
-// Shutdown display
-Epd2in9d::~Epd2in9d() {
-    spi_close();
-}
-
-// Connect to display
-Epd2in9d::Epd2in9d() {
-    spi_open();
-    if (SPI_Handle < 0) {
-        throw runtime_error("Failed to open e-Paper display");
-    }
-}
 
 enum Command {
     COMMAND_PSR   = 0x00,  // Panel Setting
@@ -156,25 +141,28 @@ enum Command {
     COMMAND_PTIN  = 0x91,  // Partial In
 };
 
-static void send_command(Command command) {
-    spi_send_byte(command, 0);
+Epd2in9d::~Epd2in9d() {
+    sleep();
 }
 
-static void read_busy() {
+Epd2in9d::Epd2in9d() {
+    wake();
+}
+
+void Epd2in9d::read_busy() {
     do {
-        send_command(COMMAND_FLG);
+        spi.send_command(COMMAND_FLG);
     } while ((gpioRead(PIN_BUSY) & 1) == 0);
     delay_ms(20);
 }
 
-// Put display to sleep
 void Epd2in9d::sleep() {
-    send_command(COMMAND_CDI);
-    spi_send_data(0xf7);
-    send_command(COMMAND_POF);
+    spi.send_command(COMMAND_CDI);
+    spi.send_data(0xf7);
+    spi.send_command(COMMAND_POF);
     read_busy();
-    send_command(COMMAND_DSLP);
-    spi_send_data(0xA5);
+    spi.send_command(COMMAND_DSLP);
+    spi.send_data(0xA5);
 
     // Reinit after sleep/wake
     lut_ready = false;
@@ -183,31 +171,31 @@ void Epd2in9d::sleep() {
     delay_ms(2000);
 }
 
-// Initialize display
-void Epd2in9d::init() {
+void Epd2in9d::wake() {
     gpio_reset();
 
-	send_command(COMMAND_PON);
+	spi.send_command(COMMAND_PON);
 	read_busy();
 
     // LUT from OTP  KW-BF  KWR-AF  BWROTP 0f  BWOTP 1f
-	send_command(COMMAND_PSR);
-	spi_send_data(0x1f);
+	spi.send_command(COMMAND_PSR);
+	spi.send_data(0x1f);
 
-	send_command(COMMAND_TRES);
-	spi_send_data(SCREEN_WIDTH);         // HRES: Horizontal resolution
-	spi_send_data(SCREEN_HEIGHT / 256);  // VRES: Vertical resolution
-	spi_send_data(SCREEN_HEIGHT % 256);
+	spi.send_command(COMMAND_TRES);
+	spi.send_data(SCREEN_WIDTH);         // HRES: Horizontal resolution
+	spi.send_data(SCREEN_HEIGHT / 256);  // VRES: Vertical resolution
+	spi.send_data(SCREEN_HEIGHT % 256);
 
     // WBmode: VBDF 17|D7  VBDW 97  VBDB 57  WBRmode: VBDF F7  VBDW 77  VBDB 37  VBDR B7
-	send_command(COMMAND_CDI);
-	spi_send_data(0x97);
+	spi.send_command(COMMAND_CDI);
+	spi.send_data(0x97);
 
     // Reinit after sleep/wake
     lut_ready = false;
 }
 
-static void lut_tables() {
+// Look-Up Time
+void Epd2in9d::lut_tables() {
     const uint8_t EPD_2IN9D_lut_vcom1[] = {
         0x00, 0x19, 0x01, 0x00, 0x00, 0x01,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -218,8 +206,8 @@ static void lut_tables() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00,
     };
-    send_command(COMMAND_LUTC);
-    spi_send_array(EPD_2IN9D_lut_vcom1, sizeof EPD_2IN9D_lut_vcom1);
+    spi.send_command(COMMAND_LUTC);
+    spi.send_array(EPD_2IN9D_lut_vcom1, sizeof EPD_2IN9D_lut_vcom1);
 
     const uint8_t EPD_2IN9D_lut_ww1[] = {
         0x00, 0x19, 0x01, 0x00, 0x00, 0x01,
@@ -230,8 +218,8 @@ static void lut_tables() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    send_command(COMMAND_LUTWW);
-    spi_send_array(EPD_2IN9D_lut_ww1, sizeof EPD_2IN9D_lut_ww1);
+    spi.send_command(COMMAND_LUTWW);
+    spi.send_array(EPD_2IN9D_lut_ww1, sizeof EPD_2IN9D_lut_ww1);
 
     const uint8_t EPD_2IN9D_lut_bw1[] = {
         0x80, 0x19, 0x01, 0x00, 0x00, 0x01,
@@ -242,8 +230,8 @@ static void lut_tables() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    send_command(COMMAND_LUTBW);
-    spi_send_array(EPD_2IN9D_lut_bw1, sizeof EPD_2IN9D_lut_bw1);
+    spi.send_command(COMMAND_LUTBW);
+    spi.send_array(EPD_2IN9D_lut_bw1, sizeof EPD_2IN9D_lut_bw1);
 
     const uint8_t EPD_2IN9D_lut_wb1[] = {
         0x40, 0x19, 0x01, 0x00, 0x00, 0x01,
@@ -254,8 +242,8 @@ static void lut_tables() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    send_command(COMMAND_LUTWB);
-    spi_send_array(EPD_2IN9D_lut_wb1, sizeof EPD_2IN9D_lut_wb1);
+    spi.send_command(COMMAND_LUTWB);
+    spi.send_array(EPD_2IN9D_lut_wb1, sizeof EPD_2IN9D_lut_wb1);
 
     const uint8_t EPD_2IN9D_lut_bb1[] = {
         0x00, 0x19, 0x01, 0x00, 0x00, 0x01,
@@ -266,8 +254,8 @@ static void lut_tables() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    send_command(COMMAND_LUTBB);
-    spi_send_array(EPD_2IN9D_lut_bb1, sizeof EPD_2IN9D_lut_bb1);
+    spi.send_command(COMMAND_LUTBB);
+    spi.send_array(EPD_2IN9D_lut_bb1, sizeof EPD_2IN9D_lut_bb1);
 }
 
 void Epd2in9d::init_lut() {
@@ -276,45 +264,45 @@ void Epd2in9d::init_lut() {
     }
     lut_ready = true;
 
-    send_command(COMMAND_PWR);
-    spi_send_data(0x03);
-    spi_send_data(0x00);
-    spi_send_data(0x2b);
-    spi_send_data(0x2b);
-    spi_send_data(0x03);
+    spi.send_command(COMMAND_PWR);
+    spi.send_data(0x03);
+    spi.send_data(0x00);
+    spi.send_data(0x2b);
+    spi.send_data(0x2b);
+    spi.send_data(0x03);
 
-    send_command(COMMAND_BTST);
-    spi_send_data(0x17);  // BT_PHA[7:0]
-    spi_send_data(0x17);  // BT_PHB[7:0]
-    spi_send_data(0x17);  // BT_PHC[5:0]
+    spi.send_command(COMMAND_BTST);
+    spi.send_data(0x17);  // BT_PHA[7:0]
+    spi.send_data(0x17);  // BT_PHB[7:0]
+    spi.send_data(0x17);  // BT_PHC[5:0]
 
-    send_command(COMMAND_PON);
+    spi.send_command(COMMAND_PON);
     read_busy();
 
     // LUT from OTP，128x296
-    send_command(COMMAND_PSR);
-    spi_send_data(0xbf);
+    spi.send_command(COMMAND_PSR);
+    spi.send_data(0xbf);
 
     // 3a 100HZ   29 150Hz 39 200HZ	31 171HZ
-    send_command(COMMAND_PLL);
-    spi_send_data(0x3a);
+    spi.send_command(COMMAND_PLL);
+    spi.send_data(0x3a);
 
-    send_command(COMMAND_TRES);
-    spi_send_data(SCREEN_WIDTH);         // HRES: Horizontal Resolution
-    spi_send_data(SCREEN_HEIGHT / 256);  // VRES: Vertical Resoltion
-    spi_send_data(SCREEN_HEIGHT % 256);
+    spi.send_command(COMMAND_TRES);
+    spi.send_data(SCREEN_WIDTH);         // HRES: Horizontal Resolution
+    spi.send_data(SCREEN_HEIGHT / 256);  // VRES: Vertical Resoltion
+    spi.send_data(SCREEN_HEIGHT % 256);
 
-    send_command(COMMAND_VDCS);
-    spi_send_data(0x12);
+    spi.send_command(COMMAND_VDCS);
+    spi.send_data(0x12);
 
-    send_command(COMMAND_CDI);
-    spi_send_data(0x97);
+    spi.send_command(COMMAND_CDI);
+    spi.send_data(0x97);
 
     lut_tables();
 }
 
-static void refresh_screen(void) {
-    send_command(COMMAND_DRF);
+void Epd2in9d::refresh_screen(void) {
+    spi.send_command(COMMAND_DRF);
     delay_ms(10);  // Must be at least 200us
     read_busy();
 }
@@ -345,11 +333,11 @@ static const uint8_t black_buffer[SCREEN_BYTES] = {PIXEL_BLACK};
 
 // Fully refresh display
 void Epd2in9d::display(const uint8_t* data) {
-    send_command(COMMAND_DTM1);
-    spi_send_array(black_buffer, SCREEN_BYTES);
+    spi.send_command(COMMAND_DTM1);
+    spi.send_array(black_buffer, SCREEN_BYTES);
 
-    send_command(COMMAND_DTM2);
-    spi_send_array(data, SCREEN_BYTES);
+    spi.send_command(COMMAND_DTM2);
+    spi.send_array(data, SCREEN_BYTES);
 
     refresh_screen();
 }
@@ -357,18 +345,18 @@ void Epd2in9d::display(const uint8_t* data) {
 // Partially update display
 void Epd2in9d::update(const uint8_t* data) {
     init_lut();
-    send_command(COMMAND_PTIN);
-    send_command(COMMAND_PTL);
-    spi_send_data(0);                        // HRST: Horizontal Start
-    spi_send_data(SCREEN_WIDTH - 1);         // HRED: Horizontal End
+    spi.send_command(COMMAND_PTIN);
+    spi.send_command(COMMAND_PTL);
+    spi.send_data(0);                        // HRST: Horizontal Start
+    spi.send_data(SCREEN_WIDTH - 1);         // HRED: Horizontal End
 
-    spi_send_data(0);                        // VRST: Vertical Start
-    spi_send_data(0);
-    spi_send_data(SCREEN_HEIGHT / 256);      // VRED: Vertical End
-    spi_send_data(SCREEN_HEIGHT % 256 - 1);
+    spi.send_data(0);                        // VRST: Vertical Start
+    spi.send_data(0);
+    spi.send_data(SCREEN_HEIGHT / 256);      // VRED: Vertical End
+    spi.send_data(SCREEN_HEIGHT % 256 - 1);
 
-    send_command(COMMAND_DTM2);
-    spi_send_array(data, SCREEN_BYTES);
+    spi.send_command(COMMAND_DTM2);
+    spi.send_array(data, SCREEN_BYTES);
     refresh_screen();
 }
 

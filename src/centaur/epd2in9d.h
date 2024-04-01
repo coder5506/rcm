@@ -12,29 +12,54 @@
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 296
 
-// For RAII
+//
+// RAII
+//
+// These classes are very thin wrappers aroung PIGPIO.  They exist only to
+// ensure proper resource cleanup.
+
+// General Purpose Input Output
 class Gpio {
 public:
     ~Gpio();
     Gpio();
 };
 
-class Epd2in9d {
+// Serial Peripheral Interface
+class Spi {
     Gpio gpio;
+    int  handle;
+
+public:
+    ~Spi();
+    Spi();
+
+    void send_command(int command);
+    void send_data(int data);
+    int  send_array(const std::uint8_t* buf, std::size_t len);
+
+private:
+    void send_byte(int value, int command_data);
+};
+
+//
+// e-Paper Display
+//
+// Public interface
+
+class Epd2in9d {
+    Spi  spi;
     bool lut_ready{false};
 
 public:
-    // Shutdown display
-    ~Epd2in9d() noexcept;
-
-    // Connect to display
+    ~Epd2in9d();
     Epd2in9d();
 
     // Put display to sleep
     void sleep();
 
     // Initialize display
-    void init();
+    void wake();
 
     // Fully refresh display.  This is slower and draws more power than partial
     // updates, but should be done occassionally to cleanup e-Paper artifacts.
@@ -45,7 +70,10 @@ public:
     void update(const std::uint8_t* data);
 
 private:
+    void read_busy();
+    void lut_tables();
     void init_lut();
+    void refresh_screen();
 };
 
 #endif

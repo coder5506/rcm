@@ -14,8 +14,6 @@ using namespace std;
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
 void Screen::update_epd2in9d() {
-    epd2in9d.init();
-
     const auto width_bytes = (SCREEN_WIDTH + 7) / 8;
     const auto size_bytes  = width_bytes * SCREEN_HEIGHT;
 
