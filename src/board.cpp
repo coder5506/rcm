@@ -45,7 +45,7 @@ Bitmap Board::getstate() {
     return reversed ? reverse_bits(boardstate) : boardstate;
 }
 
-int Board::read_actions(vector<Action>& actions) {
+int Board::read_actions(ActionList& actions) {
     uint8_t buf[256];
     const auto num_read = boardserial.readdata(buf, sizeof buf);
     if (num_read <= 6) {
@@ -56,9 +56,9 @@ int Board::read_actions(vector<Action>& actions) {
     auto n = 0;
     for (auto i = 5; i < num_read - 1;) {
         switch (buf[i++]) {
-        case 64:
+        case 64:  // Lift
             if (0 <= buf[i] && buf[i] < 64) {
-                Square lift = static_cast<Square>(buf[i++]);
+                auto lift = static_cast<Square>(buf[i++]);
                 if (reversed) {
                     lift = rotate_square(lift);
                 }
@@ -66,9 +66,9 @@ int Board::read_actions(vector<Action>& actions) {
                 ++n;
             }
             break;
-        case 65:
+        case 65:  // Place
             if (0 <= buf[i] && buf[i] < 64) {
-                Square place = static_cast<Square>(buf[i++]);
+                auto place = static_cast<Square>(buf[i++]);
                 if (reversed) {
                     place = rotate_square(place);
                 }

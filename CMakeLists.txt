@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(rcm LANGUAGES CXX)
-
 set(CMAKE_CXX_STANDARD 17)
 
 find_program(CCACHE_PROGRAM ccache)
@@ -13,19 +12,15 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 find_package(PkgConfig REQUIRED)
-
 pkg_search_module(JANSSON    REQUIRED IMPORTED_TARGET jansson)
 pkg_search_module(LIBPNG     REQUIRED IMPORTED_TARGET libpng)
 pkg_search_module(MICROHTTPD REQUIRED IMPORTED_TARGET libmicrohttpd)
-pkg_search_module(PCRE2      REQUIRED IMPORTED_TARGET libpcre2-8)
 pkg_search_module(SQLITE3    REQUIRED IMPORTED_TARGET sqlite3)
 
-find_library(PIGPIO pigpio)
+pkg_search_module(PCRE2      REQUIRED IMPORTED_TARGET libpcre2-8)
+add_compile_definitions(PCRE2_CODE_UNIT_WIDTH=8)
 
-add_compile_definitions(
-  _GNU_SOURCE
-  PCRE2_CODE_UNIT_WIDTH=8
-)
+find_library(PIGPIO pigpio)
 
 link_libraries(
   PkgConfig::JANSSON
@@ -45,7 +40,9 @@ endif()
 
 set(BOARD_SOURCES
   src/${CENTAUR}/boardserial.cpp
+  src/${CENTAUR}/boardserial.h
   src/${CENTAUR}/epd2in9d.cpp
+  src/${CENTAUR}/epd2in9d.h
 )
 
 add_executable(rcm
@@ -83,14 +80,12 @@ add_executable(rcm
   src/utility/sleep.h
   src/board.cpp
   src/board.h
-  src/boardserial.h
   src/centaur.cpp
   src/centaur.h
   src/cfg.cpp
   src/cfg.h
   src/db.cpp
   src/db.h
-  src/epd2in9d.h
   src/graphics.cpp
   src/graphics.h
   src/httpd.cpp
@@ -103,6 +98,8 @@ add_executable(rcm
   src/standard.cpp
   src/standard.h
 )
+
+target_include_directories(rcm PRIVATE src/${CENTAUR})
 
 add_executable(check # EXCLUDE_FROM_ALL
   src/chess/chess_engine.cpp
@@ -137,6 +134,7 @@ add_executable(check # EXCLUDE_FROM_ALL
   t/check_game.cpp
   t/check_internals.cpp
   t/check_main.cpp
+  t/check_opera.cpp
   t/check_pgn.cpp
   t/doctest.h
 )

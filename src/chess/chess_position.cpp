@@ -42,7 +42,6 @@ PositionPtr Position::play_move(Move move) const {
     }
 
     auto after = make_shared<Position>(*this);
-    after->legal_moves_.clear();
     after->moves_played.clear();
     after->PlayMove(move);
     moves_played.push_back({move, after});
@@ -91,6 +90,9 @@ Bitmap Position::bitmap() const {
     return bitmap;
 }
 
+// Bitmap of the differences between two positions (*not* the difference of
+// their bitmaps!), so takes into account when a square is occupied by a
+// different piece
 Bitmap Position::difference_bitmap(const Position& other) const {
     Bitmap bitmap{0};
     Bitmap mask{1};
@@ -103,13 +105,14 @@ Bitmap Position::difference_bitmap(const Position& other) const {
     return bitmap;
 }
 
-const MoveList& Position::legal_moves() const {
-    if (legal_moves_.empty()) {
-        const_cast<Position*>(this)->GenLegalMoveList(legal_moves_);
-    }
-    return legal_moves_;
+// Legal moves in this position
+MoveList Position::legal_moves() const {
+    MoveList moves;
+    const_cast<Position*>(this)->GenLegalMoveList(moves);
+    return moves;
 }
 
+// Note: does not check legality of castling moves, only availability
 MoveList Position::castle_moves() const {
     MoveList king_moves;
     if (WhiteToPlay() && d.wking_square == e1) {
@@ -128,6 +131,12 @@ MoveList Position::castle_moves() const {
     return result;
 }
 
+// A boardstate might represent a transition into a new position only if the
+// differences between the boardstate and the resulting position are confined
+// to those squares that differ between the two positions.
+//
+// Or, in other words, if the user has lifted or placed some completely
+// unrelated piece, it's not a transition.
 bool Position::incomplete(Bitmap boardstate, const Position& after) const {
     const auto diff = boardstate ^ bitmap();
     return (diff & ~difference_bitmap(after)) == 0;
@@ -149,7 +158,8 @@ bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
         if (after.bitmap() == boardstate) {
             candidates.push_back(move);
             maybe_valid = true;
-        } else if (!maybe_valid) {
+        }
+        else if (!maybe_valid) {
             maybe_valid = incomplete(boardstate, after);
         }
         after.PopMove(move);
@@ -159,10 +169,10 @@ bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
     return maybe_valid;
 }
 
-// The boardstate alone can be ambiguous in the case of piece captures.  Here
-// we use the actions history to disambiguate the move.  Note that we still
-// generate a list, because (a) the candidates might be promotions which cannot
-// be resolved here and (b) the actions history might be incomplete.
+// The boardstate alone can be ambiguous in the case of captures.  Here we
+// use the actions history to disambiguate the move.  Note that we still
+// generate a list because the candidates might be promotions which cannot be
+// resolved here.
 bool Position::read_move(
     Bitmap            boardstate,
     const ActionList& actions,
@@ -178,48 +188,41 @@ bool Position::read_move(
     }
     assert(maybe_valid);
 
-    // This is a check.  When we're done, the list should contain either moves
-    // or promotions, but not both.
-    auto num_moves = 0;
-    auto num_promotions = 0;
-
+    MoveList captures;
     for (auto move : local_candidates) {
-        if (move.is_promotion()) {
-            // Can't resolve promotion here
-            candidates.push_back(move);
-            ++num_promotions;
-            continue;
-        }
-
         if (move.capture == ' ') {
-            // Not a capture, so not ambiguous
             candidates.push_back(move);
-            ++num_moves;
-            continue;
         }
-
-        // History should show a lift followed by a place on the capture square
-        auto got_lift  = false;
-        auto got_place = false;
-        for (auto p = actions.rbegin(); p != actions.rend(); ++p) {
-            if (!got_place) {
-                got_place = p->place == move.dst;
-            }
-            else if (!got_lift) {
-                got_lift = p->lift == move.dst;
-            }
-        }
-        if (got_lift && got_place) {
-            candidates.push_back(move);
-            ++num_moves;
+        else {
+            captures.push_back(move);
         }
     }
 
-    assert(num_moves == 0 || num_promotions == 0);
-    assert(num_moves == 0 || num_moves == 1);
-    assert(0 <= num_promotions && num_promotions <= 4);
-    assert(candidates.size() == num_moves + num_promotions);
-    return maybe_valid;
+    if (captures.size() == 1) {
+        // Not ambiguous, no need to consult history
+        candidates.push_back(captures.front());
+    }
+    if (captures.size() <= 1) {
+        return true;
+    }
+
+    // For a capture, history should show a place on the target square
+    for (auto move : captures) {
+        for (auto p = actions.rbegin(); p != actions.rend(); ++p) {
+            if (p->lift == move.dst) {
+                // We're interested in only the most recent action on square.
+                // If the place was followed by a lift, then it wasn't our
+                // capture.
+                break;
+            }
+            if (p->place == move.dst) {
+                candidates.push_back(move);
+                break;
+            }
+        }
+    }
+
+    return true;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

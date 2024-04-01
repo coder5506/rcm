@@ -58,7 +58,7 @@ public:
     inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
 
     // Legal moves in current position
-    const MoveList& legal_moves() const;
+    MoveList legal_moves() const;
 
     // Parse move given in Standard Algebraic Notation
     thc::Move san_move(std::string_view san_move) const;

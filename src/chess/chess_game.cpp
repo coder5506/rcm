@@ -116,7 +116,7 @@ string Game::fen() const {
     return current()->fen();
 }
 
-const MoveList& Game::legal_moves() const {
+MoveList Game::legal_moves() const {
     return current()->legal_moves();
 }
 
@@ -192,47 +192,55 @@ bool Game::read_move(
         return true;
     }
 
-    // All other checks require previous position
-    auto before = this->previous();
-    if (!before) {
-        return false;
-    }
-
     // Is this the completion of a castling move?
-    for (auto castle : before->castle_moves()) {
-        Position after{*before};
-        after.PushMove(castle);
-        if (!after.is_legal()) {
-            continue;
+    if (auto before = this->previous()) {
+        for (auto castle : before->castle_moves()) {
+            Position after{*before};
+            after.PushMove(castle);
+            if (!after.is_legal()) {
+                // castle_moves() doesn't check legality, so do it here
+                continue;
+            }
+
+            if (after.bitmap() != boardstate) {
+                // Castling may still be in-progress
+                maybe_valid = maybe_valid || before->incomplete(boardstate, after);
+                continue;
+            }
+
+            // Find takeback move
+            takeback = before->find_move_played(current());
+            assert(takeback.has_value());
+
+            // Undo previous move and apply castling move
+            candidates.push_back(castle);
+            return true;
         }
 
-        if (after.bitmap() != boardstate) {
-            // Castling may still be in-progress
-            maybe_valid = maybe_valid || before->incomplete(boardstate, after);
-            continue;
+        if (maybe_valid) {
+            return true;
+        }
+    }
+
+    // Is this a takeback?  If boardstate matches any previous position,
+    // takeback one move.  Multiple iterations will eventually get us back to
+    // the position in question.  Should be safe to do this search because
+    // we consider all other possibilities before trying this one.
+    auto after  = history.rbegin();  // i.e., current()
+    auto before = after + 1;         // i.e., previous()
+    for (; before != history.rend(); ++after, ++before) {
+        // Does boardstate match some previous position?
+        if ((*before)->bitmap() == boardstate) {
+            // Takeback only most recent move
+            takeback = previous()->find_move_played(current());
+            return true;
         }
 
-        // Find takeback move
-        takeback = before->find_move_played(current());
-        assert(takeback.has_value());
-
-        // Undo previous move and apply castling move
-        candidates.push_back(castle);
-        return true;
+        // Possibly a takeback in progress?
+        maybe_valid = maybe_valid || (*before)->incomplete(boardstate, **after);
     }
 
-    // Is this a takeback?
-    if (before->bitmap() == boardstate) {
-        takeback = before->find_move_played(current());
-    }
-
-    // TODO consider extending search for takebacks, i.e., if boardstate matches
-    // *any* previous position, takeback one move.  Multiple iterations will
-    // eventually get us back to the position, and should be safe because this
-    // is the last thing we check for.
-
-    // Possibly a takeback in progress?
-    return maybe_valid || before->incomplete(boardstate, *current());
+    return maybe_valid;
 }
 
 //

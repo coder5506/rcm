@@ -180,51 +180,47 @@ static int poll_for_keypress(int timeout_ms) {
     FD_ZERO(&readfds);
     FD_SET(0, &readfds);
 
+    // Yields 1 if there's input, 0 otherwise
     return pselect(1, &readfds, NULL, NULL, &timeout, NULL);
 }
 
+// We can only read moves from known positions.  Here we wait for the pieces to
+// be setup in a known position, which can be either the last position seen on
+// the board (to resume the prior game) or the start position (for a new game).
 void StandardGame::start() {
-    // Resume last game whenever possible
+    // Load latest game and settings from database
     auto game = db.load_latest();
     if (static_cast<bool>(game) && !game->settings.empty()) {
         settings_from_json(game->settings.data());
     }
-
     if (!game) {
-        // Start new game if unable to resume
         game = make_unique<Game>();
     }
 
     // Switch pieces around if human is playing black against computer
     centaur.reversed(black.type == HUMAN && white.type == COMPUTER);
 
+    // Display last position from previous game to help user get setup
     set_game(std::move(game));
     centaur.render();
 
-    for (;;) {
+    while (!poll_for_keypress(500)) {
+        // Discard any actions generated during setup
+        centaur.purge_actions();
+
         const auto boardstate = centaur.getstate();
         if (boardstate == centaur.game->bitmap()) {
-            // Resume last game
+            // We recognize last board position and can resume prior game
             centaur.game->started = time(NULL);
             break;
         }
-        if (boardstate == Board::STARTING_POSITION) {
-            // Start new game
+        else if (boardstate == Board::STARTING_POSITION) {
+            // We recognize starting position and can start new game
             centaur.game->fen("");
             centaur.render();
             break;
         }
-
-        // Discard actions generated during setup
-        (void)centaur.update_actions();
-        if (poll_for_keypress(500) > 0) {
-            break;
-        }
     }
-
-    // To this point, we've just been waiting for the pieces to get setup on
-    // the board.  Any actions generated in the process can be ignored.
-    centaur.purge_actions();
 }
 
 // Gameplay loop: Read and interpret user actions to update game state
@@ -235,17 +231,20 @@ void StandardGame::run() {
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
     // If camputer has first move, see what it wants to do
+    //
     // N.B., this check is necessary b/c in the main loop (below) we read the
     // computer's move at the top but request it at the bottom.  When computer
     // moves first, we need this extra request to kick things off.
+    //
     if (player->type == COMPUTER) {
         // In case human played for computer and something is left in the queue
         (void)engine_move(*centaur.game, player->computer.engine);
+
         // Ask for new move
         engine_play(*centaur.game, player->computer.engine, player->computer.elo);
     }
 
-    for (;;) {
+    while (!poll_for_keypress(200)) {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
         // Check if computer has move to play
@@ -258,34 +257,31 @@ void StandardGame::run() {
             centaur.led_from_to(move->src, move->dst);
         }
 
-        Bitmap boardstate{0};
-        auto maybe_valid = false;
-
         // Check if there are user actions to process
         if (centaur.update_actions() == 0) {
             // No actions, nothing's changed, there's nothing to do
-            goto next;
+            continue;
         }
-        boardstate = centaur.getstate();
 
         // Detect start of new game
+        const auto boardstate = centaur.getstate();
         if (boardstate == Board::STARTING_POSITION) {
-            centaur.actions.clear();
+            centaur.purge_actions();
             if (centaur.game->started) {
                 // Replace in-progress game with new game
                 set_game(make_unique<Game>());
             }
-            goto next;
+            continue;
         }
 
         // Interpret player actions
-        maybe_valid =
-            centaur.read_move(boardstate, candidates, takeback);
+        const auto maybe_valid = centaur.read_move(boardstate, candidates, takeback);
         if (!maybe_valid) {
-            goto next;
+            continue;
         }
 
         // Execute player actions
+
         // TODO promotions menu
         if (!candidates.empty()) {
             move = candidates.front();
@@ -309,14 +305,9 @@ void StandardGame::run() {
         if (player->type == COMPUTER) {
             // In case human played for computer and something is left in the queue
             (void)engine_move(*centaur.game, player->computer.engine);
+
             // Ask for new move
             engine_play(*centaur.game, player->computer.engine, player->computer.elo);
-        }
-
-    next:
-        // Looping 4x/second seems(?) sufficient for smooth play
-        if (poll_for_keypress(250) > 0) {
-            break;
         }
     }
 }

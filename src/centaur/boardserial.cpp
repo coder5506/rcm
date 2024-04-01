@@ -10,7 +10,7 @@
 // licensed [GPL-3.0-or-later]
 // (https://github.com/DGTCentaurMods/DGTCentaurMods/blob/37ca9c25ab4fd34acffabe0bc665e30e4e9d89b0/LICENSE.md).
 
-#include "../boardserial.h"
+#include "boardserial.h"
 #include "../utility/sleep.h"
 
 #include <cassert>

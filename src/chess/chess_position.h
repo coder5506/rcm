@@ -36,9 +36,6 @@ using MoveList = std::vector<thc::Move>;
 using MovePair = std::pair<thc::Move, PositionPtr>;
 
 class Position : public thc::ChessRules {
-    // Cache
-    mutable MoveList legal_moves_;
-
 public:
     mutable std::vector<MovePair> moves_played;
 
@@ -57,7 +54,7 @@ public:
     Bitmap bitmap() const;
     Bitmap difference_bitmap(const Position& other) const;
 
-    const MoveList& legal_moves() const;
+    MoveList legal_moves() const;
     MoveList castle_moves() const;
 
     // True if boardstate might represent a transition into position `after`

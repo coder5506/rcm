@@ -10,7 +10,7 @@
 // This implementation borrows from MIT-licensed example code provided by Waveshare:
 // - https://github.com/waveshareteam/e-Paper/blob/master/RaspberryPi_JetsonNano/c/lib/e-Paper/EPD_2in9d.c
 
-#include "../epd2in9d.h"
+#include "epd2in9d.h"
 
 #include <alloca.h>
 #include <cstdio>

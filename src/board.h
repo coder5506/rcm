@@ -8,7 +8,6 @@
 #include "boardserial.h"
 #include "chess/chess.h"
 
-#include <cstdint>
 #include <vector>
 
 class Board {
@@ -28,7 +27,7 @@ public:
     Bitmap getstate();
 
     // Return number of actions read
-    int read_actions(std::vector<Action>& actions);
+    int read_actions(ActionList& actions);
 
     int leds_off();
     int led_flash();

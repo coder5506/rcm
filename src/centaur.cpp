@@ -106,6 +106,7 @@ void Centaur::set_game(unique_ptr<Game> game) {
 
 Centaur::Centaur() {
     set_game(make_unique<Game>());
+    clear_feedback();
 }
 
 bool Centaur::reversed() const {
@@ -128,12 +129,15 @@ Bitmap Centaur::getstate() {
     return board.getstate();
 }
 
+// Extend actions history with any new actions read from board.  Return total
+// number of unprocessed actions in history.
 int Centaur::update_actions() {
-    return board.read_actions(actions);
+    board.read_actions(actions);
+    return actions.size();
 }
 
+// Pull any outstanding action events from board and discard them.
 void Centaur::purge_actions() {
-    actions.clear();
     while (update_actions()) {
         actions.clear();
     }
@@ -178,8 +182,8 @@ void Centaur::show_feedback(Bitmap diff) {
             board.led_from_to(square1, square2);
         }
         break;
-    case 0:  // No change
-    default: // Too many changes
+    case 0:   // No change
+    default:  // Too many changes
         old_square1 = SQUARE_INVALID;
         old_square2 = SQUARE_INVALID;
         board.leds_off();
@@ -187,43 +191,58 @@ void Centaur::show_feedback(Bitmap diff) {
     }
 }
 
+// Try to reconstruct earliest move from provided action history
 static bool
 history_read_move(
     Game&  game,
     Bitmap boardstate,
-    ActionList::const_iterator& begin, // in/out: Next unused action
-    ActionList::const_iterator  end,   // Limit of unused actions
+    ActionList::const_iterator& begin,  // in/out: Next unused action
+    ActionList::const_iterator  end,    // Limit of unused actions
     MoveList&       candidates,
     optional<Move>& takeback)
 {
     // Reconstruct boardstate from last known position
     auto state = game.bitmap();
-    for (; begin != end; ++begin) {
-        if (begin->lift != SQUARE_INVALID) {
-            state &= ~(1ull << begin->lift);
+
+    // History of simulated actions, grows as we consume provided history
+    ActionList local_actions;
+
+    // Walk through history updating simulated boardstate, trying to read a
+    // move at each step.
+    while (begin != end) {
+        // Consume next action from history
+        const auto action = *begin++;
+
+        // Add action to simulated history
+        local_actions.push_back(action);
+
+        // Update boardstate to match simulated action
+        if (action.lift != SQUARE_INVALID) {
+            state &= ~(1ull << action.lift);
         }
-        if (begin->place != SQUARE_INVALID) {
-            state |= 1ull << begin->place;
+        else if (action.place != SQUARE_INVALID) {
+            state |= 1ull << action.place;
         }
 
-        ActionList local_actions{begin, end};
-        auto maybe_valid = game.read_move(state, local_actions, candidates, takeback);
+        // Are we able to read a move?
+        const auto maybe_valid =
+            game.read_move(state, local_actions, candidates, takeback);
 
-        if (!candidates.empty()) {
-            // We got a move, great!
-            ++begin;
+        if (!candidates.empty() || takeback.has_value()) {
+            // Yes, we read a move.
             return true;
         }
 
-        // We can accept an incomplete move only at the very end
-        if (maybe_valid && begin + 1 == end && state == boardstate) {
-            ++begin;
+        // We can accept an incomplete move only at the very end (otherwise we
+        // might imagine a nonsense sequence of incomplete moves and make no
+        // progress)
+        if (maybe_valid && begin == end && state == boardstate) {
             return true;
         }
     }
 
-    // Yeah, we got nuthin'
-    begin = end;
+    // We got nuthin'
+    assert(begin == end);
     return false;
 }
 
@@ -232,86 +251,140 @@ bool Centaur::read_move(
     MoveList&       candidates,
     optional<Move>& takeback)
 {
+    // Assume caller handles this special case before we ever get here.
+    assert(boardstate != Board::STARTING_POSITION);
+
     // Try to read a move
     auto maybe_valid = game->read_move(boardstate, actions, candidates, takeback);
 
-    if (!candidates.empty()) {
+    if (!candidates.empty() || takeback.has_value()) {
         // 5x5, we won't need to review actions history
         actions.clear();
         clear_feedback();
         return true;
-    } else if (maybe_valid) {
+    }
+    else if (maybe_valid) {
         // Probably OK, but preserve history just in-case
         clear_feedback();
         return true;
     }
 
-    // Looks like an illegal move, but we'll try to recover
+    // Looks like an illegal move.  It most likely *is* an illegal move, but to
+    // be sure we'll assume we missed a move and try to recover it.
     assert(!maybe_valid && candidates.empty());
     assert(!takeback);
 
     // Assume we missed a move.  Revisit actions history to reconstruct.
+    //
+    // We're looking for the longest "tail" of actions that we can make sense
+    // of.  That is, while the oldest actions in our history may be noise of
+    // some sort (possibly relating to already processed moves), the newer
+    // actions should map out a clear path from the last known board position
+    // to the current position.  Otherwise we simply don't have any way to
+    // interpret them.
     auto begin = actions.cbegin();
     auto end   = actions.cend();
     for (; begin != end; ++begin) {
+        const ActionList tail{begin, end};
+
+        // For any given tail, we'll read and simulate the available moves.
         Game copy{*game};
         auto step_valid = true;
-        for (auto i = begin; i != end; ++i) {
+
+        auto tail_begin = tail.cbegin();
+        auto tail_end   = tail.cend();
+        while (tail_begin != tail_end) {
             MoveList       local_candidates;
             optional<Move> local_takeback;
+
+            const auto pre_begin = tail_begin;
             step_valid = history_read_move(
-                copy, boardstate, i, end, local_candidates, local_takeback);
+                copy,
+                boardstate,
+                tail_begin,        // in/out: Next unused action
+                tail_end,
+                local_candidates,
+                local_takeback);
+
+            // LOOP VARIANT
+            // history_read_move() always consumes at least one action, so
+            // we're guaranteed to make progress, and the loop will terminate
+            assert(pre_begin != tail_begin);
+
             if (!step_valid) {
-                // This is going nowhere
-                break;
-            }
-            if (!local_takeback && local_candidates.empty()) {
-                // Should only happen at end of actions history
-                assert(i == end);
+                // Consumed everything but unable to read any moves from history
+                assert(tail_begin == tail_end);
                 break;
             }
 
-            // Simulate move
-            if (local_takeback) {
-                copy.play_takeback(local_takeback.value());
+            if (local_candidates.empty() && !local_takeback.has_value()) {
+                // Should only get an incomplete move at end of actions history
+                assert(tail_begin == tail_end);
+                break;
             }
-            if (!local_candidates.empty()) {
+
+            // N.B., there can be more than one candidate move only in the case
+            // of pawn promotion.  Should this happen here, in simulation,
+            // assume we promote to queen.  Conveniently, the queen promotion
+            // will be the first candidate.  (While it is possible to try each
+            // promotion in case any of them yield a valid history, that is an
+            // exercise for another day.)
+
+            // Simulate move on local copy of game
+            if (local_takeback.has_value() && !local_candidates.empty()) {
+                copy.revise_move(*local_takeback, local_candidates.front());
+            }
+            else if (local_takeback.has_value()) {
+                copy.play_takeback(*local_takeback);
+            }
+            else if (!local_candidates.empty()) {
                 copy.play_move(local_candidates.front());
             }
         }
 
         if (step_valid && copy.bitmap() == boardstate) {
-            // OK, reconstruction makes some kind of sense
+            // Reconstruction makes some kind of sense, we've found our tail
             break;
         }
     }
 
-    // Reconstruction succeeded, now read the first move.
-    if (begin != end) {
-        maybe_valid = history_read_move(
-            *game, boardstate, begin, end, candidates, takeback);
-
-        if (takeback || !candidates.empty()) {
-            // Got reconstructed move from actions history
-            actions.erase(actions.cbegin(), begin);
-            clear_feedback();
-            return true;
-        }
-
-        if (maybe_valid && begin == end) {
-            clear_feedback();
-            return true;
-        }
-
-        // Reconstruction succeeded, so what went wrong?
-        assert(false);
+    // If reconstruction failed--there's no tail that makes any kind of sense--we
+    // have to insist the user has made an illegal move
+    if (begin == end) {
+        // We're out of options and must wait for the board to be restored.  If
+        // the boardstate does not differ too much from the last known position,
+        // we can provide some feedback.
+        show_feedback(game->bitmap() ^ boardstate);
+        return false;
     }
 
-    // We're out of options and must wait for the board to be restored.  If
-    // the boardstate does not differ too much from the last known position,
-    // we can provide some feedback.
-    show_feedback(game->bitmap() ^ boardstate);
-    return false;
+    // On the other hand, if reconstruction succeeded, we'll now process the
+    // first reconstructed move.  (Subsequent moves will emerge from repeated
+    // calls to this method.)
+
+    // Delete "noise" actions preceeding reconstructed tail
+    actions.erase(actions.cbegin(), begin);
+
+    begin = actions.cbegin();
+    end   = actions.cend();
+    maybe_valid = history_read_move(
+        *game,
+        boardstate,
+        begin,       // in/out: Next unused action
+        end,
+        candidates,
+        takeback);
+
+    // Must be true, we just simulated it
+    assert(maybe_valid);
+
+    if (!candidates.empty() || takeback.has_value()) {
+        // Got reconstructed move, consume actions used in reconstruction
+        actions.erase(actions.cbegin(), begin);
+    }
+
+    clear_feedback();
+    return true;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

@@ -10,7 +10,7 @@ board, try one of these:
 -   [DGT Centaur mods](https://github.com/DGTCentaurMods/DGTCentaurMods)
 -   [Alistair DGT Centaur mods](https://github.com/Alistair-Crompton/DGTCentaurMods)
 
-(RCM is not a fork or derivative of either, but an entirely new development.)
+RCM is not a fork or derivative of either, but an entirely new development.
 
 ## License
 
@@ -20,11 +20,24 @@ board, try one of these:
 
 In development.
 
+## Dependencies
+
+-   Jansson
+-   Libmicrohttpd
+-   Libpng
+-   Libpcre2
+-   pigpio
+-   SQLite
+
+```bash
+sudo apt-get install libjansson-dev libmicrohttpd-dev libpng-dev libpcre2-dev libpgipio-dev libsqlite3-dev
+```
+
 ## Building
 
 ```bash
 mkdir bin
-cmake -DCMAKE_BUILD_TYPE=Debug -B bin
+cmake -DCMAKE_BUILD_TYPE=Debug -Bbin
 cmake --build bin
 bin/check
 sudo bin/rcm
