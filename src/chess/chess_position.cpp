@@ -198,27 +198,24 @@ bool Position::read_move(
         }
     }
 
-    if (captures.size() == 1) {
-        // Not ambiguous, no need to consult history
-        candidates.push_back(captures.front());
-    }
-    if (captures.size() <= 1) {
+    if (captures.empty()) {
         return true;
     }
 
     // For a capture, history should show a place on the target square
     for (auto move : captures) {
+        auto got_lift  = false;
+        auto got_place = false;
         for (auto p = actions.rbegin(); p != actions.rend(); ++p) {
-            if (p->lift == move.dst) {
-                // We're interested in only the most recent action on square.
-                // If the place was followed by a lift, then it wasn't our
-                // capture.
-                break;
+            if (!got_place) {
+                got_place = move.dst == p->place;
             }
-            if (p->place == move.dst) {
-                candidates.push_back(move);
-                break;
+            else if (!got_lift) {
+                got_lift  = move.dst == p->lift;
             }
+        }
+        if (got_lift && got_place) {
+            candidates.push_back(move);
         }
     }
 

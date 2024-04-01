@@ -257,7 +257,6 @@ void BoardSerial::read_address() {
 
         addr[0] = buf[3];
         addr[1] = buf[4];
-        printf("Board address: %d %d\n", addr[0], addr[1]);
         return;
     }
 

@@ -146,7 +146,6 @@ Epd2in9d::~Epd2in9d() {
 }
 
 Epd2in9d::Epd2in9d() {
-    wake();
 }
 
 void Epd2in9d::read_busy() {

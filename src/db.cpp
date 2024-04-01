@@ -127,7 +127,14 @@ unique_ptr<Game> Database::load_game(sqlite3_int64 rowid) {
     auto pgn = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
     auto fen = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
 
-    auto game = make_unique<Game>(pgn, fen);
+    unique_ptr<Game> game;
+    try {
+        game = make_unique<Game>(pgn, fen);
+    }
+    catch (const logic_error&) {
+        // Ignore
+    }
+
     if (!game) {
         sqlite3_finalize(stmt);
         return nullptr;
