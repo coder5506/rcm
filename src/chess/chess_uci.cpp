@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <stdexcept>
 
 #include <unistd.h>
 
@@ -114,6 +115,13 @@ UCIEngine::UCIEngine(int read_fd, int write_fd)
 unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
     assert(file && *file);
     assert(argv);
+
+    // Debug out-of-control threads
+    static bool once_only = false;
+    if (once_only) {
+        throw runtime_error("UCIEngine::execvp() called more than once");
+    }
+    once_only = true;
 
     pid_t pid = -1;
 

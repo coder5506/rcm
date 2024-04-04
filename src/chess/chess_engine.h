@@ -21,6 +21,10 @@ class Engine {
 public:
     Engine(std::string_view name);
 
+    // Prevent accidental copying
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
     // Request engine to select a move
     void play(const Game& game, int elo);
 

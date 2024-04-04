@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 
 #include <alloca.h>
 
@@ -14,6 +15,13 @@ using namespace std;
 // E-Paper updates can be slow, and we don't want to block, so we offload
 // them to a separate thread.
 void Screen::update_epd2in9d() {
+    // Debug out-of-control threads
+    static bool once_only = false;
+    if (once_only) {
+        throw runtime_error("screen update thread already running");
+    }
+    once_only = true;
+
     epd2in9d.wake();
 
     const auto width_bytes = (SCREEN_WIDTH + 7) / 8;
