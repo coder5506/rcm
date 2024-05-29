@@ -35,6 +35,14 @@ sudo apt-get install libjansson-dev libmicrohttpd-dev libpng-dev libpcre2-dev li
 
 ## Building
 
+Install compiler
+
+```bash
+sudo apt-get install cmake
+```
+
+clone repo and cd into rcm directory
+
 ```bash
 mkdir bin
 cmake -DCMAKE_BUILD_TYPE=Debug -Bbin
