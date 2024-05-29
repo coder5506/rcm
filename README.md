@@ -30,7 +30,7 @@ In development.
 -   SQLite
 
 ```bash
-sudo apt-get install libjansson-dev libmicrohttpd-dev libpng-dev libpcre2-dev libpgipio-dev libsqlite3-dev
+sudo apt-get install libjansson-dev libmicrohttpd-dev libpng-dev libpcre2-dev libpigipio-dev libsqlite3-dev
 ```
 
 ## Building
