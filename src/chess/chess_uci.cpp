@@ -47,7 +47,6 @@ void UCIEngine::printf(const char* format, ...) {
 }
 
 unique_ptr<UCIMessage> UCIEngine::read_request() {
-    const lock_guard<std::mutex> lock{mutex};
     if (request_queue.empty()) {
         return nullptr;
     }
@@ -116,13 +115,6 @@ unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
     assert(file && *file);
     assert(argv);
 
-    // Debug out-of-control threads
-    static bool once_only = false;
-    if (once_only) {
-        throw runtime_error("UCIEngine::execvp() called more than once");
-    }
-    once_only = true;
-
     pid_t pid = -1;
 
     int  pipe_fds[] = {-1, -1, -1, -1};
@@ -149,7 +141,7 @@ unique_ptr<UCIEngine> UCIEngine::execvp(const char* file, char *const argv[]) {
         close(pipe_fds[i]);
     }
 
-    execvp(file, argv);
+    ::execvp(file, argv);
     _exit(EXIT_FAILURE);
 
 error:
