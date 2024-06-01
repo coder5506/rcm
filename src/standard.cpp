@@ -181,7 +181,11 @@ static int poll_for_keypress(int timeout_ms) {
     FD_SET(0, &readfds);
 
     // Yields 1 if there's input, 0 otherwise
-    return pselect(1, &readfds, NULL, NULL, &timeout, NULL);
+    auto result = pselect(1, &readfds, NULL, NULL, &timeout, NULL);
+    if (result) {
+        getchar();
+    }
+    return result;
 }
 
 // We can only read moves from known positions.  Here we wait for the pieces to

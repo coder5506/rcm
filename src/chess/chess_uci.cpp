@@ -38,7 +38,7 @@ void UCIEngine::printf(const char* format, ...) {
 
     va_list trace_args;
     va_copy(trace_args, args);
-    printf("uci_printf: ");
+    ::printf("uci_printf: ");
     vprintf(format, trace_args);
     va_end(trace_args);
 
