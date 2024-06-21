@@ -91,8 +91,8 @@ Bitmap Position::bitmap() const {
 }
 
 // Bitmap of the differences between two positions (*not* the difference of
-// their bitmaps!), so takes into account when a square is occupied by a
-// different piece
+// their bitmaps).  Takes into account when a square is occupied by a different
+// piece.
 Bitmap Position::difference_bitmap(const Position& other) const {
     Bitmap bitmap{0};
     Bitmap mask{1};
@@ -105,7 +105,7 @@ Bitmap Position::difference_bitmap(const Position& other) const {
     return bitmap;
 }
 
-// Legal moves in this position
+// Legal moves in this position.
 MoveList Position::legal_moves() const {
     MoveList moves;
     const_cast<Position*>(this)->GenLegalMoveList(moves);
@@ -138,17 +138,24 @@ MoveList Position::castle_moves() const {
 // Or, in other words, if the user has lifted or placed some completely
 // unrelated piece, it's not a transition.
 bool Position::incomplete(Bitmap boardstate, const Position& after) const {
-    const auto diff = boardstate ^ bitmap();
-    return (diff & ~difference_bitmap(after)) == 0;
+    // What squares differ between this position and the next?
+    const auto position_diff = difference_bitmap(after);
+
+    // What squares differ between this position and the board?
+    const auto board_diff = boardstate ^ bitmap();
+
+    // There should be no board differences outside the position differences.
+    return (board_diff & ~position_diff) == 0;
 }
 
 // Construct list of candidate moves in this position that match the given
 // boardstate.  The return indicates if there are any viable candidates:
-// - true if any candidates are found OR if the boardstate could be in
+// - `true` if any candidates are found OR if the boardstate could be in
 //   transition to a valid move,
-// - false if the boardstate is incompatible with all legal moves in this
+// - `false` if the boardstate is incompatible with all legal moves in this
 //   position.
 bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
+    // Invalid until we determine otherwise.
     auto maybe_valid = false;
     Position after{*this};
 
@@ -157,22 +164,25 @@ bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
         after.PushMove(move);
         if (after.bitmap() == boardstate) {
             candidates.push_back(move);
+            // Legal move, so valid
             maybe_valid = true;
         }
         else if (!maybe_valid) {
+            // Could be a transition, so we'll call it valid
             maybe_valid = incomplete(boardstate, after);
         }
         after.PopMove(move);
     }
 
+    // If we found any candidates, the boardstate must be valid.
     assert(maybe_valid || candidates.empty());
     return maybe_valid;
 }
 
-// The boardstate alone can be ambiguous in the case of captures.  Here we
-// use the actions history to disambiguate the move.  Note that we still
-// generate a list because the candidates might be promotions which cannot be
-// resolved here.
+// The boardstate alone can be ambiguous in the case of captures.  Here we use
+// the actions history to disambiguate the move.  Note that we still generate a
+// list because the candidates might be promotions which cannot be resolved
+// here.
 bool Position::read_move(
     Bitmap            boardstate,
     const ActionList& actions,
@@ -180,41 +190,28 @@ bool Position::read_move(
 {
     candidates.clear();
 
+    // Candidates before disambiguation
     MoveList local_candidates;
     const auto maybe_valid = read_moves(boardstate, local_candidates);
     if (local_candidates.empty()) {
         // Nothing to disambiguate.
         return maybe_valid;
     }
+    // If there are any candidates, the boardstate must be valid.
     assert(maybe_valid);
 
     MoveList captures;
     for (auto move : local_candidates) {
         if (move.capture == ' ') {
+            // Not capturing
             candidates.push_back(move);
+            continue;
         }
-        else {
-            captures.push_back(move);
-        }
-    }
 
-    if (captures.empty()) {
-        return true;
-    }
-
-    // For a capture, history should show a place on the target square
-    for (auto move : captures) {
-        auto got_lift  = false;
-        auto got_place = false;
-        for (auto p = actions.rbegin(); p != actions.rend(); ++p) {
-            if (!got_place) {
-                got_place = move.dst == p->place;
-            }
-            else if (!got_lift) {
-                got_lift  = move.dst == p->lift;
-            }
-        }
-        if (got_lift && got_place) {
+        // Use action history to disambiguate captures
+        const ActionPattern pattern{move};
+        auto begin = actions.begin();
+        if (pattern.match_actions(begin, actions.end())) {
             candidates.push_back(move);
         }
     }

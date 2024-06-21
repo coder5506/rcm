@@ -246,6 +246,7 @@ history_read_move(
     return false;
 }
 
+// See comment in header file
 bool Centaur::read_move(
     Bitmap          boardstate,
     MoveList&       candidates,
@@ -257,22 +258,29 @@ bool Centaur::read_move(
     // Try to read a move
     auto maybe_valid = game->read_move(boardstate, actions, candidates, takeback);
 
-    if (!candidates.empty() || takeback.has_value()) {
+    if (!candidates.empty()) {
         // 5x5, we won't need to review actions history
         actions.clear();
         clear_feedback();
         return true;
     }
-    else if (maybe_valid) {
+
+    if (takeback.has_value()) {
+        // Preserve action history, in case we're reverting the game to an
+        // earlier position via a sequence of takebacks.
+        clear_feedback();
+        return true;
+    }
+
+    if (maybe_valid) {
         // Probably OK, but preserve history just in-case
         clear_feedback();
         return true;
     }
 
     // Looks like an illegal move.  It most likely *is* an illegal move, but to
-    // be sure we'll assume we missed a move and try to recover it.
-    assert(!maybe_valid && candidates.empty());
-    assert(!takeback);
+    // be sure we'll assume we missed something and try to recover.
+    assert(!maybe_valid && candidates.empty() && !takeback.has_value());
 
     // Assume we missed a move.  Revisit actions history to reconstruct.
     //

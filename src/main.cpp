@@ -6,7 +6,7 @@
 
 int main() {
     // Optional, can ignore failure
-    httpd_start();
+    (void)httpd_start();
 
     StandardGame standard;
     standard.main();

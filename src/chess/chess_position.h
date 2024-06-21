@@ -5,6 +5,7 @@
 #ifndef CHESS_POSITION_H
 #define CHESS_POSITION_H
 
+#include "chess_action.h"
 #include "../thc/thc.h"
 
 #include <cstdint>
@@ -17,15 +18,6 @@
 // State of board fields.  Set bit indicates presence of piece.
 // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
 using Bitmap = std::uint64_t;
-
-// An action can be either a lift or a place.
-struct Action {
-    thc::Square lift{thc::SQUARE_INVALID};
-    thc::Square place{thc::SQUARE_INVALID};
-};
-
-// Sequence of actions from oldest to newest.
-using ActionList = std::vector<Action>;
 
 class Position;
 using PositionPtr = std::shared_ptr<const Position>;

@@ -47,6 +47,8 @@ set(BOARD_SOURCES
 
 add_executable(rcm
   ${BOARD_SOURCES}
+  src/chess/chess_action.cpp
+  src/chess/chess_action.h
   src/chess/chess_engine.cpp
   src/chess/chess_engine.h
   src/chess/chess_game.cpp
@@ -102,6 +104,8 @@ add_executable(rcm
 target_include_directories(rcm PRIVATE src/${CENTAUR})
 
 add_executable(check # EXCLUDE_FROM_ALL
+  src/chess/chess_action.cpp
+  src/chess/chess_action.h
   src/chess/chess_engine.cpp
   src/chess/chess_engine.h
   src/chess/chess_game.cpp

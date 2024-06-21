@@ -7,6 +7,7 @@
 #include "chess/chess.h"
 #include "db.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 
@@ -18,11 +19,18 @@ using namespace std;
 using namespace thc;
 
 StandardGame::StandardGame() {
+    // white = {
+    //     .type = COMPUTER,
+    //     .computer = {
+    //         .engine = "stockfish",
+    //         .elo    = 1400,
+    //     },
+    // };
     white = {
-        .type = COMPUTER,
-        .computer = {
-            .engine = "stockfish",
-            .elo    = 1400,
+        .type = HUMAN,
+        .human = {
+            .error       = 0,
+            .opportunity = 0,
         },
     };
     black = {
@@ -74,17 +82,14 @@ static int player_from_json(Player& player, json_t* data) {
     if (strcmp(type, "computer") == 0) {
         player.type = COMPUTER;
 
-        const char *engine = json_string_value(json_object_get(data, "engine"));
+        const char* engine = json_string_value(json_object_get(data, "engine"));
         if (!engine) {
             engine = "stockfish";
         }
         player.computer.engine = engine;
 
         int elo = json_integer_value(json_object_get(data, "elo"));
-        if (elo < 1400 || 2800 < elo) {
-            elo = 2000;  // for no other reason than this is the ELO basis
-        }
-        player.computer.elo = elo;
+        player.computer.elo = max(1400, min(2800, elo));
 
         return 0;
     }
@@ -93,10 +98,10 @@ static int player_from_json(Player& player, json_t* data) {
         player.type = HUMAN;
 
         int error = json_integer_value(json_object_get(data, "error"));
-        player.human.error = error < 0 ? 0 : error;
+        player.human.error = max(0, error);
 
         int opportunity = json_integer_value(json_object_get(data, "opportunity"));
-        player.human.opportunity = opportunity < 0 ? 0 : opportunity;
+        player.human.opportunity = max(0, opportunity);
 
         return 0;
     }
@@ -139,6 +144,7 @@ void StandardGame::on_changed(Game& game) {
     }
 
     if (white.type == COMPUTER) {
+        // TODO Add ELO to computer name
         game.tag("White") = white.computer.engine;
     } else {
         game.tag("White") = "Human";
@@ -161,10 +167,12 @@ StandardGame::~StandardGame() {
 }
 
 void StandardGame::set_game(unique_ptr<Game> game) {
+    // The current game is managed by the global `centaur` object.  This hook is
+    // only to manage subscribing to and unsubscribing from game events.
     if (centaur.game) {
         centaur.game->unobserve(this);
     }
-    centaur.set_game(std::move(game));
+    centaur.set_game(move(game));
     centaur.game->observe(this);
 }
 
@@ -205,7 +213,7 @@ void StandardGame::start() {
     centaur.reversed(black.type == HUMAN && white.type == COMPUTER);
 
     // Display last position from previous game to help user get setup
-    set_game(std::move(game));
+    set_game(move(game));
     centaur.render();
 
     while (!poll_for_keypress(500)) {
@@ -241,16 +249,12 @@ void StandardGame::run() {
     // N.B., this check is necessary b/c in the main loop (below) we read the
     // computer's move at the top but request it at the bottom.  When computer
     // moves first, we need this extra request to kick things off.
-    //
     if (player->type == COMPUTER) {
-        // In case human played for computer and something is left in the queue
-        (void)engine.move();
-
         // Ask for new move
         engine.play(*centaur.game, player->computer.elo);
     }
 
-    while (!poll_for_keypress(200)) {
+    while (!poll_for_keypress(250)) {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
         // Check if computer has move to play

@@ -13,20 +13,32 @@
 
 class Centaur : public Observer<Game> {
 public:
+    // Hardware
     Board  board;
     Screen screen;
 
+    // Current game
     std::unique_ptr<Game> game;
+
+    // Render display
     std::unique_ptr<View> screen_view;
+
+    // Remember recent user actions
     ActionList            actions;
 
     Centaur();
 
+    // Play the black pieces without rotating the board
     bool reversed() const;
     void reversed(bool);
 
+    // Respond to changes in game state
     void on_changed(Game&) override;
+
+    // Update display
     void render();
+
+    // Replace current game
     void set_game(std::unique_ptr<Game>);
 
     int batterylevel();
@@ -36,9 +48,24 @@ public:
     // MSB: H1=63 G1 F1 ... A1, H2 G2 ... A2, ..., H8 G8 ... A8=0
     Bitmap getstate();
 
+    // Read new actions, adding to cached history
     int update_actions();
+
+    // Forget all cached actions
     void purge_actions();
 
+    // Read a game move from current boardstate and recent actions.
+    // Input:
+    //   - boardstate
+    //   - actions (member)
+    // Output:
+    //   - candidate moves, if any, can be multiple in case of promotion
+    //   - takeback move, if any
+    //   - Return true if we read a move or are waiting for a move, or false if
+    //     illegal move or invalid boardstate.
+    // Note:
+    //   - It is possible to return both a candidate and a takeback, when
+    //     revising a previously "read" move.
     bool read_move(
         Bitmap    boardstate,
         MoveList& candidates,
