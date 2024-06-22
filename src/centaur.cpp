@@ -14,6 +14,7 @@ using namespace thc;
 
 struct Centaur centaur;
 
+
 //
 // Board view
 //
@@ -62,12 +63,78 @@ void BoardView::render(Context& context) {
     }
 }
 
+
+//
+// PGN view
+//
+
+class PgnView : public View {
+public:
+    PgnView();
+    void render(Context& context) override;
+};
+
+PgnView::PgnView() {
+    bounds = {0, 128, 128, 296};
+}
+
+void PgnView::render(Context& context) {
+    const auto char_width  = context.font->Width;
+    const auto line_height = context.font->Height;
+    const auto num_lines   = (bounds.bottom - bounds.top) / line_height;
+
+    // Find the last N moves
+    auto num_moves  = 0;
+    auto first_move = 1;  // Move number of first move displayed
+
+    auto begin  = centaur.game->history.begin();  // First displayed move for White
+    auto end    = centaur.game->history.end();
+    auto before = begin;
+    auto after  = begin + 1;
+    for (; after != end; ++before, ++after) {
+        if ((*before)->WhiteToPlay()) {
+            ++num_moves;
+            if (num_moves >= num_lines) {
+                // We have enough moves to fill the screen, so start rolling the
+                // context forward.
+                first_move += 1;
+                begin += 2;
+            }
+        }
+    }
+
+    auto left = bounds.left;
+    auto top  = bounds.top;
+    before = begin;      // Rewind to first displayed move
+    after  = begin + 1;
+
+    char buf[16];
+    for (; after != end; ++before, ++after) {
+        auto move = (*before)->find_move_played(*after);
+        auto san  = const_cast<Position*>(before->get())->move_san(*move);
+        if ((*before)->WhiteToPlay()) {
+            auto len = sprintf(buf, "%d. %s", first_move, san.c_str());
+            context.drawstring(left, top, buf);
+            left += len * char_width;
+        }
+        else {
+            auto len = sprintf(buf, " %s", san.c_str());
+            context.drawstring(left, top, buf);
+            left = bounds.left;  // Go to next line
+            top += line_height;
+            ++first_move;
+        }
+    }
+}
+
+
 //
 // Centaur view
 //
 
 class CentaurView : public View {
     BoardView board_view;
+    PgnView   pgn_view;
 
 public:
     CentaurView();
@@ -80,9 +147,11 @@ CentaurView::CentaurView() {
 
 void CentaurView::render(Context& context) {
     board_view.render(context);
+    pgn_view.render(context);
 }
 
 static CentaurView centaur_view;
+
 
 //
 // Centaur
