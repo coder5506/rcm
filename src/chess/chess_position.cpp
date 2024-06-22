@@ -90,9 +90,8 @@ Bitmap Position::bitmap() const {
     return bitmap;
 }
 
-// Bitmap of the differences between two positions (*not* the difference of
-// their bitmaps).  Takes into account when a square is occupied by a different
-// piece.
+// Bitmap of differences between two positions (*not* difference of their
+// bitmaps).  Accounts for when a square is occupied by a different piece.
 Bitmap Position::difference_bitmap(const Position& other) const {
     Bitmap bitmap{0};
     Bitmap mask{1};
@@ -144,15 +143,16 @@ bool Position::incomplete(Bitmap boardstate, const Position& after) const {
     // What squares differ between this position and the board?
     const auto board_diff = boardstate ^ bitmap();
 
-    // There should be no board differences outside the position differences.
+    // There should be no board differences not explained by the position
+    // differences.
     return (board_diff & ~position_diff) == 0;
 }
 
 // Construct list of candidate moves in this position that match the given
 // boardstate.  The return indicates if there are any viable candidates:
-// - `true` if any candidates are found OR if the boardstate could be in
+// - true if any candidates are found OR if the boardstate could be in
 //   transition to a valid move,
-// - `false` if the boardstate is incompatible with all legal moves in this
+// - false if the boardstate is incompatible with all legal moves in this
 //   position.
 bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
     // Invalid until we determine otherwise.
@@ -209,7 +209,7 @@ bool Position::read_move(
         }
 
         // Use action history to disambiguate captures
-        const ActionPattern pattern{move};
+        auto pattern = ActionPattern::move(move);
         auto begin = actions.begin();
         if (pattern.match_actions(begin, actions.end())) {
             candidates.push_back(move);

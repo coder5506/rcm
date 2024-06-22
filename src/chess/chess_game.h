@@ -82,6 +82,14 @@ public:
         std::optional<thc::Move>& takeback);
 
 private:
+    bool read_revised_move(
+        Bitmap                    boardstate,
+        MoveList&                 candidates,
+        std::optional<thc::Move>& takeback);
+    bool read_simple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+    bool read_multiple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+    bool read_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+
     // Write PGN
     void write_tags(std::ostream&) const;
     void write_move(

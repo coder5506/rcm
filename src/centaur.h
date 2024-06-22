@@ -54,18 +54,6 @@ public:
     // Forget all cached actions
     void purge_actions();
 
-    // Read a game move from current boardstate and recent actions.
-    // Input:
-    //   - boardstate
-    //   - actions (member)
-    // Output:
-    //   - candidate moves, if any, can be multiple in case of promotion
-    //   - takeback move, if any
-    //   - Return true if we read a move or are waiting for a move, or false if
-    //     illegal move or invalid boardstate.
-    // Note:
-    //   - It is possible to return both a candidate and a takeback, when
-    //     revising a previously "read" move.
     bool read_move(
         Bitmap    boardstate,
         MoveList& candidates,
@@ -75,6 +63,20 @@ public:
     void led(thc::Square);
     void led_from_to(thc::Square, thc::Square);
     void show_feedback(Bitmap);
+
+private:
+    bool reconstruct_move(
+        Game&                       game,
+        Bitmap                      boardstate,
+        ActionList::const_iterator& begin,
+        ActionList::const_iterator  end,
+        MoveList&                   candidates,
+        std::optional<thc::Move>&   takeback);
+
+    bool reconstruct_moves(
+        Bitmap                      boardstate,
+        ActionList::const_iterator& begin,
+        ActionList::const_iterator  end);
 };
 
 extern Centaur centaur;

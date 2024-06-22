@@ -191,17 +191,16 @@ void Centaur::show_feedback(Bitmap diff) {
     }
 }
 
-// Try to reconstruct earliest move from provided action history
-static bool
-history_read_move(
-    Game&  game,
-    Bitmap boardstate,
-    ActionList::const_iterator& begin,  // in/out: Next unused action
-    ActionList::const_iterator  end,    // Limit of unused actions
-    MoveList&       candidates,
-    optional<Move>& takeback)
+// Try to reconstruct one move from provided action history
+bool Centaur::reconstruct_move(
+    Game&                       game,
+    Bitmap                      boardstate,
+    ActionList::const_iterator& begin,       // in/out: Next unused action
+    ActionList::const_iterator  end,         // Limit of unused actions
+    MoveList&                   candidates,
+    optional<Move>&             takeback)
 {
-    // Reconstruct boardstate from last known position
+    // Reconstruct boardstate starting from last known position
     auto state = game.bitmap();
 
     // History of simulated actions, grows as we consume provided history
@@ -246,52 +245,17 @@ history_read_move(
     return false;
 }
 
-// See comment in header file
-bool Centaur::read_move(
-    Bitmap          boardstate,
-    MoveList&       candidates,
-    optional<Move>& takeback)
+// We're looking for the longest "tail" of actions that we can make sense of.
+// That is, while the oldest actions in our history may be noise of some sort
+// (possibly relating to already processed moves), the newer actions should map
+// out a clear path from the last known board position to the current position.
+// Otherwise we simply don't have any way to interpret them.
+bool Centaur::reconstruct_moves(
+    Bitmap                      boardstate,
+    ActionList::const_iterator& begin,       // in/out: Next unused action
+    ActionList::const_iterator  end)         // Limit of unused actions
 {
-    // Assume caller handles this special case before we ever get here.
-    assert(boardstate != Board::STARTING_POSITION);
-
-    // Try to read a move
-    auto maybe_valid = game->read_move(boardstate, actions, candidates, takeback);
-
-    if (!candidates.empty()) {
-        // 5x5, we won't need to review actions history
-        actions.clear();
-        clear_feedback();
-        return true;
-    }
-
-    if (takeback.has_value()) {
-        // Preserve action history, in case we're reverting the game to an
-        // earlier position via a sequence of takebacks.
-        clear_feedback();
-        return true;
-    }
-
-    if (maybe_valid) {
-        // Probably OK, but preserve history just in-case
-        clear_feedback();
-        return true;
-    }
-
-    // Looks like an illegal move.  It most likely *is* an illegal move, but to
-    // be sure we'll assume we missed something and try to recover.
-    assert(!maybe_valid && candidates.empty() && !takeback.has_value());
-
-    // Assume we missed a move.  Revisit actions history to reconstruct.
-    //
-    // We're looking for the longest "tail" of actions that we can make sense
-    // of.  That is, while the oldest actions in our history may be noise of
-    // some sort (possibly relating to already processed moves), the newer
-    // actions should map out a clear path from the last known board position
-    // to the current position.  Otherwise we simply don't have any way to
-    // interpret them.
-    auto begin = actions.cbegin();
-    auto end   = actions.cend();
+    // Loop over all possible tails
     for (; begin != end; ++begin) {
         const ActionList tail{begin, end};
 
@@ -299,6 +263,7 @@ bool Centaur::read_move(
         Game copy{*game};
         auto step_valid = true;
 
+        // Loop over actions in a single tail
         auto tail_begin = tail.cbegin();
         auto tail_end   = tail.cend();
         while (tail_begin != tail_end) {
@@ -306,16 +271,16 @@ bool Centaur::read_move(
             optional<Move> local_takeback;
 
             const auto pre_begin = tail_begin;
-            step_valid = history_read_move(
+            step_valid = reconstruct_move(
                 copy,
                 boardstate,
-                tail_begin,        // in/out: Next unused action
+                tail_begin,  // in/out: Next unused action
                 tail_end,
                 local_candidates,
                 local_takeback);
 
             // LOOP VARIANT
-            // history_read_move() always consumes at least one action, so
+            // reconstruct_move() always consumes at least one action, so
             // we're guaranteed to make progress, and the loop will terminate
             assert(pre_begin != tail_begin);
 
@@ -352,19 +317,70 @@ bool Centaur::read_move(
 
         if (step_valid && copy.bitmap() == boardstate) {
             // Reconstruction makes some kind of sense, we've found our tail
-            break;
+            return true;
         }
     }
 
+    // No tail worked out
+    return false;
+}
+
+// Read a game move from current boardstate and recent actions.
+// Input:
+//   - boardstate
+//   - actions (member)
+// Output:
+//   - candidate moves, if any, can be multiple in case of promotion
+//   - takeback move, if any
+//   - Return true if we read a move or are waiting for a move, or false if
+//     illegal move or invalid boardstate.
+// Note:
+//   - It is possible to return both a candidate and a takeback, when revising
+//     a previously "read" move.
+bool Centaur::read_move(
+    Bitmap          boardstate,
+    MoveList&       candidates,
+    optional<Move>& takeback)
+{
+    // Assume caller handles this special case before we ever get here.
+    assert(boardstate != Board::STARTING_POSITION);
+
+    // Try to read a move
+    auto maybe_valid = game->read_move(boardstate, actions, candidates, takeback);
+
+    if (!candidates.empty() || takeback.has_value()) {
+        // 5x5, we won't need to review actions history
+        actions.clear();
+        clear_feedback();
+        return true;
+    }
+
+    if (maybe_valid) {
+        // Probably OK.  Preserve history in case there are questions later.
+        clear_feedback();
+        return true;
+    }
+
+    // Looks like an illegal move.  It most likely *is* an illegal move, but to
+    // be sure we'll assume we missed something and try to recover.
+    assert(!maybe_valid && candidates.empty() && !takeback.has_value());
+
+    // Assume we missed a move.  Revisit actions history to reconstruct.
+    auto begin = actions.cbegin();
+    auto end   = actions.cend();
+
     // If reconstruction failed--there's no tail that makes any kind of sense--we
     // have to insist the user has made an illegal move
-    if (begin == end) {
+    if (!reconstruct_moves(boardstate, begin, end)) {
         // We're out of options and must wait for the board to be restored.  If
         // the boardstate does not differ too much from the last known position,
         // we can provide some feedback.
         show_feedback(game->bitmap() ^ boardstate);
         return false;
     }
+
+    // Reconstructed tail cannot be empty
+    assert(begin != end);
 
     // On the other hand, if reconstruction succeeded, we'll now process the
     // first reconstructed move.  (Subsequent moves will emerge from repeated
@@ -375,10 +391,10 @@ bool Centaur::read_move(
 
     begin = actions.cbegin();
     end   = actions.cend();
-    maybe_valid = history_read_move(
+    maybe_valid = reconstruct_move(
         *game,
         boardstate,
-        begin,       // in/out: Next unused action
+        begin,  // in/out: Next unused action
         end,
         candidates,
         takeback);

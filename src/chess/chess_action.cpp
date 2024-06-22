@@ -8,18 +8,25 @@
 using namespace std;
 using namespace thc;
 
-// Construct pattern of actions required to perform `move`.
-ActionPattern::ActionPattern(const Move& move) {
-    switch (move.special) {
+ActionPattern::ActionPattern(const vector<Action>& actions,
+                             const vector<int>&    dependencies)
+    : actions(actions), dependencies(dependencies) {}
+
+// Construct pattern of actions required to perform mave.
+ActionPattern ActionPattern::move(const Move& mv) {
+    vector<Action> actions;
+    vector<int>    dependencies;
+
+    switch (mv.special) {
     default:
         // Ordinary moves
-        if (move.capture == ' ') {
+        if (mv.capture == ' ') {
             // Not capturing
             actions = {
-                Action{move.src, SQUARE_INVALID},  // Lift
-                Action{SQUARE_INVALID, move.dst},  // Place
+                lift(mv.src),   // Lift piece
+                place(mv.dst),  // Place piece
             };
-            depends = {
+            dependencies = {
                 0,     // Lift has no dependencies
                 1, 0,  // Place has one dependency, on actions[0]
             };
@@ -27,11 +34,11 @@ ActionPattern::ActionPattern(const Move& move) {
         else {
             // Copturing
             actions = {
-                Action{move.dst, SQUARE_INVALID},  // Lift copture
-                Action{move.src, SQUARE_INVALID},  // Lift piece
-                Action{SQUARE_INVALID, move.dst},  // Place piece
+                lift(mv.dst),   // Lift capture
+                lift(mv.src),   // Lift piece
+                place(mv.dst),  // Place piece
             };
-            depends = {
+            dependencies = {
                 0,
                 0,
                 2, 0, 1,  // Place has two dependencies, on actions[0] and actions[1]
@@ -40,13 +47,13 @@ ActionPattern::ActionPattern(const Move& move) {
         break;
 
     case SPECIAL_WEN_PASSANT:
-        // Capture white pawn en passont.  Removes pawn south of destination.
+        // White pawn captures en passant.  Removes black pawn south of destination.
         actions = {
-            Action{SOUTH(move.dst), SQUARE_INVALID},  // Lift capture
-            Action{move.src, SQUARE_INVALID},         // Lift piece
-            Action{SQUARE_INVALID, move.dst},         // Place piece
+            lift(SOUTH(mv.dst)),  // Lift capture
+            lift(mv.src),         // Lift pawn
+            place(mv.dst),        // Place pawn
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Place must occur after lifting moving pawn
@@ -54,13 +61,13 @@ ActionPattern::ActionPattern(const Move& move) {
         break;
 
     case SPECIAL_BEN_PASSANT:
-        // Capture black pawn en passant.  Removes pawn north of destination.
+        // Black pawn captures en passant.  Removes white pawn north of destination.
         actions = {
-            Action{NORTH(move.dst), SQUARE_INVALID},  // Lift capture
-            Action{move.src, SQUARE_INVALID},         // Lift piece
-            Action{SQUARE_INVALID, move.dst},         // Place piece
+            lift(NORTH(mv.dst)),  // Lift capture
+            lift(mv.src),         // Lift pawn
+            place(mv.dst),        // Place pawn
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Place must occur after lifting moving pawn
@@ -69,12 +76,12 @@ ActionPattern::ActionPattern(const Move& move) {
 
     case SPECIAL_WK_CASTLING:
         actions = {
-            Action{e1, SQUARE_INVALID},  // Lift king
-            Action{h1, SQUARE_INVALID},  // Lift rook
-            Action{SQUARE_INVALID, f1},  // Place rook
-            Action{SQUARE_INVALID, g1},  // Place king
+            lift(e1),   // Lift king
+            lift(h1),   // Lift rook
+            place(f1),  // Place rook
+            place(g1),  // Place king
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Lift rook before placing
@@ -84,12 +91,12 @@ ActionPattern::ActionPattern(const Move& move) {
 
     case SPECIAL_BK_CASTLING:
         actions = {
-            Action{e8, SQUARE_INVALID},  // Lift king
-            Action{h8, SQUARE_INVALID},  // Lift rook
-            Action{SQUARE_INVALID, f8},  // Place rook
-            Action{SQUARE_INVALID, g8},  // Place king
+            lift(e8),   // Lift king
+            lift(h8),   // Lift rook
+            place(f8),  // Place rook
+            place(g8),  // Place king
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Lift rook before placing
@@ -99,12 +106,12 @@ ActionPattern::ActionPattern(const Move& move) {
 
     case SPECIAL_WQ_CASTLING:
         actions = {
-            Action{e1, SQUARE_INVALID},  // Lift king
-            Action{a1, SQUARE_INVALID},  // Lift rook
-            Action{SQUARE_INVALID, d1},  // Place rook
-            Action{SQUARE_INVALID, c1},  // Place king
+            lift(e1),   // Lift king
+            lift(a1),   // Lift rook
+            place(d1),  // Place rook
+            place(c1),  // Place king
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Lift rook before placing
@@ -114,12 +121,12 @@ ActionPattern::ActionPattern(const Move& move) {
 
     case SPECIAL_BQ_CASTLING:
         actions = {
-            Action{e8, SQUARE_INVALID},  // Lift king
-            Action{a8, SQUARE_INVALID},  // Lift rook
-            Action{SQUARE_INVALID, d8},  // Place rook
-            Action{SQUARE_INVALID, c8},  // Place king
+            lift(e8),   // Lift king
+            lift(a8),   // Lift rook
+            place(d8),  // Place rook
+            place(c8),  // Place king
         };
-        depends = {
+        dependencies = {
             0,
             0,
             1, 1,  // Lift rook before placing
@@ -127,12 +134,140 @@ ActionPattern::ActionPattern(const Move& move) {
         };
         break;
     }
+
+    return ActionPattern(actions, dependencies);
+}
+
+// Construct pattern of actions required to perform takeback.
+ActionPattern ActionPattern::takeback(const Move& mv) {
+    vector<Action> actions;
+    vector<int>    dependencies;
+
+    switch (mv.special) {
+    default:
+        // Ordinary moves
+        if (mv.capture == ' ') {
+            // Not capturing
+            actions = {
+                lift(mv.dst),   // Lift piece
+                place(mv.src),  // Place piece
+            };
+            dependencies = {
+                0,
+                1, 0,  // Lift piece before placing
+            };
+        }
+        else {
+            // Copturing
+            actions = {
+                lift(mv.dst),   // Lift piece
+                place(mv.src),  // Place piece
+                place(mv.dst),  // Place capture
+            };
+            dependencies = {
+                0,
+                1, 0,  // Lift piece before placing
+                1, 0,  // Lift piece before restoring capture
+            };
+        }
+        break;
+
+    case SPECIAL_WEN_PASSANT:
+        // White pawn captures en passant.  Removes black pawn south of destination.
+        actions = {
+            lift(mv.dst),          // Lift pawn
+            place(mv.src),         // Place pawn
+            place(SOUTH(mv.dst)),  // Place capture
+        };
+        dependencies = {
+            0,
+            1, 1,  // Place must occur after lifting moving pawn
+            0,
+        };
+        break;
+
+    case SPECIAL_BEN_PASSANT:
+        // Black pawn captures en passant.  Removes white pawn north of destination.
+        actions = {
+            lift(mv.dst),          // Lift pawn
+            place(mv.src),         // Place pawn
+            place(NORTH(mv.dst)),  // Place capture
+        };
+        dependencies = {
+            0,
+            1, 1,  // Place must occur after lifting moving pawn
+            0,
+        };
+        break;
+
+    case SPECIAL_WK_CASTLING:
+        actions = {
+            lift(g1),   // Lift king
+            lift(f1),   // Lift rook
+            place(h1),  // Place rook
+            place(e1),  // Place king
+        };
+        dependencies = {
+            0,
+            0,
+            1, 1,  // Lift rook before placing
+            1, 0,  // Lift king before placing
+        };
+        break;
+
+    case SPECIAL_BK_CASTLING:
+        actions = {
+            lift(g8),   // Lift king
+            lift(f8),   // Lift rook
+            place(h8),  // Place rook
+            place(e8),  // Place king
+        };
+        dependencies = {
+            0,
+            0,
+            1, 1,  // Lift rook before placing
+            1, 0,  // Lift king before placing
+        };
+        break;
+
+    case SPECIAL_WQ_CASTLING:
+        actions = {
+            lift(c1),   // Lift king
+            lift(d1),   // Lift rook
+            place(a1),  // Place rook
+            place(e1),  // Place king
+        };
+        dependencies = {
+            0,
+            0,
+            1, 1,  // Lift rook before placing
+            1, 0,  // Lift king before placing
+        };
+        break;
+
+    case SPECIAL_BQ_CASTLING:
+        actions = {
+            lift(c8),   // Lift king
+            lift(d8),   // Lift rook
+            place(a8),  // Place rook
+            place(e8),  // Place king
+        };
+        dependencies = {
+            0,
+            0,
+            1, 1,  // Lift rook before placing
+            1, 0,  // Lift king before placing
+        };
+        break;
+    }
+
+    return ActionPattern(actions, dependencies);
 }
 
 int ActionPattern::find_dependencies(int action) const {
     auto index = 0;
     for (auto i = 0; i != action; ++i) {
-        auto count = depends[index];
+        auto count = dependencies[index];
         index += 1;      // Skip over count
         index += count;  // Skip over count items
     }
@@ -141,11 +276,12 @@ int ActionPattern::find_dependencies(int action) const {
 
 bool ActionPattern::can_match(int action, const vector<bool>& matched) const {
     auto index = find_dependencies(action);
-    auto count = depends[index];
+    auto count = dependencies[index];
     ++index;
 
     for (auto i = 0; i != count; ++i) {
-        if (!matched[depends[index + i]]) {
+        auto dependency = dependencies[index + i];
+        if (!matched[dependency]) {
             // Missing required dependency
             return false;
         }
@@ -161,7 +297,7 @@ void ActionPattern::invalidate(int action, vector<bool>& matched) const {
     // And forget anything that may have depended on it
     //
     // N.B., Our move dependencies are simple: never more than one level of
-    // dependence, and earlier (in the list) actions never depend on later
+    // dependency, and earlier (in the list) actions never depend on later
     // actions.  This means a single pass through the loop is quite sufficient,
     // we don't need to do anything fancy.
     for (auto i = 0; i != actions.size(); ++i) {
@@ -183,27 +319,21 @@ bool ActionPattern::match_actions(
     }
 
     if (begin == end) {
-        // Nothing more to match
+        // No possibility of further matches
         return false;
     }
 
     // Find next action to match
     auto action = -1;
-    for (; begin != end; ++begin) {
-        for (auto i = 0; i != actions.size(); ++i) {
+    for (; action == -1 && begin != end; ++begin) {
+        for (auto i = 0; action == -1 && i != actions.size(); ++i) {
             if (actions[i] == *begin) {
                 action = i;
-                break;
             }
-        }
-        if (action >= 0) {
-            // Found something of interest, consume it
-            ++begin;
-            break;
         }
     }
     if (action == -1) {
-        // Can't find any matching actions
+        // Failed to find any matching action
         return false;
     }
 

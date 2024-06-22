@@ -168,32 +168,15 @@ void Game::revise_move(Move takeback, Move move) {
     play_move(move);
 }
 
-// Here we try to interpret the move at a higher-level than the position,
-// taking into account the context of the game.  So yes, the boardstate
-// might represent a move or a move in-progress, but it could also be the
-// completion of a two-part move (i.e., castling rook first) or a takeback.
-bool Game::read_move(
-    Bitmap            boardstate,
-    const ActionList& actions,
-    MoveList&         candidates,
-    optional<Move>&   takeback)
+// Is this the completion of a castling move?
+bool Game::read_revised_move(
+    Bitmap          boardstate,
+    MoveList&       candidates,
+    optional<Move>& takeback)
 {
-    candidates.clear();
-    takeback.reset();
+    auto maybe_valid = false;
 
-    // If boardstate matches current position, there's no move to read.
-    if (bitmap() == boardstate) {
-        return true;
-    }
-
-    // Can boardstate be reached by a legal move?
-    auto maybe_valid = current()->read_move(boardstate, actions, candidates);
-    if (maybe_valid) {
-        return true;
-    }
-
-    // Is this the completion of a castling move?
-    if (auto before = this->previous()) {
+    if (auto before = previous()) {
         for (auto castle : before->castle_moves()) {
             Position after{*before};
             after.PushMove(castle);
@@ -216,16 +199,27 @@ bool Game::read_move(
             candidates.push_back(castle);
             return true;
         }
-
-        if (maybe_valid) {
-            return true;
-        }
     }
 
-    // Is this a takeback?  If boardstate matches any previous position,
-    // takeback one move.  Multiple iterations will eventually get us back to
-    // the position in question.  Should be safe to do this search because
-    // we consider all other possibilities before trying this one.
+    return maybe_valid;
+}
+
+bool Game::read_simple_takeback(Bitmap boardstate, optional<Move>& takeback) {
+    if (auto before = previous()) {
+        // Does boardstate match some previous position?
+        if (before->bitmap() == boardstate) {
+            // Takeback only most recent move
+            takeback = before->find_move_played(current());
+            return true;
+        }
+
+        // Possibly a takeback in progress?
+        return before->incomplete(boardstate, *current());
+    }
+    return false;
+}
+
+bool Game::read_multiple_takeback(Bitmap boardstate, optional<Move>& takeback) {
     auto after  = history.rbegin();  // i.e., current()
     auto before = after + 1;         // i.e., previous()
     for (; before != history.rend(); ++after, ++before) {
@@ -235,12 +229,70 @@ bool Game::read_move(
             takeback = previous()->find_move_played(current());
             return true;
         }
-
-        // Possibly a takeback in progress?
-        maybe_valid = maybe_valid || (*before)->incomplete(boardstate, **after);
     }
 
-    return maybe_valid;
+    return false;
+}
+
+// Is this a takeback?  If boardstate matches any previous position, takeback
+// one move.  Multiple iterations will eventually get us back to the position in
+// question.  It is safe to do this search because we consider all other
+// possibilities before trying this one: we won't mistake a repeated position
+// for a takeback.
+//
+// The reason for considering any previous position is so that in analysis, a
+// player can quickly rearrange the pieces without bothering about move-order.
+bool Game::read_takeback(Bitmap boardstate, optional<Move>& takeback) {
+    if (read_simple_takeback(boardstate, takeback)) {
+        return true;
+    }
+    return read_multiple_takeback(boardstate, takeback);
+}
+
+// Here we try to interpret the move at a higher-level than the position,
+// taking into account the context of the game.  So yes, the boardstate
+// might represent a move or a move in-progress, but it could also be the
+// completion of a two-part move (i.e., castling rook first) or a takeback.
+//
+// Input:
+//   boardstate -- Map of currently occupied squares
+//   actions    -- Recent lift/place actions by player
+// Output:
+//   candidates -- List of candidate moves
+//   takeback   -- Possible takeback move
+//   Note that typically the output (if any) will be either a single candidate
+//   or a takeback.  Candidates will be a list only in the case of promotions,
+//   where the user will need to indicate the desired piece.  Both a candidate
+//   and a takeback will be provided when we need to revise the previous move.
+// Return:
+//   true  -- Boardstate is a valid position or could be an in-progress move
+//   false -- Boardstate is not reachable by a legal move
+bool Game::read_move(
+    Bitmap            boardstate,
+    const ActionList& actions,
+    MoveList&         candidates,
+    optional<Move>&   takeback)
+{
+    candidates.clear();
+    takeback.reset();
+
+    // If boardstate matches current position, there's no move to read.
+    if (bitmap() == boardstate) {
+        return true;
+    }
+
+    // Can boardstate be reached by a legal move?
+    if (current()->read_move(boardstate, actions, candidates)) {
+        return true;
+    }
+
+    // Is this the completion of a castling move?
+    if (read_revised_move(boardstate, candidates, takeback)) {
+        return true;
+    }
+
+    // Otherwise, maybe it's a takeback or restoration of a previous position.
+    return read_takeback(boardstate, takeback);
 }
 
 //
