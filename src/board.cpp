@@ -45,7 +45,7 @@ Bitmap Board::getstate() {
     return reversed ? reverse_bits(boardstate) : boardstate;
 }
 
-int Board::read_actions(ActionList& actions) {
+int Board::read_actions(ActionHistory& actions) {
     uint8_t buf[256];
     const auto num_read = boardserial.readdata(buf, sizeof buf);
     if (num_read <= 6) {

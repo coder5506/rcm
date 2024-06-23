@@ -268,10 +268,10 @@ bool Game::read_takeback(Bitmap boardstate, optional<Move>& takeback) {
 //   true  -- Boardstate is a valid position or could be an in-progress move
 //   false -- Boardstate is not reachable by a legal move
 bool Game::read_move(
-    Bitmap            boardstate,
-    const ActionList& actions,
-    MoveList&         candidates,
-    optional<Move>&   takeback)
+    Bitmap               boardstate,
+    const ActionHistory& actions,
+    MoveList&            candidates,
+    optional<Move>&      takeback)
 {
     candidates.clear();
     takeback.reset();
@@ -294,6 +294,7 @@ bool Game::read_move(
     // Otherwise, maybe it's a takeback or restoration of a previous position.
     return read_takeback(boardstate, takeback);
 }
+
 
 //
 // Write PGN

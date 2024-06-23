@@ -54,13 +54,9 @@ public:
 
     // Yield list of legal moves matching both boardstate and action history.
     bool read_move(
-        Bitmap            boardstate,
-        const ActionList& actions,
-        MoveList&         candidates) const;
-
-private:
-    // Yield list of legal moves matching boardstate.
-    bool read_moves(Bitmap boardstate, MoveList& candidates) const;
+        Bitmap               boardstate,
+        const ActionHistory& actions,
+        MoveList&            candidates) const;
 };
 
 // True if two positions are equivalent, without considering moves played.

@@ -67,7 +67,7 @@ TEST_CASE("read 1. e4 from bitmap") {
     MoveList candidates;
     optional<Move> takeback;
 
-    auto maybe_valid = g.read_move(move(START, e2, e4), ActionList{}, candidates, takeback);
+    auto maybe_valid = g.read_move(move(START, e2, e4), ActionHistory{}, candidates, takeback);
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
@@ -83,7 +83,7 @@ TEST_CASE("read 1... e5 from bitmap") {
     MoveList candidates;
     optional<Move> takeback;
 
-    auto maybe_valid = g.read_move(boardstate, ActionList{}, candidates, takeback);
+    auto maybe_valid = g.read_move(boardstate, ActionHistory{}, candidates, takeback);
     auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
@@ -99,7 +99,7 @@ TEST_CASE("read takeback") {
     MoveList candidates;
     optional<Move> takeback;
 
-    auto maybe_valid = g.read_move(move(START, e2, e4), ActionList{}, candidates, takeback);
+    auto maybe_valid = g.read_move(move(START, e2, e4), ActionHistory{}, candidates, takeback);
     auto p = const_cast<Position*>(g.previous().get());
     CHECK(maybe_valid);
     CHECK(candidates.empty());
@@ -112,7 +112,7 @@ TEST_CASE("read incomplete move") {
     MoveList candidates;
     optional<Move> takeback;
 
-    auto maybe_valid = g.read_move(lift(START, g1), ActionList{}, candidates, takeback);
+    auto maybe_valid = g.read_move(lift(START, g1), ActionHistory{}, candidates, takeback);
     CHECK(maybe_valid);
     CHECK(candidates.empty());
     CHECK(!takeback.has_value());
@@ -122,12 +122,12 @@ TEST_CASE("read illegal move") {
     Game g;
     MoveList candidates;
     optional<Move> takeback;
-    CHECK(!g.read_move(lift(START, f1), ActionList{}, candidates, takeback));
+    CHECK(!g.read_move(lift(START, f1), ActionHistory{}, candidates, takeback));
 }
 
 TEST_CASE("read out-of-turn move") {
     Game g;
     MoveList candidates;
     optional<Move> takeback;
-    CHECK(!g.read_move(lift(START, e7), ActionList{}, candidates, takeback));
+    CHECK(!g.read_move(lift(START, e7), ActionHistory{}, candidates, takeback));
 }

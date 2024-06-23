@@ -13,7 +13,7 @@
 
 class Centaur : public Observer<Game> {
 public:
-    // Hardware
+    // Hardware RAII
     Board  board;
     Screen screen;
 
@@ -24,7 +24,7 @@ public:
     std::unique_ptr<View> screen_view;
 
     // Remember recent user actions
-    ActionList            actions;
+    ActionHistory actions;
 
     Centaur();
 
@@ -66,17 +66,12 @@ public:
 
 private:
     bool reconstruct_move(
-        Game&                       game,
-        Bitmap                      boardstate,
-        ActionList::const_iterator& begin,
-        ActionList::const_iterator  end,
-        MoveList&                   candidates,
-        std::optional<thc::Move>&   takeback);
-
-    bool reconstruct_moves(
-        Bitmap                      boardstate,
-        ActionList::const_iterator& begin,
-        ActionList::const_iterator  end);
+        Game&                     game,
+        Bitmap                    boardstate,
+        ActionHistory&            actions,
+        MoveList&                 candidates,
+        std::optional<thc::Move>& takeback);
+    bool reconstruct_moves(Bitmap boardstate, ActionHistory& actions);
 };
 
 extern Centaur centaur;

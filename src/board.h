@@ -27,7 +27,7 @@ public:
     Bitmap getstate();
 
     // Return number of actions read
-    int read_actions(ActionList& actions);
+    int read_actions(ActionHistory& actions);
 
     int leds_off();
     int led_flash();

@@ -13,7 +13,7 @@ TEST_CASE("opera game") {
         "8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 "
         "14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8#";
 
-    ActionList actions{
+    ActionHistory actions{
         l(e2), p(e4),                // 1. e4
         l(e7), p(e5),                // 1...      e5
         l(g1), p(f3),                // 2. Nf3

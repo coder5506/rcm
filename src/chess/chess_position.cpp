@@ -154,69 +154,62 @@ bool Position::incomplete(Bitmap boardstate, const Position& after) const {
 //   transition to a valid move,
 // - false if the boardstate is incompatible with all legal moves in this
 //   position.
-bool Position::read_moves(Bitmap boardstate, MoveList& candidates) const {
-    // Invalid until we determine otherwise.
-    auto maybe_valid = false;
-    Position after{*this};
-
+//
+// We use the actions history to disambiguate captures, as necessary.
+bool Position::read_move(
+    Bitmap               boardstate,
+    const ActionHistory& actions,
+    MoveList&            candidates) const
+{
     candidates.clear();
+
+    // True if boardstate is compatible with some legal move in this position.
+    auto maybe_valid = false;
+
+    Position after{*this};
     for (auto move : legal_moves()) {
         after.PushMove(move);
-        if (after.bitmap() == boardstate) {
+        if (after.bitmap() != boardstate) {
+            maybe_valid = maybe_valid || incomplete(boardstate, after);
+            after.PopMove(move);
+            continue;
+        }
+
+        // Legal move, so valid.
+        maybe_valid = true;
+
+        // Should only generate multiple candidates for promotions.
+        assert(move.is_promotion() || candidates.empty());
+
+        // Use action history to disambiguate captures.
+        if (move.is_capture()) {
+            if (actions.match_move(move)) {
+                candidates.push_back(move);
+                if (!move.is_promotion()) {
+                    // This is the one, we don't need to check anything else.
+                    return true;
+                }
+            }
+        }
+        else {
+            // Not a capture.
             candidates.push_back(move);
-            // Legal move, so valid
-            maybe_valid = true;
+            if (!move.is_promotion()) {
+                // Not ambiguous, can short-circuit.
+                return true;
+            }
         }
-        else if (!maybe_valid) {
-            // Could be a transition, so we'll call it valid
-            maybe_valid = incomplete(boardstate, after);
-        }
+
         after.PopMove(move);
     }
 
     // If we found any candidates, the boardstate must be valid.
-    assert(maybe_valid || candidates.empty());
+    assert(candidates.empty() || maybe_valid);
+
+    // Because of short-circuiting above, any candidates will here will be promotions.
+    assert(candidates.empty() || candidates.size() == 4);
+
     return maybe_valid;
-}
-
-// The boardstate alone can be ambiguous in the case of captures.  Here we use
-// the actions history to disambiguate the move.  Note that we still generate a
-// list because the candidates might be promotions which cannot be resolved
-// here.
-bool Position::read_move(
-    Bitmap            boardstate,
-    const ActionList& actions,
-    MoveList&         candidates) const
-{
-    candidates.clear();
-
-    // Candidates before disambiguation
-    MoveList local_candidates;
-    const auto maybe_valid = read_moves(boardstate, local_candidates);
-    if (local_candidates.empty()) {
-        // Nothing to disambiguate.
-        return maybe_valid;
-    }
-    // If there are any candidates, the boardstate must be valid.
-    assert(maybe_valid);
-
-    MoveList captures;
-    for (auto move : local_candidates) {
-        if (move.capture == ' ') {
-            // Not capturing
-            candidates.push_back(move);
-            continue;
-        }
-
-        // Use action history to disambiguate captures
-        auto pattern = ActionPattern::move(move);
-        auto begin = actions.begin();
-        if (pattern.match_actions(begin, actions.end())) {
-            candidates.push_back(move);
-        }
-    }
-
-    return true;
 }
 
 // This file is part of the Raccoon's Centaur Mods (RCM).

@@ -8,6 +8,11 @@
 using namespace std;
 using namespace thc;
 
+
+//
+// ActionPattern
+//
+
 ActionPattern::ActionPattern(const vector<Action>& actions,
                              const vector<int>&    dependencies)
     : actions(actions), dependencies(dependencies) {}
@@ -367,6 +372,27 @@ bool ActionPattern::match_actions(
         }
     }
     return false;
+}
+
+
+//
+// ActionHistory
+//
+
+void ActionHistory::pop_front() {
+    erase(begin(), begin() + 1);
+}
+
+bool ActionHistory::match_move(const thc::Move& move) const {
+    const auto pattern = ActionPattern::move(move);
+    auto begin = this->begin();
+    return pattern.match_actions(begin, end());
+}
+
+bool ActionHistory::match_takeback(const thc::Move& takeback) const {
+    const auto pattern = ActionPattern::takeback(takeback);
+    auto begin = this->begin();
+    return pattern.match_actions(begin, end());
 }
 
 

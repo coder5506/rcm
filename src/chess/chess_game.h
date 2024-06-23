@@ -76,9 +76,9 @@ public:
     void revise_move(thc::Move takeback, thc::Move move);
 
     bool read_move(
-        Bitmap            boardstate,
-        const ActionList& actions,
-        MoveList&         candidates,
+        Bitmap               boardstate,
+        const ActionHistory& actions,
+        MoveList&            candidates,
         std::optional<thc::Move>& takeback);
 
 private:

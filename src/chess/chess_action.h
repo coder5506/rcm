@@ -7,13 +7,20 @@
 
 #include "../thc/thc.h"
 
+#include <cassert>
+#include <initializer_list>
 #include <vector>
 
-// An action can be either a lift or a place.
+
+// An action is either a lift or a place.
 class Action {
 public:
     thc::Square lift{thc::SQUARE_INVALID};
     thc::Square place{thc::SQUARE_INVALID};
+
+    Action(thc::Square lift, thc::Square place) : lift(lift), place(place) {
+        assert((lift == thc::SQUARE_INVALID) ^ (place == thc::SQUARE_INVALID));
+    }
 };
 
 inline Action lift(thc::Square lift) {
@@ -35,13 +42,13 @@ using ActionList = std::vector<Action>;
 // Describe sequence of player actions required to perform a move.
 class ActionPattern {
 private:
-    // Describe required actions
+    // Required actions
     std::vector<Action> actions;
 
-    // Describe dependencies between required actions
+    // Dependencies between required actions
     //
     // Entries are variably-sized, so treat as a list.  For each action, there
-    // will be an integer denoting the number of required preceedin actions,
+    // will be an integer denoting the number of required preceeding actions,
     // followed by an index for each dependency.  i.e.,
     //   ..., 0, ...        -- no dependencies
     //   ..., 1, x, ...     -- one dependency on action #x
@@ -50,8 +57,10 @@ private:
     // Most often, the dependencies are nothing more than "lift before place".
     std::vector<int> dependencies;
 
-    ActionPattern(const std::vector<Action>& actions,
-                  const std::vector<int>&    dependencies);
+    // Use `move` or `takeback` to construct
+    ActionPattern(
+        const std::vector<Action>& actions,
+        const std::vector<int>&    dependencies);
 
 public:
     // Describe actions required to perform move or takeback
@@ -67,7 +76,7 @@ private:
     // Index of "count" cell for an action's dependencies
     int find_dependencies(int action) const;
 
-    // True iff all dependencies for an action are satisfied
+    // True only if all dependencies for an action are satisfied
     bool can_match(int action, const std::vector<bool>& matched) const;
 
     // Invalidate an action and any actions that depend on it
@@ -78,6 +87,22 @@ private:
         std::vector<bool>&          matched,
         ActionList::const_iterator& begin,
         ActionList::const_iterator  end) const;
+};
+
+
+class ActionHistory : public ActionList {
+public:
+    ActionHistory(std::initializer_list<Action> init) : ActionList{init} {}
+
+    ActionHistory(ActionList::const_iterator& begin, ActionList::const_iterator& end)
+        : ActionList{begin, end} {}
+
+    ActionHistory() = default;
+
+    void pop_front();
+
+    bool match_move(const thc::Move&) const;
+    bool match_takeback(const thc::Move&) const;
 };
 
 #endif

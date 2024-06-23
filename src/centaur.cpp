@@ -262,29 +262,29 @@ void Centaur::show_feedback(Bitmap diff) {
 
 // Try to reconstruct one move from provided action history
 bool Centaur::reconstruct_move(
-    Game&                       game,
-    Bitmap                      boardstate,
-    ActionList::const_iterator& begin,       // in/out: Next unused action
-    ActionList::const_iterator  end,         // Limit of unused actions
-    MoveList&                   candidates,
-    optional<Move>&             takeback)
+    Game&           game,
+    Bitmap          boardstate,
+    ActionHistory&  actions,     // in/out: Consumes actions
+    MoveList&       candidates,
+    optional<Move>& takeback)
 {
-    // Reconstruct boardstate starting from last known position
+    // Reconstruct boardstate starting from last known position.
     auto state = game.bitmap();
 
-    // History of simulated actions, grows as we consume provided history
-    ActionList local_actions;
+    // History of simulated actions, grows as we consume provided history.
+    ActionHistory local_actions;
 
     // Walk through history updating simulated boardstate, trying to read a
     // move at each step.
-    while (begin != end) {
-        // Consume next action from history
-        const auto action = *begin++;
+    while (!actions.empty()) {
+        // Consume next action from history.
+        const auto action = actions.front();
+        actions.pop_front();
 
-        // Add action to simulated history
+        // Add action to simulated history.
         local_actions.push_back(action);
 
-        // Update boardstate to match simulated action
+        // Update boardstate to match simulated action.
         if (action.lift != SQUARE_INVALID) {
             state &= ~(1ull << action.lift);
         }
@@ -295,22 +295,21 @@ bool Centaur::reconstruct_move(
         // Are we able to read a move?
         const auto maybe_valid =
             game.read_move(state, local_actions, candidates, takeback);
-
         if (!candidates.empty() || takeback.has_value()) {
-            // Yes, we read a move.
+            // Success
             return true;
         }
 
-        // We can accept an incomplete move only at the very end (otherwise we
-        // might imagine a nonsense sequence of incomplete moves and make no
-        // progress)
-        if (maybe_valid && begin == end && state == boardstate) {
+        // We can accept an incomplete move only as the last move in a
+        // reconstruction.  Otherwise we might imagine a nonsense sequence of
+        // incomplete moves and make no progress.
+        if (maybe_valid && state == boardstate && actions.empty()) {
             return true;
         }
     }
 
     // We got nuthin'
-    assert(begin == end);
+    assert(actions.empty());
     return false;
 }
 
@@ -320,48 +319,40 @@ bool Centaur::reconstruct_move(
 // out a clear path from the last known board position to the current position.
 // Otherwise we simply don't have any way to interpret them.
 bool Centaur::reconstruct_moves(
-    Bitmap                      boardstate,
-    ActionList::const_iterator& begin,       // in/out: Next unused action
-    ActionList::const_iterator  end)         // Limit of unused actions
+    Bitmap         boardstate,
+    ActionHistory& actions)     // in/out: Discards unusable actions
 {
-    // Loop over all possible tails
-    for (; begin != end; ++begin) {
-        const ActionList tail{begin, end};
+    // Loop over all possible tails.
+    for (; !actions.empty(); actions.pop_front()) {
+        ActionHistory tail{actions};
 
         // For any given tail, we'll read and simulate the available moves.
         Game copy{*game};
         auto step_valid = true;
 
-        // Loop over actions in a single tail
-        auto tail_begin = tail.cbegin();
-        auto tail_end   = tail.cend();
-        while (tail_begin != tail_end) {
+        // Loop over actions in a single tail.
+        while (!tail.empty()) {
             MoveList       local_candidates;
             optional<Move> local_takeback;
 
-            const auto pre_begin = tail_begin;
+            const auto pre_size = tail.size();
             step_valid = reconstruct_move(
-                copy,
-                boardstate,
-                tail_begin,  // in/out: Next unused action
-                tail_end,
-                local_candidates,
-                local_takeback);
+                copy, boardstate, tail, local_candidates, local_takeback);
 
             // LOOP VARIANT
             // reconstruct_move() always consumes at least one action, so
-            // we're guaranteed to make progress, and the loop will terminate
-            assert(pre_begin != tail_begin);
+            // we're guaranteed to make progress, and the loop will terminate.
+            assert(tail.size() < pre_size);
 
             if (!step_valid) {
-                // Consumed everything but unable to read any moves from history
-                assert(tail_begin == tail_end);
+                // Consumed everything but unable to read any moves from history.
+                assert(tail.empty());
                 break;
             }
 
             if (local_candidates.empty() && !local_takeback.has_value()) {
-                // Should only get an incomplete move at end of actions history
-                assert(tail_begin == tail_end);
+                // Should only get an incomplete move at end of actions history.
+                assert(tail.empty());
                 break;
             }
 
@@ -390,7 +381,8 @@ bool Centaur::reconstruct_moves(
         }
     }
 
-    // No tail worked out
+    // Nothing worked out.
+    assert(actions.empty());
     return false;
 }
 
@@ -435,12 +427,11 @@ bool Centaur::read_move(
     assert(!maybe_valid && candidates.empty() && !takeback.has_value());
 
     // Assume we missed a move.  Revisit actions history to reconstruct.
-    auto begin = actions.cbegin();
-    auto end   = actions.cend();
+    ActionHistory tail{actions};
 
     // If reconstruction failed--there's no tail that makes any kind of sense--we
     // have to insist the user has made an illegal move
-    if (!reconstruct_moves(boardstate, begin, end)) {
+    if (!reconstruct_moves(boardstate, tail)) {
         // We're out of options and must wait for the board to be restored.  If
         // the boardstate does not differ too much from the last known position,
         // we can provide some feedback.
@@ -448,33 +439,21 @@ bool Centaur::read_move(
         return false;
     }
 
-    // Reconstructed tail cannot be empty
-    assert(begin != end);
+    // Reconstructed tail cannot be empty.
+    assert(!tail.empty());
 
     // On the other hand, if reconstruction succeeded, we'll now process the
-    // first reconstructed move.  (Subsequent moves will emerge from repeated
-    // calls to this method.)
+    // first reconstructed move.  Subsequent moves will emerge from repeated
+    // calls to this method.
 
-    // Delete "noise" actions preceeding reconstructed tail
-    actions.erase(actions.cbegin(), begin);
+    // Discard "noise" actions preceeding reconstructed tail.
+    actions = tail;
 
-    begin = actions.cbegin();
-    end   = actions.cend();
-    maybe_valid = reconstruct_move(
-        *game,
-        boardstate,
-        begin,  // in/out: Next unused action
-        end,
-        candidates,
-        takeback);
+    // Consumes actions matching reconstructed move.
+    maybe_valid = reconstruct_move(*game, boardstate, actions, candidates, takeback);
 
-    // Must be true, we just simulated it
+    // Must be true, we just simulated it.
     assert(maybe_valid);
-
-    if (!candidates.empty() || takeback.has_value()) {
-        // Got reconstructed move, consume actions used in reconstruction
-        actions.erase(actions.cbegin(), begin);
-    }
 
     clear_feedback();
     return true;

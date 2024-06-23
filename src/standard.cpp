@@ -254,7 +254,7 @@ void StandardGame::run() {
         engine.play(*centaur.game, player->computer.elo);
     }
 
-    while (!poll_for_keypress(250)) {
+    while (!poll_for_keypress(200)) {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
         // Check if computer has move to play
