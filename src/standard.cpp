@@ -19,13 +19,6 @@ using namespace std;
 using namespace thc;
 
 StandardGame::StandardGame() {
-    // white = {
-    //     .type = COMPUTER,
-    //     .computer = {
-    //         .engine = "stockfish",
-    //         .elo    = 1400,
-    //     },
-    // };
     white = {
         .type = HUMAN,
         .human = {
@@ -34,10 +27,10 @@ StandardGame::StandardGame() {
         },
     };
     black = {
-        .type = HUMAN,
-        .human = {
-            .error       = 0,
-            .opportunity = 0,
+        .type = COMPUTER,
+        .computer = {
+            .engine = "stockfish",
+            .elo    = 1350,
         },
     };
 }
@@ -89,7 +82,7 @@ static int player_from_json(Player& player, json_t* data) {
         player.computer.engine = engine;
 
         int elo = json_integer_value(json_object_get(data, "elo"));
-        player.computer.elo = max(1400, min(2800, elo));
+        player.computer.elo = max(1350, min(2850, elo));
 
         return 0;
     }
@@ -200,7 +193,7 @@ static int poll_for_keypress(int timeout_ms) {
 // be setup in a known position, which can be either the last position seen on
 // the board (to resume the prior game) or the start position (for a new game).
 void StandardGame::start() {
-    // Load latest game and settings from database
+    // Load latest game and settings from database.
     auto game = db.load_latest();
     if (static_cast<bool>(game) && !game->settings.empty()) {
         settings_from_json(game->settings.data());
@@ -209,10 +202,10 @@ void StandardGame::start() {
         game = make_unique<Game>();
     }
 
-    // Switch pieces around if human is playing black against computer
+    // Switch pieces around if human is playing black against computer.
     centaur.reversed(black.type == HUMAN && white.type == COMPUTER);
 
-    // Display last position from previous game to help user get setup
+    // Display last position from previous game to help user get setup.
     set_game(move(game));
     centaur.render();
 
@@ -222,12 +215,12 @@ void StandardGame::start() {
 
         const auto boardstate = centaur.getstate();
         if (boardstate == centaur.game->bitmap()) {
-            // We recognize last board position and can resume prior game
+            // Recognize last board position and resume prior game.
             centaur.game->started = time(NULL);
             break;
         }
         else if (boardstate == Board::STARTING_POSITION) {
-            // We recognize starting position and can start new game
+            // Recognize starting position for new game.
             centaur.game->fen("");
             centaur.render();
             break;
@@ -235,56 +228,54 @@ void StandardGame::start() {
     }
 }
 
-// Gameplay loop: Read and interpret user actions to update game state
+// Gameplay loop: Read and interpret user actions to update game state.
 void StandardGame::run() {
-    vector<Move>   candidates;
-    optional<Move> takeback;
-
     Engine engine{"stockfish"};
 
+    // If camputer has first move, see what it wants to do.
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
-    // If camputer has first move, see what it wants to do
-    //
     // N.B., this check is necessary b/c in the main loop (below) we read the
     // computer's move at the top but request it at the bottom.  When computer
     // moves first, we need this extra request to kick things off.
     if (player->type == COMPUTER) {
-        // Ask for new move
+        // Ask for new move.
         engine.play(*centaur.game, player->computer.elo);
     }
 
     while (!poll_for_keypress(200)) {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
-        // Check if computer has move to play
-        optional<Move> move;
-        if (player->type == COMPUTER) {
-            move = engine.move();
-        }
-        if (move) {
-            // Prompt user to move piece
+        // Check if computer has move to play.
+        if (auto move = player->type == COMPUTER ? engine.move() : nullopt) {
+            // Prompt user to move piece.
             centaur.led_from_to(move->src, move->dst);
         }
 
-        // Check if there are user actions to process
+        // Check if there are user actions to process.
         if (centaur.update_actions() == 0) {
-            // No actions, nothing's changed, there's nothing to do
+            // No actions, nothing's changed, there's nothing to do.
             continue;
+
+            // N.B., `update_actions` returns number of outstanding actions, not
+            // just new actions.  So we are not shortcutting the loop if there
+            // is work to be done.
         }
 
-        // Detect start of new game
+        // Detect start of new game.
         const auto boardstate = centaur.getstate();
         if (boardstate == Board::STARTING_POSITION) {
             centaur.purge_actions();
             if (centaur.game->started) {
-                // Replace in-progress game with new game
+                // Replace in-progress game with new game.
                 set_game(make_unique<Game>());
             }
             continue;
         }
 
-        // Interpret player actions
+        // Interpret player actions.
+        vector<Move>   candidates;
+        optional<Move> takeback;
         const auto maybe_valid = centaur.read_move(boardstate, candidates, takeback);
         if (!maybe_valid) {
             continue;
@@ -293,6 +284,7 @@ void StandardGame::run() {
         // Execute player actions
 
         // TODO promotions menu
+        optional<Move> move;
         if (!candidates.empty()) {
             move = candidates.front();
         }
@@ -311,17 +303,15 @@ void StandardGame::run() {
         }
 
         // If is now computer's turn, ask for its move
-        player = centaur.game->WhiteToPlay() ? &white : &black;
-        if (player->type == COMPUTER) {
-            // In case human played for computer and something is left in the queue
-            (void)engine.move();
-
-            // Ask for new move
-            engine.play(*centaur.game, player->computer.elo);
+        auto new_player = centaur.game->WhiteToPlay() ? &white : &black;
+        if (new_player != player && new_player->type == COMPUTER) {
+            // Ask for new move.
+            engine.play(*centaur.game, new_player->computer.elo);
         }
     }
 }
 
+// Execute "standard game" module
 void StandardGame::main() {
     start();  // Wait for pieces to be set up
     run();    // Play a game

@@ -5,23 +5,31 @@
 #include "chess.h"
 
 #include <cstdlib>
+#include <string>
+#include <vector>
 
 using namespace std;
 using namespace thc;
 
 Engine::Engine(string_view name) {
-    char *argv[] = {(char*)"stockfish", NULL};
-    uci = UCIEngine::execvp("/usr/games/stockfish", argv);
+    vector<string> argv = { "stockfish", nullptr };
+    uci_ = UCIEngine::execvp("/usr/games/stockfish", argv);
 }
 
 void Engine::play(const Game& game, int elo) {
-    uci->send(make_unique<UCIPlayMessage>(&game, elo));
+    auto play = make_unique<UCIPlayMessage>(&game, elo);
+    request_ = play.get();
+    uci_->send(std::move(play));
 }
 
 optional<Move> Engine::move() {
-    auto response = uci->receive();
-    if (auto play = dynamic_cast<UCIPlayMessage*>(response.get())) {
-        return play->move;
+    if (request_) {
+        if (auto response = uci_->receive(); response.get() == request_) {
+            request_ = nullptr;
+            if (auto p = dynamic_cast<UCIPlayMessage*>(response.get())) {
+                return p->move;
+            }
+        }
     }
     return nullopt;
 }

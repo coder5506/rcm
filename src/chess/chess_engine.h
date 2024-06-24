@@ -13,19 +13,18 @@
 
 class Game;
 class UCIEngine;
+class UCIMessage;
 
 // Higher-level interface to UCI engines
 class Engine {
-    std::unique_ptr<UCIEngine> uci;
+private:
+    std::shared_ptr<UCIEngine> uci_;
+    UCIMessage* request_{nullptr};  // Track most recent request to engine
 
 public:
     Engine(std::string_view name);
 
-    // Prevent accidental copying
-    Engine(const Engine&) = delete;
-    Engine& operator=(const Engine&) = delete;
-
-    // Request engine to select a move
+    // Request engine to select move
     void play(const Game& game, int elo);
 
     // Ask if engine has a move ready
