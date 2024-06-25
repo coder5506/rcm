@@ -18,7 +18,9 @@ namespace thc {
 
 class Move;
 
+
 class Castling {
+private:
     enum {
         W_KING  = 1,
         W_QUEEN = 2,
@@ -54,6 +56,7 @@ inline bool operator!=(const Castling& lhs, const Castling& rhs) {
     return lhs.flags != rhs.flags;
 }
 
+
 class DETAIL {
 public:
     Square   enpassant_target{SQUARE_INVALID};
@@ -85,6 +88,7 @@ inline bool operator==(const DETAIL& lhs, const DETAIL& rhs) {
 inline bool operator!=(const DETAIL& lhs, const DETAIL& rhs) {
     return reinterpret_cast<const unsigned int&>(lhs) != reinterpret_cast<const unsigned int&>(rhs);
 }
+
 
 class ChessPosition {
 public:

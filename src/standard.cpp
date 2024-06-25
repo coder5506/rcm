@@ -228,42 +228,44 @@ void StandardGame::start() {
     }
 }
 
-// Gameplay loop: Read and interpret user actions to update game state.
+// Gameplay loop: read and interpret player actions to update game state
 void StandardGame::run() {
     Engine engine{"stockfish"};
 
-    // If camputer has first move, see what it wants to do.
     auto player = centaur.game->WhiteToPlay() ? &white : &black;
 
-    // N.B., this check is necessary b/c in the main loop (below) we read the
+    // This check is necessary b/c in the main loop (below) we read the
     // computer's move at the top but request it at the bottom.  When computer
     // moves first, we need this extra request to kick things off.
     if (player->type == COMPUTER) {
-        // Ask for new move.
+        // If camputer has first move, see what it wants to do.
         engine.play(*centaur.game, player->computer.elo);
     }
 
     while (!poll_for_keypress(200)) {
         player = centaur.game->WhiteToPlay() ? &white : &black;
 
-        // Check if computer has move to play.
+        // Does computer have move to play?
         if (auto move = player->type == COMPUTER ? engine.move() : nullopt) {
             // Prompt user to move piece.
             centaur.led_from_to(move->src, move->dst);
         }
 
-        // Check if there are user actions to process.
+        // Are there player actions to interpret?
         if (centaur.update_actions() == 0) {
             // No actions, nothing's changed, there's nothing to do.
             continue;
 
-            // N.B., `update_actions` returns number of outstanding actions, not
-            // just new actions.  So we are not shortcutting the loop if there
+            // N.B., `update_actions` returns the number of outstanding actions,
+            // not just new actions.  So we are not shorting the loop if there
             // is work to be done.
         }
 
-        // Detect start of new game.
+        // We don't ever want to read actions newer than the known board state.
+        // So it's `update_actions` first, then `getstate`.
         const auto boardstate = centaur.getstate();
+
+        // Starting a new game?
         if (boardstate == Board::STARTING_POSITION) {
             centaur.purge_actions();
             if (centaur.game->started) {
@@ -276,19 +278,18 @@ void StandardGame::run() {
         // Interpret player actions.
         vector<Move>   candidates;
         optional<Move> takeback;
-        const auto maybe_valid = centaur.read_move(boardstate, candidates, takeback);
-        if (!maybe_valid) {
+        if (!centaur.read_move(boardstate, candidates, takeback)) {
+            // No move or takeback, so nothing more to do right now.
             continue;
         }
 
-        // Execute player actions
-
-        // TODO promotions menu
         optional<Move> move;
         if (!candidates.empty()) {
+            // TODO Show promotions menu to select from multiple candidates.
             move = candidates.front();
         }
 
+        // Execute player actions
         if (takeback && move) {
             centaur.game->revise_move(*takeback, *move);
             centaur.led(move->dst);
@@ -302,10 +303,10 @@ void StandardGame::run() {
             centaur.led(move->dst);
         }
 
-        // If is now computer's turn, ask for its move
+        // We completed a move or takeback, so it is now the other player's
+        // turn.  If it's the computer's turn, ask it what it wants to do.
         auto new_player = centaur.game->WhiteToPlay() ? &white : &black;
         if (new_player != player && new_player->type == COMPUTER) {
-            // Ask for new move.
             engine.play(*centaur.game, new_player->computer.elo);
         }
     }
