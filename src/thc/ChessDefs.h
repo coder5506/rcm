@@ -131,9 +131,8 @@ enum TERMINAL {
     TERMINAL_BSTALEMATE =  2    // Black is stalemated
 };
 
-// Types we'd really rather have in PrivateChessDefs.h, but not possible
-//  at the moment, so we reluctantly expose them to users of the chess
-//  classes.
+// Types we'd really rather have in PrivateChessDefs.h, but not possible at the
+// moment, so we reluctantly expose them to users of the chess classes.
 using lte = unsigned char;   // lte = lookup table element
 
 }

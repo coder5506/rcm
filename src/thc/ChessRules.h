@@ -47,12 +47,11 @@ public:
     // Check insufficient material draw rule
     bool IsInsufficientDraw(bool white_asks, DRAWTYPE& result) const;
 
-    // Evaluate a position, returns bool okay (not okay means illegal position)
-    bool Evaluate() const;
-    bool Evaluate(TERMINAL& score_terminal) const;
+    bool Evaluate() const { return ChessPosition::Evaluate(); }
+    bool Evaluate(const thc::Move& move) const { return ChessPosition::Evaluate(move); }
 
-    bool is_legal() const;
-    bool is_legal(Move) const;
+    // Evaluate a position, returns bool okay (not okay means illegal position)
+    bool Evaluate(TERMINAL& score_terminal) const;
 
     // Is a square is attacked by enemy ?
     bool AttackedSquare(Square square, bool enemy_is_white) const;
@@ -62,7 +61,7 @@ public:
 
     // Create a list of all legal moves in this position
     void GenLegalMoveList(MoveList& moves) const;
-    MoveList GenLegalMoveList() const;
+    MoveList GenLegalMoveList() const { return ChessPosition::GenLegalMoveList(); }
 
     //  Create a list of all legal moves in this position, with extra info
     void GenLegalMoveList(MoveList&          moves,
@@ -77,31 +76,8 @@ public:
     void PopMove(Move m);
 
 protected:
-    MoveList select_legal(const MoveList&) const;
-
-    // Generate a list of all possible moves in a position (including
-    //  illegally "moving into check")
-    void GenMoveList(MoveList& moves) const;
-    MoveList GenMoveList() const;
-
-    // Generate moves for pieces that move along multi-move rays (B,R,Q)
-    void LongMoves(MoveList& moves, Square square, const lte* ptr) const;
-
-    // Generate moves for pieces that move along single-move rays (K,N,P)
-    void ShortMoves(
-        MoveList& moves, Square square, const lte* ptr, SPECIAL special) const;
-
     // Generate list of king moves
     void KingMoves(MoveList& moves, Square square) const;
-
-    // Generate list of white pawn moves
-    void WhitePawnMoves(MoveList& moves, Square square) const;
-
-    // Generate list of black pawn moves
-    void BlackPawnMoves(MoveList& moves, Square square) const;
-
-    // Evaluate a position, returns bool okay (not okay means illegal position)
-    bool Evaluate(MoveList *p, TERMINAL& score_terminal) const;
 };
 
 }

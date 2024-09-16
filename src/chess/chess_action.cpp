@@ -310,7 +310,6 @@ void ActionPattern::invalidate(int action, vector<bool>& matched) const {
             matched[i] = false;
         }
     }
-
 }
 
 bool ActionPattern::match_actions(

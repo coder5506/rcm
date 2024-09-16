@@ -13,6 +13,7 @@
 
 #include <bitset>
 #include <string>
+#include <vector>
 
 namespace thc {
 
@@ -120,12 +121,15 @@ public:
     DETAIL d;
 
     ChessPosition();
+    ChessPosition(const ChessPosition&) = default;
 
     // Groomed enpassant target is enpassant target qualified by the possibility to
     //  take enpassant. For example any double square pawn push creates an
     //  enpassant target, but a groomed enpassant target will still be SQUARE_INVALID
     //  unless there is an opposition pawn in position to make the capture
     Square groomed_enpassant_target() const;
+
+    Square king_square() const { return white ? d.wking_square : d.bking_square; }
 
     char at(Square sq) const { return squares[sq]; }
 
@@ -146,6 +150,16 @@ public:
     inline bool WhiteToPlay() const { return  white; }
     inline bool BlackToPlay() const { return !white; }
     void Toggle() { white = !white; }
+
+    std::vector<thc::Move> GenLegalMoveList() const;
+
+    ChessPosition play_move(const thc::Move&) const;
+
+    bool Evaluate() const;
+    bool Evaluate(const thc::Move&) const;
+
+private:
+    void apply_move(const thc::Move&);
 };
 
 }

@@ -180,7 +180,7 @@ bool Game::read_revised_move(
         for (auto castle : before->castle_moves()) {
             Position after{*before};
             after.PushMove(castle);
-            if (!after.is_legal()) {
+            if (!after.Evaluate()) {
                 // castle_moves() doesn't check legality, so do it here
                 continue;
             }
