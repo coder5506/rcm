@@ -9,87 +9,13 @@
 #ifndef CHESSPOSITION_H
 #define CHESSPOSITION_H
 
-#include "ChessDefs.h"
+#include "Detail.h"
+#include "Move.h"
 
-#include <bitset>
 #include <string>
 #include <vector>
 
 namespace thc {
-
-class Move;
-
-
-class Castling {
-private:
-    enum {
-        W_KING  = 1,
-        W_QUEEN = 2,
-        B_KING  = 4,
-        B_QUEEN = 8
-    };
-    unsigned char flags;
-
-public:
-    Castling() : flags{0x0F} {}
-
-    bool wking()  const { return flags & W_KING; }
-    bool wqueen() const { return flags & W_QUEEN; }
-    bool bking()  const { return flags & B_KING; }
-    bool bqueen() const { return flags & B_QUEEN; }
-
-    void wking(bool val)  { if (val) flags |= W_KING;  else flags &= ~W_KING; }
-    void wqueen(bool val) { if (val) flags |= W_QUEEN; else flags &= ~W_QUEEN; }
-    void bking(bool val)  { if (val) flags |= B_KING;  else flags &= ~B_KING; }
-    void bqueen(bool val) { if (val) flags |= B_QUEEN; else flags &= ~B_QUEEN; }
-
-    friend bool operator==(const Castling& lhs, const Castling& rhs);
-    friend bool operator!=(const Castling& lhs, const Castling& rhs);
-};
-
-static_assert(sizeof(Castling) == sizeof(unsigned char));
-
-inline bool operator==(const Castling& lhs, const Castling& rhs) {
-    return lhs.flags == rhs.flags;
-}
-
-inline bool operator!=(const Castling& lhs, const Castling& rhs) {
-    return lhs.flags != rhs.flags;
-}
-
-
-class DETAIL {
-public:
-    Square   enpassant_target{SQUARE_INVALID};
-    Square   wking_square{e1};
-    Square   bking_square{e8};
-    Castling castling;
-
-    bool wking()  const { return castling.wking(); }
-    bool wqueen() const { return castling.wqueen(); }
-    bool bking()  const { return castling.bking(); }
-    bool bqueen() const { return castling.bqueen(); }
-
-    void wking(bool val)  { castling.wking(val); }
-    void wqueen(bool val) { castling.wqueen(val); }
-    void bking(bool val)  { castling.bking(val); }
-    void bqueen(bool val) { castling.bqueen(val); }
-};
-
-static_assert(sizeof(DETAIL) == sizeof(unsigned int));
-
-inline bool eq_castling(const DETAIL& lhs, const DETAIL& rhs) {
-    return lhs.castling == rhs.castling;
-}
-
-inline bool operator==(const DETAIL& lhs, const DETAIL& rhs) {
-    return reinterpret_cast<const unsigned int&>(lhs) == reinterpret_cast<const unsigned int&>(rhs);
-}
-
-inline bool operator!=(const DETAIL& lhs, const DETAIL& rhs) {
-    return reinterpret_cast<const unsigned int&>(lhs) != reinterpret_cast<const unsigned int&>(rhs);
-}
-
 
 class ChessPosition {
 public:
@@ -139,21 +65,24 @@ public:
     bool bking_allowed()  const { return d.bking()  && at(e8)=='k' && at(h8)=='r'; }
     bool bqueen_allowed() const { return d.bqueen() && at(e8)=='k' && at(a8)=='r'; }
 
-    // Set up position on board from Forsyth string with extensions
-    //  return bool okay
-    bool Forsyth(const char* txt);
-
-    // Publish chess position and supplementary info in forsyth notation
+    bool Forsyth(const char*);
     std::string fen() const;
+
+    thc::Move san_move(std::string_view) const;
+    thc::Move uci_move(std::string_view) const;
+    std::string move_san(const thc::Move&) const;
+    std::string move_uci(const thc::Move&) const;
 
     // Who's turn is it anyway
     inline bool WhiteToPlay() const { return  white; }
     inline bool BlackToPlay() const { return !white; }
     void Toggle() { white = !white; }
 
-    std::vector<thc::Move> GenLegalMoveList() const;
+    std::vector<thc::Move> legal_moves() const;
 
     ChessPosition play_move(const thc::Move&) const;
+    ChessPosition play_san_move(std::string_view) const;
+    ChessPosition play_uci_move(std::string_view) const;
 
     bool Evaluate() const;
     bool Evaluate(const thc::Move&) const;
@@ -163,5 +92,8 @@ private:
 };
 
 }
+
+// True if two positions are equivalent, without considering moves played.
+bool operator==(const thc::ChessPosition& lhs, const thc::ChessPosition& rhs);
 
 #endif

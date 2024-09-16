@@ -63,11 +63,13 @@ add_executable(rcm
   src/fonts/font20.cpp
   src/fonts/font24.cpp
   src/fonts/fonts.h
+  src/thc/Castling.h
   src/thc/ChessDefs.h
   src/thc/ChessPosition.cpp
   src/thc/ChessPosition.h
   src/thc/ChessRules.cpp
   src/thc/ChessRules.h
+  src/thc/Detail.h
   src/thc/GeneratedLookupTables.h
   src/thc/Move.cpp
   src/thc/Move.h
@@ -117,11 +119,13 @@ add_executable(check # EXCLUDE_FROM_ALL
   src/chess/chess_uci.cpp
   src/chess/chess_uci.h
   src/chess/chess.h
+  src/thc/Castling.h
   src/thc/ChessDefs.h
   src/thc/ChessPosition.cpp
   src/thc/ChessPosition.h
   src/thc/ChessRules.cpp
   src/thc/ChessRules.h
+  src/thc/Detail.h
   src/thc/GeneratedLookupTables.h
   src/thc/Move.cpp
   src/thc/Move.h

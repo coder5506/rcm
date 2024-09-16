@@ -178,16 +178,15 @@ bool Game::read_revised_move(
 
     if (auto before = previous()) {
         for (auto castle : before->castle_moves()) {
-            Position after{*before};
-            after.PushMove(castle);
-            if (!after.Evaluate()) {
+            const auto after = before->apply_move(castle);
+            if (!after->Evaluate()) {
                 // castle_moves() doesn't check legality, so do it here
                 continue;
             }
 
-            if (after.bitmap() != boardstate) {
+            if (after->bitmap() != boardstate) {
                 // Castling may still be in-progress
-                maybe_valid = maybe_valid || before->incomplete(boardstate, after);
+                maybe_valid = maybe_valid || before->incomplete(boardstate, *after);
                 continue;
             }
 

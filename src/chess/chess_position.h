@@ -27,26 +27,27 @@ using MoveList = std::vector<thc::Move>;
 // Represents both a move and the resulting position.
 using MovePair = std::pair<thc::Move, PositionPtr>;
 
-class Position : public thc::ChessRules {
+class Position : public thc::ChessPosition {
 public:
     mutable std::vector<MovePair> moves_played;
 
     explicit Position(std::string_view fen = {});
+    explicit Position(const thc::ChessPosition& position) : thc::ChessPosition(position) {}
 
     // If move has previously been played in this position, return the shared
     // resulting position.
-    PositionPtr move_played(thc::Move move) const;
+    PositionPtr move_played(const thc::Move&) const;
 
     // Play move and return resulting position.  Result may be new or shared.
-    PositionPtr play_move(thc::Move move) const;
+    PositionPtr play_move(const thc::Move&) const;
+    PositionPtr apply_move(const thc::Move&) const;
 
-    std::optional<thc::Move> find_move_played(PositionPtr after) const;
-    void remove_move_played(thc::Move move) const;
+    std::optional<thc::Move> find_move_played(PositionPtr) const;
+    void remove_move_played(const thc::Move&) const;
 
     Bitmap bitmap() const;
-    Bitmap difference_bitmap(const Position& other) const;
+    Bitmap difference_bitmap(const Position&) const;
 
-    MoveList legal_moves() const;
     MoveList castle_moves() const;
 
     // True if boardstate might represent a transition into position `after`
@@ -58,9 +59,6 @@ public:
         const ActionHistory& actions,
         MoveList&            candidates) const;
 };
-
-// True if two positions are equivalent, without considering moves played.
-bool operator==(const Position& lhs, const Position& rhs);
 
 #endif
 

@@ -2,6 +2,7 @@
 // See license at end of file
 
 #include "chess_position.h"
+#include "../thc/MoveGen.h"
 
 #include <algorithm>
 #include <cassert>
@@ -10,21 +11,13 @@
 using namespace std;
 using namespace thc;
 
-bool operator==(const Position& lhs, const Position& rhs) {
-    return lhs.white == rhs.white &&
-        lhs.half_move_clock == rhs.half_move_clock &&
-        lhs.full_move_count == rhs.full_move_count &&
-        lhs.d == rhs.d &&
-        memcmp(lhs.squares, rhs.squares, sizeof lhs.squares) == 0;
-}
-
 Position::Position(string_view fen) {
     if (!fen.empty()) {
         Forsyth(fen.data());
     }
 }
 
-PositionPtr Position::move_played(Move move) const {
+PositionPtr Position::move_played(const Move& move) const {
     // Find move in moves_played
     auto existing = find_if(
         moves_played.begin(),
@@ -36,14 +29,16 @@ PositionPtr Position::move_played(Move move) const {
     return existing != moves_played.end() ? existing->second : nullptr;
 }
 
-PositionPtr Position::play_move(Move move) const {
+PositionPtr Position::apply_move(const Move& move) const {
+    return make_shared<Position>(ChessPosition::play_move(move));
+}
+
+PositionPtr Position::play_move(const Move& move) const {
     if (auto existing = move_played(move)) {
         return existing;
     }
 
-    auto after = make_shared<Position>(*this);
-    after->moves_played.clear();
-    after->PlayMove(move);
+    auto after = make_shared<Position>(ChessPosition::play_move(move));
     moves_played.push_back({move, after});
     return after;
 }
@@ -65,7 +60,7 @@ optional<Move> Position::find_move_played(PositionPtr after) const {
     }
 }
 
-void Position::remove_move_played(Move move) const {
+void Position::remove_move_played(const Move& move) const {
     moves_played.erase(
         remove_if(
             moves_played.begin(),
@@ -104,21 +99,14 @@ Bitmap Position::difference_bitmap(const Position& other) const {
     return bitmap;
 }
 
-// Legal moves in this position.
-MoveList Position::legal_moves() const {
-    MoveList moves;
-    const_cast<Position*>(this)->GenLegalMoveList(moves);
-    return moves;
-}
-
 // Note: does not check legality of castling moves, only availability
 MoveList Position::castle_moves() const {
     MoveList king_moves;
     if (WhiteToPlay() && d.wking_square == e1) {
-        const_cast<Position*>(this)->KingMoves(king_moves, e1);
+        thc::KingMoves(*this, e1, king_moves);
     }
     else if (BlackToPlay() && d.bking_square == e8) {
-        const_cast<Position*>(this)->KingMoves(king_moves, e8);
+        thc::KingMoves(*this, e8, king_moves);
     }
 
     MoveList result;
@@ -166,12 +154,10 @@ bool Position::read_move(
     // True if boardstate is compatible with some legal move in this position.
     auto maybe_valid = false;
 
-    Position after{*this};
     for (auto move : legal_moves()) {
-        after.PushMove(move);
-        if (after.bitmap() != boardstate) {
-            maybe_valid = maybe_valid || incomplete(boardstate, after);
-            after.PopMove(move);
+        const auto after = apply_move(move);
+        if (after->bitmap() != boardstate) {
+            maybe_valid = maybe_valid || incomplete(boardstate, *after);
             continue;
         }
 
@@ -199,8 +185,6 @@ bool Position::read_move(
                 return true;
             }
         }
-
-        after.PopMove(move);
     }
 
     // If we found any candidates, the boardstate must be valid.

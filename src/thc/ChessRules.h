@@ -28,15 +28,8 @@ public:
     //  Test for legal position, sets reason to a mask of possibly multiple reasons
     bool IsLegal(ILLEGAL_REASON& reason) const;
 
-    Move uci_move(std::string_view uci_move) const;
-    Move san_move(std::string_view san_move) const;
-    std::string move_uci(Move move) const;
-    std::string move_san(Move move) const;
-
     // Play a move
     void PlayMove(Move imove);
-    void play_san_move(std::string_view san_move);
-    void play_uci_move(std::string_view uci_move);
 
     // Check draw rules (50 move rule etc.)
     bool IsDraw(bool white_asks, DRAWTYPE& result) const;
@@ -61,7 +54,7 @@ public:
 
     // Create a list of all legal moves in this position
     void GenLegalMoveList(MoveList& moves) const;
-    MoveList GenLegalMoveList() const { return ChessPosition::GenLegalMoveList(); }
+    MoveList GenLegalMoveList() const { return legal_moves(); }
 
     //  Create a list of all legal moves in this position, with extra info
     void GenLegalMoveList(MoveList&          moves,
