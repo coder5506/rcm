@@ -78,7 +78,13 @@ add_executable(rcm
   src/thc/Portability.cpp
   src/thc/PrivateChessDefs.cpp
   src/thc/PrivateChessDefs.h
+  src/thc/fen.cpp
+  src/thc/fen.h
+  src/thc/san.cpp
+  src/thc/san.h
   src/thc/thc.h
+  src/thc/uci.cpp
+  src/thc/uci.h
   src/utility/buffer.cpp
   src/utility/buffer.h
   src/utility/model.h
@@ -134,7 +140,13 @@ add_executable(check # EXCLUDE_FROM_ALL
   src/thc/Portability.cpp
   src/thc/PrivateChessDefs.cpp
   src/thc/PrivateChessDefs.h
+  src/thc/fen.cpp
+  src/thc/fen.h
+  src/thc/san.cpp
+  src/thc/san.h
   src/thc/thc.h
+  src/thc/uci.cpp
+  src/thc/uci.h
   src/utility/buffer.cpp
   src/utility/buffer.h
   src/utility/model.h

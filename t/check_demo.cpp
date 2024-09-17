@@ -27,6 +27,7 @@ TEST_CASE("test Italian opening") {
     vector<bool> check;
     vector<bool> mate;
     vector<bool> stalemate;
+
     p.GenLegalMoveList(moves, check, mate, stalemate);
 
     CHECK(moves.size() == 33);

@@ -6,6 +6,7 @@
  ****************************************************************************/
 
 #include "Move.h"
+#include "uci.h"
 
 #include <stdexcept>
 
@@ -22,7 +23,7 @@ Move::Move(string_view uci_move)
         uci_move[2] < 'a' || 'h' < uci_move[2] ||
         uci_move[3] < '1' || '8' < uci_move[3])
     {
-        throw std::invalid_argument("Invalid UCI move: " + string(uci_move));
+        throw std::domain_error("Invalid UCI move: " + string(uci_move));
     }
 
     switch (uci_move[4]) {
@@ -36,21 +37,5 @@ Move::Move(string_view uci_move)
 }
 
 string Move::uci() const {
-    // null move should be "0000" according to UCI spec
-    char tmove[6] = {0};
-    if (src != dst) {
-        tmove[0] = FILE(src);
-        tmove[1] = RANK(src);
-        tmove[2] = FILE(dst);
-        tmove[3] = RANK(dst);
-        switch (special) {
-        case SPECIAL_PROMOTION_QUEEN:  tmove[4] = 'q'; break;
-        case SPECIAL_PROMOTION_ROOK:   tmove[4] = 'r'; break;
-        case SPECIAL_PROMOTION_BISHOP: tmove[4] = 'b'; break;
-        case SPECIAL_PROMOTION_KNIGHT: tmove[4] = 'n'; break;
-        default:
-            break;
-        }
-    }
-    return tmove;
+    return uci::from_move(*this);
 }
