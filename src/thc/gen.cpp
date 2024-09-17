@@ -4,7 +4,7 @@
  *  Copyright 2010-2020, Bill Forster <billforsternz at gmail dot com>
  ****************************************************************************/
 
-#include "MoveGen.h"
+#include "gen.h"
 #include "ChessPosition.h"
 
 #include "PrivateChessDefs.h"
@@ -159,7 +159,7 @@ LongMoves(
 }
 
 // Is a square is attacked by enemy?
-bool thc::AttackedSquare(const ChessPosition& position, Square square, bool enemy_is_white) {
+bool gen::AttackedSquare(const ChessPosition& position, Square square, bool enemy_is_white) {
     Square dst;
     const auto* ptr = (enemy_is_white ? attacks_black_lookup[square] : attacks_white_lookup[square] );
     auto nbr_rays = *ptr++;
@@ -212,7 +212,7 @@ bool thc::AttackedSquare(const ChessPosition& position, Square square, bool enem
 }
 
 // Generate list of king moves
-void thc::KingMoves(const ChessPosition& position, Square square, vector<Move>& moves) {
+void gen::KingMoves(const ChessPosition& position, Square square, vector<Move>& moves) {
     const auto* ptr = king_lookup[square];
     ShortMoves(position, square, ptr, SPECIAL_KING_MOVE, moves);
 
@@ -275,7 +275,7 @@ void thc::KingMoves(const ChessPosition& position, Square square, vector<Move>& 
     }
 }
 
-vector<Move> thc::GenMoveList(const ChessPosition& position) {
+vector<Move> gen::GenMoveList(const ChessPosition& position) {
     vector<Move> moves;
 
     for (auto square = a8; square <= h1; ++square) {
@@ -315,12 +315,12 @@ vector<Move> thc::GenMoveList(const ChessPosition& position) {
 }
 
 // Determine if an occupied square is attacked
-bool thc::AttackedPiece(const ChessPosition& position, Square square) {
+bool gen::AttackedPiece(const ChessPosition& position, Square square) {
     const bool enemy_is_white = IsBlack(position.squares[square]);
     return AttackedSquare(position, square, enemy_is_white);
 }
 
-vector<Move> thc::GenLegalMoveList(const ChessPosition& position) {
+vector<Move> gen::GenLegalMoveList(const ChessPosition& position) {
     vector<Move> result;
     for (auto move : GenMoveList(position)) {
         if (position.Evaluate(move)) {
@@ -330,7 +330,7 @@ vector<Move> thc::GenLegalMoveList(const ChessPosition& position) {
     return result;
 }
 
-bool thc::Evaluate(const ChessPosition& position, TERMINAL& score_terminal) {
+bool gen::Evaluate(const ChessPosition& position, TERMINAL& score_terminal) {
     score_terminal = NOT_TERMINAL;
 
     // Enemy king is attacked and our move, position is illegal
@@ -355,7 +355,7 @@ bool thc::Evaluate(const ChessPosition& position, TERMINAL& score_terminal) {
 }
 
 // Create a list of all legal moves in this position, with extra info
-void thc::GenLegalMoveList(
+void gen::GenLegalMoveList(
     const ChessPosition& position,
     vector<Move>& moves,
     vector<bool>& check,

@@ -68,27 +68,27 @@ public:
     bool Forsyth(const char*);
     std::string fen() const;
 
-    thc::Move san_move(std::string_view) const;
-    thc::Move uci_move(std::string_view) const;
-    std::string move_san(const thc::Move&) const;
-    std::string move_uci(const thc::Move&) const;
+    Move san_move(std::string_view) const;
+    Move uci_move(std::string_view) const;
+    std::string move_san(const Move&) const;
+    std::string move_uci(const Move&) const;
 
     // Who's turn is it anyway
     inline bool WhiteToPlay() const { return  white; }
     inline bool BlackToPlay() const { return !white; }
     void Toggle() { white = !white; }
 
-    std::vector<thc::Move> legal_moves() const;
+    std::vector<Move> legal_moves() const;
 
-    ChessPosition play_move(const thc::Move&) const;
+    ChessPosition play_move(const Move&) const;
     ChessPosition play_san_move(std::string_view) const;
     ChessPosition play_uci_move(std::string_view) const;
 
     bool Evaluate() const;
-    bool Evaluate(const thc::Move&) const;
+    bool Evaluate(const Move&) const;
 
 private:
-    void apply_move(const thc::Move&);
+    void apply_move(const Move&);
 };
 
 }

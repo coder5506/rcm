@@ -2,7 +2,7 @@
 // See license at end of file
 
 #include "chess_position.h"
-#include "../thc/MoveGen.h"
+#include "../thc/gen.h"
 
 #include <algorithm>
 #include <cassert>
@@ -103,10 +103,10 @@ Bitmap Position::difference_bitmap(const Position& other) const {
 MoveList Position::castle_moves() const {
     MoveList king_moves;
     if (WhiteToPlay() && d.wking_square == e1) {
-        thc::KingMoves(*this, e1, king_moves);
+        gen::KingMoves(*this, e1, king_moves);
     }
     else if (BlackToPlay() && d.bking_square == e8) {
-        thc::KingMoves(*this, e8, king_moves);
+        gen::KingMoves(*this, e8, king_moves);
     }
 
     MoveList result;

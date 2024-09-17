@@ -57,9 +57,9 @@
 
 #include "ChessPosition.h"
 #include "Move.h"
-#include "MoveGen.h"
 #include "PrivateChessDefs.h"
 #include "fen.h"
+#include "gen.h"
 #include "san.h"
 #include "uci.h"
 
@@ -129,14 +129,14 @@ Square ChessPosition::groomed_enpassant_target() const {
 
 
 vector<Move> ChessPosition::legal_moves() const {
-    return thc::GenLegalMoveList(*this);
+    return gen::GenLegalMoveList(*this);
 }
 
 
 bool ChessPosition::Evaluate() const {
     // Enemy king is attacked and our move, position is illegal
     const auto enemy_king = white ? d.bking_square : d.wking_square;
-    return !thc::AttackedPiece(*this, enemy_king);
+    return !gen::AttackedPiece(*this, enemy_king);
 }
 
 

@@ -5,8 +5,8 @@
  ****************************************************************************/
 #pragma once
 
-#ifndef MOVEGEN_H
-#define MOVEGEN_H
+#ifndef GEN_H
+#define GEN_H
 
 #include "ChessDefs.h"
 #include "Move.h"
@@ -16,7 +16,9 @@
 namespace thc {
 
 class ChessPosition;
-class Move;
+
+
+namespace gen {
 
 std::vector<Move> GenLegalMoveList(const ChessPosition& position);
 std::vector<Move> GenMoveList(const ChessPosition& position);
@@ -32,6 +34,8 @@ bool AttackedPiece(const ChessPosition& position, Square square);
 bool AttackedSquare(const ChessPosition& position, Square square, bool enemy_is_white);
 bool Evaluate(const ChessPosition& position, TERMINAL& score_terminal);
 void KingMoves(const ChessPosition& position, Square square, std::vector<Move>& moves);
+
+}
 
 }
 

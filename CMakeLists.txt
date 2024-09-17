@@ -73,13 +73,12 @@ add_executable(rcm
   src/thc/GeneratedLookupTables.h
   src/thc/Move.cpp
   src/thc/Move.h
-  src/thc/MoveGen.cpp
-  src/thc/MoveGen.h
-  src/thc/Portability.cpp
   src/thc/PrivateChessDefs.cpp
   src/thc/PrivateChessDefs.h
   src/thc/fen.cpp
   src/thc/fen.h
+  src/thc/gen.cpp
+  src/thc/gen.h
   src/thc/san.cpp
   src/thc/san.h
   src/thc/thc.h
@@ -135,13 +134,12 @@ add_executable(check # EXCLUDE_FROM_ALL
   src/thc/GeneratedLookupTables.h
   src/thc/Move.cpp
   src/thc/Move.h
-  src/thc/MoveGen.cpp
-  src/thc/MoveGen.h
-  src/thc/Portability.cpp
   src/thc/PrivateChessDefs.cpp
   src/thc/PrivateChessDefs.h
   src/thc/fen.cpp
   src/thc/fen.h
+  src/thc/gen.cpp
+  src/thc/gen.h
   src/thc/san.cpp
   src/thc/san.h
   src/thc/thc.h

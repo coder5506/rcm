@@ -6,8 +6,8 @@
  ****************************************************************************/
 
 #include "ChessRules.h"
-#include "MoveGen.h"
 #include "PrivateChessDefs.h"
+#include "gen.h"
 
 #include <algorithm>
 #include <cassert>
@@ -248,17 +248,17 @@ void ChessRules::PlayMove(Move move) {
 }
 // Is a square is attacked by enemy ?
 bool ChessRules::AttackedSquare(Square square, bool enemy_is_white) const {
-    return thc::AttackedSquare(*this, square, enemy_is_white);
+    return gen::AttackedSquare(*this, square, enemy_is_white);
 }
 
 // Determine if an occupied square is attacked
 bool ChessRules::AttackedPiece(Square square) const {
-    return thc::AttackedPiece(*this, square);
+    return gen::AttackedPiece(*this, square);
 }
 
 // Generate list of king moves
 void ChessRules::KingMoves(vector<Move>& moves, Square square) const {
-    thc::KingMoves(*this, square, moves);
+    gen::KingMoves(*this, square, moves);
 }
 
 void ChessRules::GenLegalMoveList(vector<Move>& moves) const {
@@ -266,7 +266,7 @@ void ChessRules::GenLegalMoveList(vector<Move>& moves) const {
 }
 
 bool ChessRules::Evaluate(TERMINAL &score_terminal) const {
-    return thc::Evaluate(*this, score_terminal);
+    return gen::Evaluate(*this, score_terminal);
 }
 
 // Create a list of all legal moves in this position, with extra info
@@ -275,7 +275,7 @@ void ChessRules::GenLegalMoveList(vector<Move>& moves,
                                   vector<bool>& mate,
                                   vector<bool>& stalemate) const
 {
-    thc::GenLegalMoveList(*this, moves, check, mate, stalemate);
+    gen::GenLegalMoveList(*this, moves, check, mate, stalemate);
 }
 
 // Check insufficient material draw rule

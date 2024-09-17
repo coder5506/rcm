@@ -19,7 +19,7 @@ class ChessPosition;
 
 namespace uci {
     std::string from_move(const Move&);
-    thc::Move to_move(const ChessPosition&, std::string_view);
+    Move to_move(const ChessPosition&, std::string_view);
 }
 
 }

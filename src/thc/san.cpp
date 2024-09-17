@@ -6,7 +6,7 @@
 
 #include "san.h"
 #include "ChessPosition.h"
-#include "MoveGen.h"
+#include "gen.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -47,7 +47,7 @@ string san::from_move(const ChessPosition& position, const Move& move) {
     bool done=false;
     bool found = false;
     char append='\0';
-    thc::GenLegalMoveList(position, list, check, mate, stalemate);
+    gen::GenLegalMoveList(position, list, check, mate, stalemate);
     for (int i = 0; i != list.size(); ++i) {
         Move mfound = list[i];
         if( mfound == move )
@@ -325,46 +325,45 @@ Move san::to_move(const ChessPosition& position, string_view san_move) {
     }
 
     // Castling
-    if( 0==strcmp_ignore(move,"oo") || 0==strcmp_ignore(move,"o-o") )
-    {
-        strcpy( move, (white?"e1g1":"e8g8") );
-        len       = 4;
-        piece     = (white?'K':'k');
+    if (0 == strcasecmp(move, "oo") || 0 == strcasecmp(move, "o-o")) {
+        strcpy(move, white ? "e1g1" :"e8g8");
+        len = 4;
+        piece = white ? 'K' :'k';
         default_piece = false;
         kcastling = true;
     }
-    else if( 0==strcmp_ignore(move,"ooo") || 0==strcmp_ignore(move,"o-o-o") )
-    {
-        strcpy( move, (white?"e1c1":"e8c8") );
-        len       = 4;
-        piece     = (white?'K':'k');
+    else if (0 == strcasecmp(move, "ooo") || 0 == strcasecmp(move, "o-o-o")) {
+        strcpy(move, white ? "e1c1" : "e8c8");
+        len = 4;
+        piece = white ? 'K' :'k';
         default_piece = false;
         qcastling = true;
     }
 
     // Destination square for all except pawn takes pawn (eg "ef")
-    if( len==2 && 'a'<=move[0] && move[0]<='h'
-                && 'a'<=move[1] && move[1]<='h' )
+    if (len == 2 && 'a' <= move[0] && move[0] <= 'h'
+                 && 'a' <= move[1] && move[1] <= 'h')
     {
-        src_file = move[0]; // eg "ab" pawn takes pawn
+        src_file = move[0];  // eg "ab" pawn takes pawn
         dst_file = move[1];
     }
-    else if( len==3 && 'a'<=move[0] && move[0]<='h'
-                    && '2'<=move[1] && move[1]<='7'
-                    && 'a'<=move[2] && move[2]<='h' )
+    else if (len == 3 && 'a' <= move[0] && move[0] <= 'h'
+                      && '2' <= move[1] && move[1] <= '7'
+                      && 'a' <= move[2] && move[2] <= 'h')
     {
-        src_file = move[0]; // eg "a3b"  pawn takes pawn
+        src_file = move[0];  // eg "a3b"  pawn takes pawn
         dst_file = move[2];
     }
-    else if( len>=2 && 'a'<=move[len-2] && move[len-2]<='h'
-                    && '1'<=move[len-1] && move[len-1]<='8' )
+    else if (len >= 2 && 'a' <= move[len-2] && move[len-2] <= 'h'
+                      && '1' <= move[len-1] && move[len-1] <= '8')
     {
         dst_file = move[len-2];
         dst_rank = move[len-1];
         dst_ = SQ(dst_file,dst_rank);
     }
-    else
+    else {
         throw domain_error("Invalid SAN move: " + string(san_move));
+    }
 
     // Source square and or piece
     if( len > 2 )

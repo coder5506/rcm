@@ -11,9 +11,6 @@
 
 #include <cctype>
 
-// Simple definition to aid platform portability (only remains of former Portability.h)
-int strcmp_ignore(const char* s, const char* t); // return 0 if case-insensitive match
-
 namespace thc {
 
 // Use the most natural square convention possible; Define Square to

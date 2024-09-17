@@ -41,7 +41,7 @@ public:
     bool IsInsufficientDraw(bool white_asks, DRAWTYPE& result) const;
 
     bool Evaluate() const { return ChessPosition::Evaluate(); }
-    bool Evaluate(const thc::Move& move) const { return ChessPosition::Evaluate(move); }
+    bool Evaluate(const Move& move) const { return ChessPosition::Evaluate(move); }
 
     // Evaluate a position, returns bool okay (not okay means illegal position)
     bool Evaluate(TERMINAL& score_terminal) const;
