@@ -31,24 +31,28 @@ class Position : public thc::ChessPosition {
 public:
     mutable std::vector<MovePair> moves_played;
 
+    Position(const thc::ChessPosition& position) : thc::ChessPosition(position) {}
     explicit Position(std::string_view fen = {});
-    explicit Position(const thc::ChessPosition& position) : thc::ChessPosition(position) {}
 
     // If move has previously been played in this position, return the shared
     // resulting position.
     PositionPtr move_played(const thc::Move&) const;
 
-    // Play move and return resulting position.  Result may be new or shared.
-    PositionPtr play_move(const thc::Move&) const;
-    PositionPtr apply_move(const thc::Move&) const;
-
     std::optional<thc::Move> find_move_played(PositionPtr) const;
     void remove_move_played(const thc::Move&) const;
 
-    Bitmap bitmap() const;
-    Bitmap difference_bitmap(const Position&) const;
+    // Play move and return resulting position.  Result may be new or shared.
+    //
+    // `play_move` updates `moves_played` with the move and resulting position.
+    // `apply_move` does not.
+    PositionPtr play_move(const thc::Move&) const;
+    PositionPtr apply_move(const thc::Move&) const;
 
-    MoveList castle_moves() const;
+    // Bitmap of pieces on board.
+    Bitmap bitmap() const;
+
+    // Bitmap of differences between two positions.
+    Bitmap difference_bitmap(const Position&) const;
 
     // True if boardstate might represent a transition into position `after`
     bool incomplete(Bitmap boardstate, const Position& after) const;
@@ -58,6 +62,8 @@ public:
         Bitmap               boardstate,
         const ActionHistory& actions,
         MoveList&            candidates) const;
+
+    MoveList castle_moves() const;
 };
 
 #endif

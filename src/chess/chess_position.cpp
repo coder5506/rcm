@@ -11,11 +11,13 @@
 using namespace std;
 using namespace thc;
 
+
 Position::Position(string_view fen) {
     if (!fen.empty()) {
         Forsyth(fen.data());
     }
 }
+
 
 PositionPtr Position::move_played(const Move& move) const {
     // Find move in moves_played
@@ -29,19 +31,6 @@ PositionPtr Position::move_played(const Move& move) const {
     return existing != moves_played.end() ? existing->second : nullptr;
 }
 
-PositionPtr Position::apply_move(const Move& move) const {
-    return make_shared<Position>(ChessPosition::play_move(move));
-}
-
-PositionPtr Position::play_move(const Move& move) const {
-    if (auto existing = move_played(move)) {
-        return existing;
-    }
-
-    auto after = make_shared<Position>(ChessPosition::play_move(move));
-    moves_played.push_back({move, after});
-    return after;
-}
 
 optional<Move> Position::find_move_played(PositionPtr after) const {
     // Find move in moves_played
@@ -60,6 +49,7 @@ optional<Move> Position::find_move_played(PositionPtr after) const {
     }
 }
 
+
 void Position::remove_move_played(const Move& move) const {
     moves_played.erase(
         remove_if(
@@ -73,6 +63,23 @@ void Position::remove_move_played(const Move& move) const {
     );
 }
 
+
+PositionPtr Position::play_move(const Move& move) const {
+    if (auto existing = move_played(move)) {
+        return existing;
+    }
+
+    auto after = make_shared<Position>(ChessPosition::play_move(move));
+    moves_played.push_back({move, after});
+    return after;
+}
+
+
+PositionPtr Position::apply_move(const Move& move) const {
+    return make_shared<Position>(ChessPosition::play_move(move));
+}
+
+
 Bitmap Position::bitmap() const {
     Bitmap bitmap{0};
     Bitmap mask{1};
@@ -84,6 +91,7 @@ Bitmap Position::bitmap() const {
     }
     return bitmap;
 }
+
 
 // Bitmap of differences between two positions (*not* difference of their
 // bitmaps).  Accounts for when a square is occupied by a different piece.
@@ -99,24 +107,6 @@ Bitmap Position::difference_bitmap(const Position& other) const {
     return bitmap;
 }
 
-// Note: does not check legality of castling moves, only availability
-MoveList Position::castle_moves() const {
-    MoveList king_moves;
-    if (WhiteToPlay() && d.wking_square == e1) {
-        gen::KingMoves(*this, e1, king_moves);
-    }
-    else if (BlackToPlay() && d.bking_square == e8) {
-        gen::KingMoves(*this, e8, king_moves);
-    }
-
-    MoveList result;
-    for (auto move : king_moves) {
-        if (SPECIAL_WK_CASTLING <= move.special && move.special <= SPECIAL_BQ_CASTLING) {
-            result.push_back(move);
-        }
-    }
-    return result;
-}
 
 // A boardstate might represent a transition into a new position only if the
 // differences between the boardstate and the resulting position are confined
@@ -135,6 +125,7 @@ bool Position::incomplete(Bitmap boardstate, const Position& after) const {
     // differences.
     return (board_diff & ~position_diff) == 0;
 }
+
 
 // Construct list of candidate moves in this position that match the given
 // boardstate.  The return indicates if there are any viable candidates:
@@ -195,6 +186,32 @@ bool Position::read_move(
 
     return maybe_valid;
 }
+
+
+vector<Move> Position::castle_moves() const {
+    // Only generate candidate moves if castling is a possibility.
+    vector<Move> king_moves;
+    if (WhiteToPlay() && (wking_allowed() || wqueen_allowed())) {
+        gen::KingMoves(*this, king_square(), king_moves);
+    }
+    if (BlackToPlay() && (bking_allowed() || bqueen_allowed())) {
+        gen::KingMoves(*this, king_square(), king_moves);
+    }
+
+    // Filter candidates to legal castling moves.
+    vector<Move> result;
+    for (auto move : king_moves) {
+        if (!Evaluate(move)) {
+            continue;
+        }
+        if (SPECIAL_WK_CASTLING <= move.special && move.special <= SPECIAL_BQ_CASTLING) {
+            result.push_back(move);
+        }
+    }
+
+    return result;
+}
+
 
 // This file is part of the Raccoon's Centaur Mods (RCM).
 //

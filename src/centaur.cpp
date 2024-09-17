@@ -111,7 +111,7 @@ void PgnView::render(Context& context) {
     char buf[16];
     for (; after != end; ++before, ++after) {
         auto move = (*before)->find_move_played(*after);
-        auto san  = const_cast<Position*>(before->get())->move_san(*move);
+        auto san  = (*before)->move_san(*move);
         if ((*before)->WhiteToPlay()) {
             auto len = sprintf(buf, "%d. %s", first_move, san.c_str());
             context.drawstring(left, top, buf);

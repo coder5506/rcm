@@ -25,8 +25,10 @@ public:
     std::string   settings;  // Opaque
     std::map<std::string, std::string> tags;
 
-    explicit Game(std::string_view pgn = {}, std::string_view fen = {});
+    Game(std::string_view pgn = {}, std::string_view fen = {});
     Game(const Game&) = default;
+
+    void on_changed(Game&) override;
 
     // Re-initialize to start new game
     void clear();
@@ -36,10 +38,6 @@ public:
 
     // Restore game from PGN
     void pgn(std::string_view pgn);
-
-    std::string& tag(const std::string& key);
-
-    void on_changed(Game&) override;
 
     // Current position as Forsyth-Edwards Notation
     std::string fen() const;
@@ -51,14 +49,10 @@ public:
     PositionPtr previous() const;
     PositionPtr start() const;
 
-    // Piece at square
-    char at(thc::Square square) const;
-
-    Bitmap bitmap() const { return current()->bitmap(); }
     inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
 
-    // Legal moves in current position
-    MoveList legal_moves() const;
+    // Piece at square
+    char at(thc::Square square) const;
 
     // Parse move given in Standard Algebraic Notation
     thc::Move san_move(std::string_view san_move) const;
@@ -75,20 +69,24 @@ public:
 
     void revise_move(thc::Move takeback, thc::Move move);
 
+    // Legal moves in current position
+    MoveList legal_moves() const;
+
+    Bitmap bitmap() const { return current()->bitmap(); }
+
     bool read_move(
         Bitmap               boardstate,
         const ActionHistory& actions,
         MoveList&            candidates,
         std::optional<thc::Move>& takeback);
 
+
+    std::string& tag(const std::string& key);
+
 private:
-    bool read_revised_move(
-        Bitmap                    boardstate,
-        MoveList&                 candidates,
-        std::optional<thc::Move>& takeback);
-    bool read_simple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
-    bool read_multiple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
-    bool read_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+    // Restore from PGN and FEN
+    bool recover_history(PositionPtr target);
+    void recover_position(std::string_view fen);
 
     // Write PGN
     void write_tags(std::ostream&) const;
@@ -105,9 +103,13 @@ private:
     void read_tags(char*&);
     bool read_movetext(char*&);
 
-    // Restore from PGN and FEN
-    bool recover_history(PositionPtr target);
-    void recover_position(std::string_view fen);
+    bool read_revised_move(
+        Bitmap                    boardstate,
+        MoveList&                 candidates,
+        std::optional<thc::Move>& takeback);
+    bool read_simple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+    bool read_multiple_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
+    bool read_takeback(Bitmap boardstate, std::optional<thc::Move>& takeback);
 };
 
 #endif

@@ -49,36 +49,35 @@ public:
     ChessPosition();
     ChessPosition(const ChessPosition&) = default;
 
-    // Groomed enpassant target is enpassant target qualified by the possibility to
-    //  take enpassant. For example any double square pawn push creates an
-    //  enpassant target, but a groomed enpassant target will still be SQUARE_INVALID
-    //  unless there is an opposition pawn in position to make the capture
-    Square groomed_enpassant_target() const;
+    bool Forsyth(const char*);
+    std::string fen() const;
 
-    Square king_square() const { return white ? d.wking_square : d.bking_square; }
+    // Who's turn is it anyway?
+    inline bool WhiteToPlay() const { return  white; }
+    inline bool BlackToPlay() const { return !white; }
+    void Toggle() { white = !white; }
 
     char at(Square sq) const { return squares[sq]; }
 
-    // Castling allowed ?
+    // Castling allowed?
     bool wking_allowed()  const { return d.wking()  && at(e1)=='K' && at(h1)=='R'; }
     bool wqueen_allowed() const { return d.wqueen() && at(e1)=='K' && at(a1)=='R'; }
     bool bking_allowed()  const { return d.bking()  && at(e8)=='k' && at(h8)=='r'; }
     bool bqueen_allowed() const { return d.bqueen() && at(e8)=='k' && at(a8)=='r'; }
 
-    bool Forsyth(const char*);
-    std::string fen() const;
+    // Groomed enpassant target is enpassant target qualified by the possibility
+    // to take enpassant. For example any double square pawn push creates an
+    // enpassant target, but a groomed enpassant target will still be
+    // SQUARE_INVALID unless there is an opposition pawn in position to make the
+    // capture
+    Square groomed_enpassant_target() const;
+
+    Square king_square() const { return white ? d.wking_square : d.bking_square; }
 
     Move san_move(std::string_view) const;
     Move uci_move(std::string_view) const;
     std::string move_san(const Move&) const;
     std::string move_uci(const Move&) const;
-
-    // Who's turn is it anyway
-    inline bool WhiteToPlay() const { return  white; }
-    inline bool BlackToPlay() const { return !white; }
-    void Toggle() { white = !white; }
-
-    std::vector<Move> legal_moves() const;
 
     ChessPosition play_move(const Move&) const;
     ChessPosition play_san_move(std::string_view) const;
@@ -86,6 +85,8 @@ public:
 
     bool Evaluate() const;
     bool Evaluate(const Move&) const;
+
+    std::vector<Move> legal_moves() const;
 
 private:
     void apply_move(const Move&);
