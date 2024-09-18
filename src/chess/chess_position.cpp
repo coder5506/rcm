@@ -19,8 +19,9 @@ Position::Position(string_view fen) {
 }
 
 
+// Move -> Position
 PositionPtr Position::move_played(const Move& move) const {
-    // Find move in moves_played
+    // Find in `moves_played`
     auto existing = find_if(
         moves_played.begin(),
         moves_played.end(),
@@ -32,8 +33,9 @@ PositionPtr Position::move_played(const Move& move) const {
 }
 
 
+// Position -> Move
 optional<Move> Position::find_move_played(PositionPtr after) const {
-    // Find move in moves_played
+    // Find in `moves_played`
     auto existing = find_if(
         moves_played.begin(),
         moves_played.end(),

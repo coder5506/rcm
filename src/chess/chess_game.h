@@ -83,6 +83,11 @@ public:
 
     std::string& tag(const std::string& key);
 
+    bool IsInsufficientDraw(bool white_asks, thc::DRAWTYPE& result) const;
+    int GetRepetitionCount() const;
+    bool IsDraw(bool white_asks, thc::DRAWTYPE& result) const;
+    bool IsLegal(thc::ILLEGAL_REASON& reason) const;
+
 private:
     // Restore from PGN and FEN
     bool recover_history(PositionPtr target);
