@@ -88,21 +88,6 @@ private:
     bool recover_history(PositionPtr target);
     void recover_position(std::string_view fen);
 
-    // Write PGN
-    void write_tags(std::ostream&) const;
-    void write_move(
-        std::ostream&,
-        PositionPtr before,
-        thc::Move   move,
-        bool        show_move_number) const;
-    void write_moves(std::ostream&, PositionPtr before, bool is_first_move) const;
-    void write_movetext(std::ostream&) const;
-    void write_pgn(std::ostream&) const;
-
-    // Read PGN
-    void read_tags(char*&);
-    bool read_movetext(char*&);
-
     bool read_revised_move(
         Bitmap                    boardstate,
         MoveList&                 candidates,

@@ -45,24 +45,29 @@ set(BOARD_SOURCES
   src/${CENTAUR}/epd2in9d.h
 )
 
-add_executable(rcm
-  ${BOARD_SOURCES}
+set(UTILITY_SOURCES
+  src/utility/buffer.cpp
+  src/utility/buffer.h
+  src/utility/model.h
+  src/utility/sleep.cpp
+  src/utility/sleep.h
+)
+
+set(CHESS_SOURCES
+  ${UTILITY_SOURCES}
   src/chess/chess_action.cpp
   src/chess/chess_action.h
   src/chess/chess_engine.cpp
   src/chess/chess_engine.h
   src/chess/chess_game.cpp
   src/chess/chess_game.h
+  src/chess/chess_pgn.cpp
+  src/chess/chess_pgn.h
   src/chess/chess_position.cpp
   src/chess/chess_position.h
   src/chess/chess_uci.cpp
   src/chess/chess_uci.h
   src/chess/chess.h
-  src/fonts/font12.cpp
-  src/fonts/font16.cpp
-  src/fonts/font20.cpp
-  src/fonts/font24.cpp
-  src/fonts/fonts.h
   src/thc/Castling.h
   src/thc/ChessDefs.h
   src/thc/ChessPosition.cpp
@@ -84,11 +89,16 @@ add_executable(rcm
   src/thc/thc.h
   src/thc/uci.cpp
   src/thc/uci.h
-  src/utility/buffer.cpp
-  src/utility/buffer.h
-  src/utility/model.h
-  src/utility/sleep.cpp
-  src/utility/sleep.h
+)
+
+add_executable(rcm
+  ${BOARD_SOURCES}
+  ${CHESS_SOURCES}
+  src/fonts/font12.cpp
+  src/fonts/font16.cpp
+  src/fonts/font20.cpp
+  src/fonts/font24.cpp
+  src/fonts/fonts.h
   src/board.cpp
   src/board.h
   src/centaur.cpp
@@ -113,43 +123,7 @@ add_executable(rcm
 target_include_directories(rcm PRIVATE src/${CENTAUR})
 
 add_executable(check # EXCLUDE_FROM_ALL
-  src/chess/chess_action.cpp
-  src/chess/chess_action.h
-  src/chess/chess_engine.cpp
-  src/chess/chess_engine.h
-  src/chess/chess_game.cpp
-  src/chess/chess_game.h
-  src/chess/chess_position.cpp
-  src/chess/chess_position.h
-  src/chess/chess_uci.cpp
-  src/chess/chess_uci.h
-  src/chess/chess.h
-  src/thc/Castling.h
-  src/thc/ChessDefs.h
-  src/thc/ChessPosition.cpp
-  src/thc/ChessPosition.h
-  src/thc/ChessRules.cpp
-  src/thc/ChessRules.h
-  src/thc/Detail.h
-  src/thc/GeneratedLookupTables.h
-  src/thc/Move.cpp
-  src/thc/Move.h
-  src/thc/PrivateChessDefs.cpp
-  src/thc/PrivateChessDefs.h
-  src/thc/fen.cpp
-  src/thc/fen.h
-  src/thc/gen.cpp
-  src/thc/gen.h
-  src/thc/san.cpp
-  src/thc/san.h
-  src/thc/thc.h
-  src/thc/uci.cpp
-  src/thc/uci.h
-  src/utility/buffer.cpp
-  src/utility/buffer.h
-  src/utility/model.h
-  src/utility/sleep.cpp
-  src/utility/sleep.h
+  ${CHESS_SOURCES}
   t/check_chessdefs.cpp
   t/check_demo.cpp
   t/check_detail.cpp
