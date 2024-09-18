@@ -10,7 +10,6 @@
 #define THC_H
 
 #include "ChessPosition.h"
-#include "ChessRules.h"
 #include "Move.h"
 
 #endif

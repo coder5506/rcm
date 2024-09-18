@@ -72,8 +72,6 @@ set(CHESS_SOURCES
   src/thc/ChessDefs.h
   src/thc/ChessPosition.cpp
   src/thc/ChessPosition.h
-  src/thc/ChessRules.cpp
-  src/thc/ChessRules.h
   src/thc/Detail.h
   src/thc/GeneratedLookupTables.h
   src/thc/Move.cpp
