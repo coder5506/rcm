@@ -27,27 +27,26 @@ TEST_CASE("starting position") {
     auto moves = g.legal_moves();
     CHECK(moves.size() == 20);
 
-    auto p = const_cast<Position*>(g.current().get());
-    CHECK(p->move_san(moves.at( 0)) == "a3");
-    CHECK(p->move_san(moves.at( 1)) == "a4");
-    CHECK(p->move_san(moves.at( 2)) == "b3");
-    CHECK(p->move_san(moves.at( 3)) == "b4");
-    CHECK(p->move_san(moves.at( 4)) == "c3");
-    CHECK(p->move_san(moves.at( 5)) == "c4");
-    CHECK(p->move_san(moves.at( 6)) == "d3");
-    CHECK(p->move_san(moves.at( 7)) == "d4");
-    CHECK(p->move_san(moves.at( 8)) == "e3");
-    CHECK(p->move_san(moves.at( 9)) == "e4");
-    CHECK(p->move_san(moves.at(10)) == "f3");
-    CHECK(p->move_san(moves.at(11)) == "f4");
-    CHECK(p->move_san(moves.at(12)) == "g3");
-    CHECK(p->move_san(moves.at(13)) == "g4");
-    CHECK(p->move_san(moves.at(14)) == "h3");
-    CHECK(p->move_san(moves.at(15)) == "h4");
-    CHECK(p->move_san(moves.at(16)) == "Na3");
-    CHECK(p->move_san(moves.at(17)) == "Nc3");
-    CHECK(p->move_san(moves.at(18)) == "Nf3");
-    CHECK(p->move_san(moves.at(19)) == "Nh3");
+    CHECK(g.move_san(moves.at( 0)) == "a3");
+    CHECK(g.move_san(moves.at( 1)) == "a4");
+    CHECK(g.move_san(moves.at( 2)) == "b3");
+    CHECK(g.move_san(moves.at( 3)) == "b4");
+    CHECK(g.move_san(moves.at( 4)) == "c3");
+    CHECK(g.move_san(moves.at( 5)) == "c4");
+    CHECK(g.move_san(moves.at( 6)) == "d3");
+    CHECK(g.move_san(moves.at( 7)) == "d4");
+    CHECK(g.move_san(moves.at( 8)) == "e3");
+    CHECK(g.move_san(moves.at( 9)) == "e4");
+    CHECK(g.move_san(moves.at(10)) == "f3");
+    CHECK(g.move_san(moves.at(11)) == "f4");
+    CHECK(g.move_san(moves.at(12)) == "g3");
+    CHECK(g.move_san(moves.at(13)) == "g4");
+    CHECK(g.move_san(moves.at(14)) == "h3");
+    CHECK(g.move_san(moves.at(15)) == "h4");
+    CHECK(g.move_san(moves.at(16)) == "Na3");
+    CHECK(g.move_san(moves.at(17)) == "Nc3");
+    CHECK(g.move_san(moves.at(18)) == "Nf3");
+    CHECK(g.move_san(moves.at(19)) == "Nh3");
 }
 
 TEST_CASE("play 1. e4 e5") {
@@ -68,10 +67,9 @@ TEST_CASE("read 1. e4 from bitmap") {
     optional<Move> takeback;
 
     auto maybe_valid = g.read_move(move(START, e2, e4), ActionHistory{}, candidates, takeback);
-    auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
-    CHECK(p->move_san(candidates.at(0)) == "e4");
+    CHECK(g.move_san(candidates.at(0)) == "e4");
     CHECK(!takeback.has_value());
 }
 
@@ -84,10 +82,9 @@ TEST_CASE("read 1... e5 from bitmap") {
     optional<Move> takeback;
 
     auto maybe_valid = g.read_move(boardstate, ActionHistory{}, candidates, takeback);
-    auto p = const_cast<Position*>(g.current().get());
     CHECK(maybe_valid);
     CHECK(candidates.size() == 1);
-    CHECK(p->move_san(candidates.at(0)) == "e5");
+    CHECK(g.move_san(candidates.at(0)) == "e5");
     CHECK(!takeback.has_value());
 }
 

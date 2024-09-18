@@ -50,15 +50,29 @@ public:
     PositionPtr start() const;
 
     inline bool WhiteToPlay() const { return current()->WhiteToPlay(); }
+    inline bool BlackToPlay() const { return current()->BlackToPlay(); }
+
+    inline int half_move_clock() const { return current()->half_move_clock; }
+    inline int full_move_count() const { return current()->full_move_count; }
+    inline const thc::DETAIL& d() const { return current()->d; }
 
     // Piece at square
     char at(thc::Square square) const;
+
+    inline bool wking_allowed() const { return current()->wking_allowed(); }
+    inline bool wqueen_allowed() const { return current()->wqueen_allowed(); }
+    inline bool bking_allowed() const { return current()->bking_allowed(); }
+    inline bool bqueen_allowed() const { return current()->bqueen_allowed(); }
 
     // Parse move given in Standard Algebraic Notation
     thc::Move san_move(std::string_view san_move) const;
 
     // Parse move given in pure coordinate notation (as used in UCI)
     thc::Move uci_move(std::string_view uci_move) const;
+
+    std::string move_san(const thc::Move& move) const {
+        return current()->move_san(move);
+    }
 
     void play_move(thc::Move move);
     void play_san_move(std::string_view san_move);

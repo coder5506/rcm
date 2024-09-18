@@ -64,7 +64,7 @@ Move uci::to_move(const ChessPosition& position, string_view uci_move) {
                 continue;
             }
         }
-        return expected;
+        return candidate;
     }
     throw domain_error("Invalid UCI move: " + string(uci_move));
 }
